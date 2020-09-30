@@ -1,0 +1,28 @@
+{
+  "name": "grapheme",
+  "version": "1.0.0",
+  "description": "JavaScript graphing library",
+  "main": "build/grapheme.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "http-server -a localhost -p 8000",
+    "lint": "eslint .",
+    "lintfix": ""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/anematode/grapheme.git"
+  },
+  "author": "Timothy Herchen <timothy.herchen@gmail.com> (https://moomath.com)",
+  "license": "GPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/anematode/grapheme/issues"
+  },
+  "homepage": "https://github.com/anematode/grapheme#readme",
+  "devDependencies": {
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-standard": "^4.0.1",
+    "mocha": "^8.1.3"
+  }
+}
