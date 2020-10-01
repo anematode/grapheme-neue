@@ -22,7 +22,8 @@
   "globals": {
     "document": "readonly",
     "navigator": "readonly",
-    "window": "readonly"
+    "window": "readonly",
+    "globalThis": "readonly"
   },
 
   "rules": {
@@ -211,5 +212,17 @@
     "promise/param-names": "error",
 
     "standard/no-callback-literal": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.js", "**/*.setup.js"],
+      "env": {
+        "jest": true
+      },
+      "globals": {
+        "expectMultipleCases": false,
+        "expectAllEquals": false
+      }
+    }
+  ]
 }

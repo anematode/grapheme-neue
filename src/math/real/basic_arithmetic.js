@@ -6,7 +6,7 @@
  * @param y {number}
  * @returns {number}
  */
-export function add(x, y) {
+export function add (x, y) {
   return x + y
 }
 
@@ -16,7 +16,7 @@ export function add(x, y) {
  * @param y {number}
  * @returns {number}
  */
-export function subtract(x, y) {
+export function subtract (x, y) {
   return x - y
 }
 
@@ -26,7 +26,7 @@ export function subtract(x, y) {
  * @param y {number}
  * @returns {number}
  */
-export function multiply(x, y) {
+export function multiply (x, y) {
   return x * y
 }
 
@@ -36,6 +36,6 @@ export function multiply(x, y) {
  * @param y {number}
  * @returns {number}
  */
-export function divide(x, y) {
+export function divide (x, y) {
   return x / y
 }
