@@ -5,6 +5,17 @@
  *   denormal number: Number which is not ±0 and whose exponent is zero
  * */
 
+/** Check endianness. The functions in this file will not work on big-endian systems, so we need to throw an error.
+ * Credit goes to Lucio Pavia on StackOverflow, specifically the answer https://stackoverflow.com/a/52827031/13458117.
+ * It is released under CC BY-SA 4.0, which is compatible with this project.
+ */
+const isBigEndian = (() => {
+  const array = new Uint8Array(4)
+  const view = new Uint32Array(array.buffer)
+  return !((view[0] = 1) & array[0])
+})()
+if (isBigEndian) throw new Error('Grapheme only works on little-endian systems; your system is mixed- or big-endian.')
+
 const floatStore = new Float64Array(1)
 const intView = new Uint32Array(floatStore.buffer)
 

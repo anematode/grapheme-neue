@@ -6,7 +6,9 @@
   "scripts": {
     "test": "jest",
     "start": "http-server -a localhost -p 8000",
-    "lint": "eslint ."
+    "lint": "eslint . --fix",
+    "build": "rollup -c",
+    "gendoc": "jsdoc src -r -d docs"
   },
   "repository": {
     "type": "git",
@@ -26,10 +28,14 @@
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^4.2.1",
     "eslint-plugin-standard": "^4.0.1",
-    "jest-expect-message": "^1.0.2"
+    "jest-expect-message": "^1.0.2",
+    "jsdoc": "^3.6.6"
   },
   "jest": {
-    "setupFilesAfterEnv": ["jest-expect-message", "./jest.setup.js"]
+    "setupFilesAfterEnv": [
+      "jest-expect-message",
+      "./jest.setup.js"
+    ]
   },
   "babel": {
     "env": {

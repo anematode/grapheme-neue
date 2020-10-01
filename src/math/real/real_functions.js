@@ -1,6 +1,10 @@
 import * as BasicArithmetic from './basic_arithmetic.js'
 import { gamma, lnGamma } from './gamma.js'
 
+/**
+ * Functions that accept double-precision floating point numbers as arguments.
+ * @namespace Grapheme.RealFunctions
+ */
 const RealFunctions = {
   ...BasicArithmetic,
   gamma,
