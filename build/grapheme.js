@@ -1,8 +1,9 @@
 (function (global, factory) {
-  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
-  typeof define === 'function' && define.amd ? define(['exports'], factory) :
-  (global = global || self, factory(global.Grapheme = {}));
-}(this, function (exports) { 'use strict';
+  typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports)
+    : typeof define === 'function' && define.amd ? define(['exports'], factory)
+      : (global = global || self, factory(global.Grapheme = {}))
+}(this, function (exports) {
+  'use strict'
 
   /** The scariest functions. sin, cos, etc. are provided using the built-ins in real_functions.js. */
 
@@ -46,15 +47,15 @@
     return x / y
   }
 
-  var BasicArithmetic = /*#__PURE__*/Object.freeze({
+  var BasicArithmetic = /* #__PURE__ */Object.freeze({
     add: add,
     subtract: subtract,
     multiply: multiply,
     divide: divide
-  });
+  })
 
   // Number of coefficients in the approximation
-  const LANCZOS_COUNT = 7;
+  const LANCZOS_COUNT = 7
   const LANCZOS_COEFFICIENTS = [
     0.99999999999980993,
     676.5203681218851,
@@ -65,22 +66,22 @@
     -0.13857109526572012,
     9.9843695780195716e-6,
     1.5056327351493116e-7
-  ];
+  ]
 
   // 1, 1, 2, 6, ...
-  const INTEGER_FACTORIALS = [1];
+  const INTEGER_FACTORIALS = [1]
 
   // Populate INTEGER_FACTORIALS
-  let fact = 1;
+  let fact = 1
   for (let i = 1; ; ++i) {
-    fact *= i;
+    fact *= i
 
     if (fact === Infinity) { break }
 
-    INTEGER_FACTORIALS.push(fact);
+    INTEGER_FACTORIALS.push(fact)
   }
 
-  const INTEGER_FACTORIAL_LEN = INTEGER_FACTORIALS.length;
+  const INTEGER_FACTORIAL_LEN = INTEGER_FACTORIALS.length
 
   /**
    * This function accepts a real-valued number x and returns the value of the gamma function evaluated at
@@ -121,16 +122,16 @@
       return Math.PI / (Math.sin(Math.PI * x) * gamma(1 - x))
     } else {
       // Lanczos approximation
-      x -= 1;
+      x -= 1
 
       // The value of A_g(x), see https://en.wikipedia.org/wiki/Lanczos_approximation#Introduction
-      let z = LANCZOS_COEFFICIENTS[0];
+      let z = LANCZOS_COEFFICIENTS[0]
       for (let i = 1; i < LANCZOS_COUNT + 2; ++i) {
-        z += LANCZOS_COEFFICIENTS[i] / (x + i);
+        z += LANCZOS_COEFFICIENTS[i] / (x + i)
       }
 
-      const t = x + LANCZOS_COUNT + 0.5;
-      const sqrt2Pi = Math.sqrt(2 * Math.PI); // for performance, since Math.sqrt can be overwritten
+      const t = x + LANCZOS_COUNT + 0.5
+      const sqrt2Pi = Math.sqrt(2 * Math.PI) // for performance, since Math.sqrt can be overwritten
 
       return sqrt2Pi * Math.pow(t, (x + 0.5)) * Math.exp(-t) * z
     }
@@ -166,32 +167,36 @@
 
     if (x < 0.5) {
       // Reflection formula, as above
-      const reflected = lnGamma(1 - x);
+      const reflected = lnGamma(1 - x)
 
-      const lnPi = Math.log(Math.PI); // for performance, since Math.log can be overwritten
+      const lnPi = Math.log(Math.PI) // for performance, since Math.log can be overwritten
 
       return lnPi - Math.log(Math.sin(Math.PI * x)) - reflected
     } else {
       // See above for explanation
-      x -= 1;
+      x -= 1
 
-      let z = LANCZOS_COEFFICIENTS[0];
+      let z = LANCZOS_COEFFICIENTS[0]
       for (let i = 1; i < LANCZOS_COUNT + 2; ++i) {
-        z += LANCZOS_COEFFICIENTS[i] / (x + i);
+        z += LANCZOS_COEFFICIENTS[i] / (x + i)
       }
 
-      const t = x + LANCZOS_COUNT + 0.5;
-      const lnSqrt2Pi = Math.log(2 * Math.PI) / 2; // for performance, since Math.log can be overwritten
+      const t = x + LANCZOS_COUNT + 0.5
+      const lnSqrt2Pi = Math.log(2 * Math.PI) / 2 // for performance, since Math.log can be overwritten
 
       return lnSqrt2Pi + Math.log(t) * (x + 0.5) - t + Math.log(z)
     }
   }
 
+  /**
+   * Functions that accept double-precision floating point numbers as arguments.
+   * @namespace Grapheme.RealFunctions
+   */
   const RealFunctions = {
     ...BasicArithmetic,
     gamma,
     lnGamma
-  };
+  }
 
   // List of real functions that will internally use builtin functions from Math
   const mathBuiltinNames = {
@@ -226,14 +231,14 @@
     tan: 'tan',
     tanh: 'tanh',
     trunc: 'trunc'
-  };
+  }
 
   for (const [name, builtin] in Object.values(mathBuiltinNames)) {
-    RealFunctions[name] = Math[builtin];
+    RealFunctions[name] = Math[builtin]
   }
 
   // Prevent modification of RealFunctions
-  Object.freeze(RealFunctions);
+  Object.freeze(RealFunctions)
 
   /** Here we define functions for manipulation of double-precision floating point numbers.
    * Some definitions:
@@ -247,14 +252,14 @@
    * It is released under CC BY-SA 4.0, which is compatible with this project.
    */
   const isBigEndian = (() => {
-    const array = new Uint8Array(4);
-    const view = new Uint32Array(array.buffer);
+    const array = new Uint8Array(4)
+    const view = new Uint32Array(array.buffer)
     return !((view[0] = 1) & array[0])
-  })();
+  })()
   if (isBigEndian) throw new Error('Grapheme only works on little-endian systems; your system is mixed- or big-endian.')
 
-  const floatStore = new Float64Array(1);
-  const intView = new Uint32Array(floatStore.buffer);
+  const floatStore = new Float64Array(1)
+  const intView = new Uint32Array(floatStore.buffer)
 
   /**
    * Returns the next floating point number after a positive x, but doesn't account for special cases
@@ -263,9 +268,9 @@
    * @private
    */
   function _roundUp (x) {
-    floatStore[0] = x;
+    floatStore[0] = x
 
-    if (++intView[0] === 4294967296 /* uint32_max + 1 */) ++intView[1];
+    if (++intView[0] === 4294967296 /* uint32_max + 1 */) ++intView[1]
 
     return floatStore[0]
   }
@@ -278,9 +283,9 @@
    * @private
    */
   function _roundDown (x) {
-    floatStore[0] = x;
+    floatStore[0] = x
 
-    if (--intView[0] === -1) --intView[1];
+    if (--intView[0] === -1) --intView[1]
 
     return floatStore[0]
   }
@@ -327,10 +332,10 @@
   }
 
   // The first positive normal number
-  const POSITIVE_NORMAL_MIN = 2.2250738585072014e-308;
+  const POSITIVE_NORMAL_MIN = 2.2250738585072014e-308
 
   // The first negative normal number
-  const NEGATIVE_NORMAL_MAX = -POSITIVE_NORMAL_MIN;
+  const NEGATIVE_NORMAL_MAX = -POSITIVE_NORMAL_MIN
 
   /**
    * Return whether a number is denormal; see https://en.wikipedia.org/wiki/Denormal_number. ±0 are not traditionally
@@ -341,6 +346,12 @@
   function isDenormal (x) {
     return x !== 0 && x < POSITIVE_NORMAL_MIN && x > NEGATIVE_NORMAL_MAX
   }
+
+  var fp_manip = /* #__PURE__ */Object.freeze({
+    roundUp: roundUp,
+    roundDown: roundDown,
+    isDenormal: isDenormal
+  })
 
   /**
    * This file defines interval arithmetic functions.
@@ -373,6 +384,8 @@
    * tl;dr: Six parameters, namely min, max, defMin, defMax, contMin, contMax. min and max are numbers which represent the
    * bounds of the interval, and the remaining four parameters are booleans that provide extra context for the meaning of
    * the interval.
+   *
+   * @memberof Grapheme
    */
   class RealInterval {
     /**
@@ -387,17 +400,17 @@
      */
     constructor (min, max = min, defMin = true, defMax = true, contMin = true, contMax = true) {
       /** {number} */
-      this.min = min;
+      this.min = min
       /** {number} */
-      this.max = max;
+      this.max = max
       /** {boolean} */
-      this.defMin = defMin;
+      this.defMin = defMin
       /** {boolean} */
-      this.defMax = defMax;
+      this.defMax = defMax
       /** {boolean} */
-      this.contMin = contMin;
+      this.contMin = contMin
       /** {boolean} */
-      this.contMax = contMax;
+      this.contMax = contMax
     }
   }
 
@@ -428,12 +441,9 @@
    * As with the RealInterval, an undefined RealIntervalSet is just a RealIntervalSet containing a single undefined
    * RealInterval. */
 
-  exports.RealFunctions = RealFunctions;
-  exports.RealInterval = RealInterval;
-  exports.isDenormal = isDenormal;
-  exports.roundDown = roundDown;
-  exports.roundUp = roundUp;
+  exports.FP = fp_manip
+  exports.RealFunctions = RealFunctions
+  exports.RealInterval = RealInterval
 
-  Object.defineProperty(exports, '__esModule', { value: true });
-
-}));
+  Object.defineProperty(exports, '__esModule', { value: true })
+}))

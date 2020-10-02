@@ -224,5 +224,6 @@
         "expectAllEquals": false
       }
     }
-  ]
+  ],
+  "ignorePatterns": ["build/**", "docs/**"]
 }
