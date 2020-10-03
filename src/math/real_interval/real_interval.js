@@ -5,7 +5,7 @@
  * @typedef {(RealInterval|RealIntervalSet)} RealIntervalLike
  */
 
-import {roundDown, roundUp, toExactFloat} from "../real/fp_manip"
+import {roundDown, roundUp, toExactFloat} from "../real/fp_manip.js"
 
 /**
  * A real interval is a closed interval that is represents a nonstrict superset of a set of real numbers. The minimum
@@ -173,6 +173,14 @@ export class RealInterval {
 
     return new RealInterval(roundDown(val), roundUp(val))
   }
+}
+
+/**
+ * Similar to a standard RealInterval, but supports an additional argument, branches, which is an array of integers.
+ * Some interval functions support a branching parameter
+ */
+export class BranchedRealInterval extends RealInterval {
+
 }
 
 /** <p>Some functions, such as f(x) = 1/x, may
