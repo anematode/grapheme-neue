@@ -214,7 +214,7 @@ export class RealIntervalSet {
    * Construct a RealIntervalSet from an Array of RealIntervals.
    * @param intervals {Array<RealInterval>} The real intervals in this set of intervals.
    */
-  constructor (intervals) {
+  constructor (intervals=[]) {
     /**
      * The set of intervals this contains.
      * @type {Array<RealInterval>}
@@ -232,17 +232,74 @@ export class RealIntervalSet {
   }
 
   /**
-   * There are a lot of cases here to consider.
+   * There are a lot of cases here to consider. We ignore all intervals where defMax = false, since they never matter.
+   * If the set is empty, we return Infinity.
    */
   setMin () {
-    let min
+    const { intervals } = this
+
+    let min = Infinity
   }
 }
 
+/** Convert an interval set or interval into a list of intervals */
 export function getIntervals (int) {
   if (int.isSet()) {
-
+    return int.intervals
+  } else {
+    return [ int ]
   }
 }
 
+/** Interval returned when a function is completely undefined. */
+const BAD_INTERVAL = Object.freeze(new RealInterval(NaN, NaN, false, false, false, false))
 
+/**
+ * Assume func is a function that accepts argCount number of intervals. For example, + might accept 2, while unary -
+ * might accept 1. This function enumerates each possible double / triple of intervals in an interval set and forwards
+ * it to the function, combining all the intervals into an interval set.
+ * @param func {Function} Function to forward arguments to
+ * @param argCount {number} The number of arguments in the function. Further arguments will be forwarded unmodified.
+ */
+function wrapIntervalFunction (func, argCount=2) {
+  if (argCount === 0) {
+    return func
+  } else if (argCount === 1) {
+    return (int1, ...furtherArgs) => {
+      if (int1.isSet()) {
+        const intervals = []
+        let undefIntervalReturned = false
+
+        for (const int of int1.intervals) {
+          if (int.defMax) {
+            const res = func(int1, ...furtherArgs)
+
+            if (!res.defMax) { // if an undefined interval was returned...
+              if (undefIntervalReturned) // if one was already returned, just move on
+                continue
+
+              undefIntervalReturned = true // note this
+              intervals.push(BAD_INTERVAL) // push a BAD_INTERVAL
+
+              continue
+            }
+
+            intervals.push(res)
+          } else { // if the interval is undefined, no need to pass it on
+            intervals.push(BAD_INTERVAL)
+          }
+        }
+
+        return new RealIntervalSet(intervals)
+      } else {
+        return func(int1, ...furtherArgs)
+      }
+    }
+  } else if (argCount === 2) { // the most common case
+    return (int1, int2, ...furtherArgs) => {
+      if (int1.isSet() || int2.isSet()) {
+        const 
+      }
+    }
+  }
+}
