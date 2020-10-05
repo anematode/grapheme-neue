@@ -171,6 +171,9 @@ export class RealInterval {
 
     const val = parseFloat(x)
 
+    if (Number.isNaN(val))
+      return BAD_INTERVAL
+
     return new RealInterval(roundDown(val), roundUp(val))
   }
 }
@@ -298,7 +301,20 @@ function wrapIntervalFunction (func, argCount=2) {
   } else if (argCount === 2) { // the most common case
     return (int1, int2, ...furtherArgs) => {
       if (int1.isSet() || int2.isSet()) {
-        const 
+        const int1Intervals = getIntervals(int1)
+        const int2Intervals = getIntervals(int2)
+
+        let undefIntervalReturned = false
+
+        for (const int1 of int1Intervals) {
+          if (!int1.defMax) continue
+          for (const int2 of int2Intervals) {
+            if (!int2.defMax) continue
+            // for each pair of intervals where both are defined
+
+            const res = func(int1, int2, ...furtherArgs)
+          }
+        }
       }
     }
   }
