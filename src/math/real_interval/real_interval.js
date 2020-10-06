@@ -179,10 +179,11 @@ export class RealInterval {
 }
 
 /**
- * Similar to a standard RealInterval, but supports an additional argument, branches, which is an array of integers.
- * Some interval functions support a branching parameter
+ * Similar to a standard RealInterval, but supports tags, which is an object stored in a tags parameter. There are a
+ * variety of tags that can be used, and there needs to be a balancing act between more tags for tighter and faster
+ * computation, and having too many tags that leads to slow down.
  */
-export class BranchedRealInterval extends RealInterval {
+export class TaggedRealInterval extends RealInterval {
 
 }
 
@@ -257,6 +258,68 @@ export function getIntervals (int) {
 /** Interval returned when a function is completely undefined. */
 const BAD_INTERVAL = Object.freeze(new RealInterval(NaN, NaN, false, false, false, false))
 
+function evalIntervalSet1(func, int1, furtherArgs) {
+  const intervals = []
+  let undefIntervalReturned = false
+
+  for (const int of int1.intervals) {
+    if (int.defMax) {
+      const res = func(int1, ...furtherArgs)
+
+      if (res.defMax) { // record the interval if it is defined
+        intervals.push(res)
+        continue
+      }
+    }
+
+    if (!undefIntervalReturned) {
+      undefIntervalReturned = true // note this
+      intervals.push(BAD_INTERVAL) // push a BAD_INTERVAL
+    }
+  }
+
+  return new RealIntervalSet(intervals)
+}
+
+function evalIntervalSet2(func, int1, int2, furtherArgs) {
+  const int1Intervals = getIntervals(int1)
+  const int2Intervals = getIntervals(int2)
+
+  const intervals = []
+  let undefIntervalReturned = false
+
+  function undefinedIntervalNeeded() {
+    if (!undefIntervalReturned) {
+      undefIntervalReturned = true
+      intervals.push(BAD_INTERVAL)
+    }
+  }
+
+  for (const int1 of int1Intervals) {
+    if (!int1.defMax) {
+      undefinedIntervalNeeded()
+      continue
+    }
+    for (const int2 of int2Intervals) {
+      if (!int2.defMax) {
+        undefinedIntervalNeeded()
+        continue
+      }
+      // for each pair of intervals where both are defined
+
+      const res = func(int1, int2, ...furtherArgs)
+
+      if (!res.defMax) { // see explanation above
+        undefinedIntervalNeeded()
+      } else {
+        intervals.push(res)
+      }
+    }
+  }
+
+  return new RealIntervalSet(intervals)
+}
+
 /**
  * Assume func is a function that accepts argCount number of intervals. For example, + might accept 2, while unary -
  * might accept 1. This function enumerates each possible double / triple of intervals in an interval set and forwards
@@ -264,58 +327,33 @@ const BAD_INTERVAL = Object.freeze(new RealInterval(NaN, NaN, false, false, fals
  * @param func {Function} Function to forward arguments to
  * @param argCount {number} The number of arguments in the function. Further arguments will be forwarded unmodified.
  */
-function wrapIntervalFunction (func, argCount=2) {
+export function wrapIntervalFunction (func, argCount=2) {
+  let ret
+
   if (argCount === 0) {
-    return func
+    ret = func
   } else if (argCount === 1) {
-    return (int1, ...furtherArgs) => {
+    ret = (int1, ...furtherArgs) => {
       if (int1.isSet()) {
-        const intervals = []
-        let undefIntervalReturned = false
-
-        for (const int of int1.intervals) {
-          if (int.defMax) {
-            const res = func(int1, ...furtherArgs)
-
-            if (!res.defMax) { // if an undefined interval was returned...
-              if (undefIntervalReturned) // if one was already returned, just move on
-                continue
-
-              undefIntervalReturned = true // note this
-              intervals.push(BAD_INTERVAL) // push a BAD_INTERVAL
-
-              continue
-            }
-
-            intervals.push(res)
-          } else { // if the interval is undefined, no need to pass it on
-            intervals.push(BAD_INTERVAL)
-          }
-        }
-
-        return new RealIntervalSet(intervals)
+        return evalIntervalSet1(func, int1, furtherArgs)
       } else {
         return func(int1, ...furtherArgs)
       }
     }
   } else if (argCount === 2) { // the most common case
-    return (int1, int2, ...furtherArgs) => {
+    ret = (int1, int2, ...furtherArgs) => {
       if (int1.isSet() || int2.isSet()) {
-        const int1Intervals = getIntervals(int1)
-        const int2Intervals = getIntervals(int2)
-
-        let undefIntervalReturned = false
-
-        for (const int1 of int1Intervals) {
-          if (!int1.defMax) continue
-          for (const int2 of int2Intervals) {
-            if (!int2.defMax) continue
-            // for each pair of intervals where both are defined
-
-            const res = func(int1, int2, ...furtherArgs)
-          }
-        }
+        return evalIntervalSet2(func, int1, int2, furtherArgs)
+      } else {
+        return func(int1, int2, ...furtherArgs)
       }
     }
+  } else {
+    throw new RangeError("Unimplemented")
   }
+
+  // Store the internal interval function for convenience
+  ret.internal = func
+
+  return ret
 }

@@ -1,0 +1,46 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+
+\newcommand{\NaN}{\text{NaN}}
+\newcommand{\allfp}{\mathbb{F}_\text{all}}
+\newcommand{\definedfp}{\mathbb{F}_\infty}
+\newcommand{\finitefp}{\mathbb{F}}
+
+\begin{document}
+
+\title{Grapheme: An Online Graphing Calculator}
+\author{Timothy Herchen}
+\date{October 2020}
+
+\begin{titlepage}
+\maketitle
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+\section{Floating-point Operations}
+
+Grapheme uses double-precision floating-point arithmetic for most calculations, since this functionality is provided by JS directly and is highly optimized. When the calculator is directed to evaluate $3 \cdot 4$, it uses the JS $*$ operator which maps directly to a machine instruction. There is no point in using single-precision arithmetic, as these are the same speed on modern processors and JS has no facilities besides asm.js to use this format.
+
+There are some important limitations in double-precision FP. Some of the most obvious are the inability to express integers greater than $2^{53}\approx 9.007\cdot 10^{15}$, numbers greater than about $2^{1023}\approx 1.798 \cdot 10^{308}$, and positive numbers smaller than $2^{-1074}\approx 4.941\cdot 10^{-324}$. While arbitrary-precision arithmetic may be eventually implemented, this is difficult and thus we will try to do our best using the existing system.
+
+Some conventions:
+\begin{enumerate}
+  \item $\pm\infty$ and $\NaN$ are known as \textit{special numbers}.
+  \item Floating-point numbers that are not special numbers are \textit{finite numbers}.
+  \item Denormal numbers and normal numbers are named as usual.
+  \item $\NaN\neq\NaN$, contrary to the mathematical definition of equality. However, $\NaN\simeq\NaN$. For all other purposes, $=$ and $\simeq$ are equivalent.
+  \item There is only one $\NaN$ value, because the standard does not specify the existence of qNaNs, sNaNs and the like.
+  \item The set of all double-precision floating-point numbers, including the special numbers, is denoted $\allfp$.
+  \item $\allfp$ without the special numbers is denoted $\finitefp$. Without only $\NaN$, it is denoted $\definedfp$. Thus, $\finitefp\subset\definedfp\subset\allfp$.
+\end{enumerate}
+
+\subsection{Directed Rounding}
+
+Per the ECMAScript standard, JS operations all use round-to-nearest, ties-to-even. That means that if the mathematical result of an operation is, say, $3.261$, and the nearest permitted floats are $3.26$ and $3.27$, the operation will return $3.26$. Unfortunately, JS does not provide facilities to set the rounding mode, which is understandable given the niche use of these modes.
+
+\section{Interval Arithmetic}
+
+\end{document}
