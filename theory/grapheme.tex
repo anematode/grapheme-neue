@@ -2,7 +2,7 @@
 \usepackage{amsmath}
 \usepackage{amsfonts}
 
-\newcommand{\NaN}{\text{NaN}}
+\newcommand{\NaN}{\texttt{NaN}}
 \newcommand{\allfp}{\mathbb{F}_\text{all}}
 \newcommand{\definedfp}{\mathbb{F}_\infty}
 \newcommand{\finitefp}{\mathbb{F}}
@@ -40,6 +40,20 @@ Some conventions:
 \subsection{Directed Rounding}
 
 Per the ECMAScript standard, JS operations all use round-to-nearest, ties-to-even. That means that if the mathematical result of an operation is, say, $3.261$, and the nearest permitted floats are $3.26$ and $3.27$, the operation will return $3.26$. Unfortunately, JS does not provide facilities to set the rounding mode, which is understandable given the niche use of these modes.
+
+\subsection{Intelligent Pow}
+
+Among the real numbers, exponentiation is straightforward for positive bases, but rather complicated for negative bases. Negative bases raised to a rational power are variously positive, negative or undefined, depending on the fraction. Among $\finitefp$, however, negative bases raised to any power are undefined. This can be logically seen from the fact that all floating-point numbers are rational numbers. But the number $0.3333333333333333\in\finitefp$ likely refers to $\frac{1}{3}$, and so does $0.33333333333333326$, but probably not $0.3333333333001$.
+
+\subsubsection{Doubles to Rationals}
+
+There are two competing interests: one, to correctly recognize mathematical rational numbers that would be reasonably encountered in a graphing session, and two, to make coincidences that lead to the recognition of irrational numbers as rational unlikely. We restrict our further work to the positive domain, since this makes our life far easier. In other words, we want to find a reasonable function $d : \finitefp_{>0} \to \mathbb{Z}^2$, so that the resulting numerator–denominator pair corresponds closely to the floating-point number argument.
+
+To do this, we make some stipulations. First, we assert that at most $1/1000$ of floating-point numbers in any range $\left(2^n, 2^{n+1}\right)$ are classified as rational. This makes it unlikely that a randomly-generated real number will be considered rational. Second, we assert that the floating-point numbers corresponding to a rational number $\frac{p}{q}$ are at most those inside \texttt{RealInterval.from(p/q)}; in other words, they are either \texttt{p/q} as evaluated by JS, or the preceding or succeeding float. Third, there must be no intersections between these intervals. Finally, we assert that the numerators and denominators be <= in magnitude to Number.MAX_SAFE_INTEGER, which makes our life easier. For example, \texttt{1/3} evaluates to the floating-point number $0.3333333333333333$. The preceding and succeeding members of $\finitefp$, namely $0.33333333333333337$ and $0.33333333333333326$ should also correspond to the same number, but no further.
+
+Because the spacing between floating-point numbers varies, we split up our recognition algorithm over each of the $1023$ sets $\left(2^n, 2^{n+1}\right)$ available to floating-point numbers.
+
+Once tagged real numbers are implemented, this issue should be less important, but will still likely be used as a fallback.
 
 \section{Interval Arithmetic}
 
