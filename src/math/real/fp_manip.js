@@ -116,6 +116,46 @@ export function isDenormal (x) {
   return x !== 0 && x < POSITIVE_NORMAL_MIN && x > NEGATIVE_NORMAL_MAX
 }
 
+// unused... might use it later
+function reverseUint32 (x) {
+  x = (x & 0x55555555)  <<   1 | (x & 0xAAAAAAAA) >>>  1;
+  x = (x & 0x33333333)  <<   2 | (x & 0xCCCCCCCC) >>>  2;
+  x = (x & 0x0F0F0F0F)  <<   4 | (x & 0xF0F0F0F0) >>>  4;
+  x = (x & 0x00FF00FF)  <<   8 | (x & 0xFF00FF00) >>>  8;
+  x = (x & 0x0000FFFF)  <<  16 | (x & 0xFFFF0000) >>> 16;
+
+  return x >>> 0;
+}
+
+/**
+ * Get the non-biased exponent of a floating-point number x. Equivalent mathematically to floor(log2(abs(x))) for
+ * finite values, but more accurate as the precision of log2 is not technically guaranteed.
+ * @param x
+ * @returns {number}
+ */
+export function getExponent (x) {
+  floatStore[0] = x
+
+  // Mask the biased exponent, retrieve it and convert it to non-biased
+  return ((intView[1] & 0x7ff00000) >> 20) - 1023
+}
+
+/**
+ * Converts a floating-point number into a fraction in [0.5, 1), except special cases, and a power of 2 to multiply it by.
+ * @param x
+ * @returns {Array} [fraction, exponent]
+ */
+export function frexp (x) {
+  if (x === 0 || !Number.isFinite(x)) {
+    return [x, 0]
+  }
+
+  // +1 so that the fraction is between
+  const exp = getExponent(x) + 1
+
+  return [ x / Math.pow(2, exp), exp ]
+}
+
 // Credit to {@link https://stackoverflow.com/a/55592455/13458117} by User "Yannis T.", licensed under CC BY-SA 4.0.
 export const floatRegex = /^(?<sign>[+-]?)((?<significand1>\d+([.]\d*)?)([eE](?<exp1>[+-]?\d+))?|(?<significand2>[.]\d+)([eE](?<exp2>[+-]?\d+))?)$/
 

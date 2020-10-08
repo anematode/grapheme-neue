@@ -22,12 +22,25 @@ function powRational (a, c, d) {
   }
 }
 
+const MAX_DENOM = 10000
+const MAX_NUM = Number.MAX_SAFE_INTEGER
+
 /**
  * The question is how to classify FLOATS, which are all technically rationals (more specifically, dyadic rationals),
  * as rational numbers. See Grapheme Theory, "Intelligent Pow" for more information.
  * @param d {number}
  */
 function doubleToRational (d) {
+  if (d === 0)
+    return { num: 0, den: 1 }
+
+  const negative = d < 0
+  d = Math.abs(d)
+
+  if (d <= 1.1102230246251565e-16 /** 2^-53 */ || !Number.isFinite(d))
+    return { num: NaN, den: NaN }
+
+  // Guaranteed that d > 0 and is finite
 
 }
 
