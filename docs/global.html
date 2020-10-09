@@ -98,16 +98,13 @@
 
         
             
-<h4 class="name" id="isBigEndian"><span class="type-signature">(constant) </span>isBigEndian<span class="type-signature"></span></h4>
+<h4 class="name" id="BAD_INTERVAL"><span class="type-signature">(constant) </span>BAD_INTERVAL<span class="type-signature"></span></h4>
 
 
 
 
 <div class="description">
-    Check endianness. The functions in this file will not work on big-endian systems, so we need to throw an error.
-Credit goes to Lucio Pavia on StackOverflow, specifically
-<a href="https://stackoverflow.com/a/52827031/13458117">this answer</a>.
-It is released under CC BY-SA 4.0, which is compatible with this project.
+    Interval returned when a function is completely undefined.
 </div>
 
 
@@ -145,7 +142,7 @@ It is released under CC BY-SA 4.0, which is compatible with this project.
     
     <dt class="tag-source">Source:</dt>
     <dd class="tag-source"><ul class="dummy"><li>
-        <a href="math_real_fp_manip.js.html">math/real/fp_manip.js</a>, <a href="math_real_fp_manip.js.html#line13">line 13</a>
+        <a href="math_real_interval_real_interval.js.html">math/real_interval/real_interval.js</a>, <a href="math_real_interval_real_interval.js.html#line257">line 257</a>
     </li></ul></dd>
     
 
@@ -165,7 +162,984 @@ It is released under CC BY-SA 4.0, which is compatible with this project.
     
 
     
+        <h3 class="subsection-title">Methods</h3>
 
+        
+            
+
+    
+
+    
+    <h4 class="name" id="addInternal"><span class="type-signature"></span>addInternal<span class="signature">(int1, int2)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Add two RealIntervals.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>int1</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="RealInterval.html">RealInterval</a></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>int2</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type"><a href="RealInterval.html">RealInterval</a></span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last"></td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="math_real_interval_basic_arithmetic.js.html">math/real_interval/basic_arithmetic.js</a>, <a href="math_real_interval_basic_arithmetic.js.html#line6">line 6</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="closestRational"><span class="type-signature"></span>closestRational<span class="signature">(x, maxDenominator, maxNumerator)</span><span class="type-signature"> &rarr; {Array.&lt;number>}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Return the closest rational number p/q to x where 0 < q <= maxDenominator and |p| <= maxNumerator. The algorithm is
+described in Grapheme Theory, but the gist of it is we narrow in onto the number using a Farey sequence. The
+numerator, denominator, and absolute error are returned in an array. If no satisfactory rational number can be found,
+which means the error is more than 0.5, [ NaN, NaN, NaN ] is returned. To convert a double to a rational in a
+generic way, doubleToRational should probably be used, which calls this internally with specially chosen values of
+maxDenominator.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>x</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The number to find rational numbers near</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>maxDenominator</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">An integer between 1 and Number.MAX_SAFE_INTEGER</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>maxNumerator</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">An integer between 1 and Number.MAX_SAFE_INTEGER</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="math_real_rational.js.html">math/real/rational.js</a>, <a href="math_real_rational.js.html#line20">line 20</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    A three-element array [ p, q, error ], where error is abs(x - p/q)
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Array.&lt;number></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="doubleToRational"><span class="type-signature"></span>doubleToRational<span class="signature">(d, cache)</span><span class="type-signature"> &rarr; {Array.&lt;number>}</span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    This function classifies floats, which are all technically rationals (more specifically, dyadic rationals), as
+rational or irrational numbers. See Grapheme Theory, "Intelligent Pow" for more information. In short, at most
+1/10000 of floats are classified as rational, and the potential returned rational numbers vary depending on the
+magnitude of d. The technique expounded is very general, and any fraction of floats being rational can be pretty
+much guaranteed.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>d</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The number to convert to a rational</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>cache</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">boolean</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Whether to cache the result to speed up later calls</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="math_real_rational.js.html">math/real/rational.js</a>, <a href="math_real_rational.js.html#line150">line 150</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<h5>Returns:</h5>
+
+        
+<div class="param-desc">
+    Two-element array; first is the numerator, second is the denominator
+</div>
+
+
+
+<dl>
+    <dt>
+        Type
+    </dt>
+    <dd>
+        
+<span class="param-type">Array.&lt;number></span>
+
+
+    </dd>
+</dl>
+
+    
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="getID"><span class="type-signature"></span>getID<span class="signature">()</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Returns a single unique positive integer
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="utils.js.html">utils.js</a>, <a href="utils.js.html#line5">line 5</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="getIntervals"><span class="type-signature"></span>getIntervals<span class="signature">()</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Convert an interval set or interval into a list of intervals
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="math_real_interval_real_interval.js.html">math/real_interval/real_interval.js</a>, <a href="math_real_interval_real_interval.js.html#line248">line 248</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+            
+
+    
+
+    
+    <h4 class="name" id="wrapIntervalFunction"><span class="type-signature"></span>wrapIntervalFunction<span class="signature">(func, argCount)</span><span class="type-signature"></span></h4>
+    
+
+    
+
+
+
+<div class="description">
+    Assume func is a function that accepts argCount number of intervals. For example, + might accept 2, while unary -
+might accept 1. This function enumerates each possible double / triple of intervals in an interval set and forwards
+it to the function, combining all the intervals into an interval set.
+</div>
+
+
+
+
+
+
+
+
+
+    <h5>Parameters:</h5>
+    
+
+<table class="params">
+    <thead>
+    <tr>
+        
+        <th>Name</th>
+        
+
+        <th>Type</th>
+
+        
+
+        
+
+        <th class="last">Description</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    
+
+        <tr>
+            
+                <td class="name"><code>func</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">function</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">Function to forward arguments to</td>
+        </tr>
+
+    
+
+        <tr>
+            
+                <td class="name"><code>argCount</code></td>
+            
+
+            <td class="type">
+            
+                
+<span class="param-type">number</span>
+
+
+            
+            </td>
+
+            
+
+            
+
+            <td class="description last">The number of arguments in the function. Further arguments will be forwarded unmodified.</td>
+        </tr>
+
+    
+    </tbody>
+</table>
+
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="math_real_interval_real_interval.js.html">math/real_interval/real_interval.js</a>, <a href="math_real_interval_real_interval.js.html#line328">line 328</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+    
+
+    
+        <h3 class="subsection-title">Type Definitions</h3>
+
+        
+                
+<h4 class="name" id="RealIntervalLike">RealIntervalLike</h4>
+
+
+
+
+<div class="description">
+    An interval-like object; in other words, something that is a <a href="RealInterval.html">RealInterval</a> or <a href="RealIntervalSet.html">RealIntervalSet</a>.
+</div>
+
+
+
+    <h5>Type:</h5>
+    <ul>
+        <li>
+            
+<span class="param-type"><a href="RealInterval.html">RealInterval</a></span>
+|
+
+<span class="param-type"><a href="RealIntervalSet.html">RealIntervalSet</a></span>
+
+
+        </li>
+    </ul>
+
+
+
+
+
+<dl class="details">
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+
+    
+    <dt class="tag-source">Source:</dt>
+    <dd class="tag-source"><ul class="dummy"><li>
+        <a href="math_real_interval_real_interval.js.html">math/real_interval/real_interval.js</a>, <a href="math_real_interval_real_interval.js.html#line3">line 3</a>
+    </li></ul></dd>
+    
+
+    
+
+    
+
+    
+</dl>
+
+
+
+
+
+
+            
     
 
     
@@ -179,13 +1153,13 @@ It is released under CC BY-SA 4.0, which is compatible with this project.
 </div>
 
 <nav>
-    <h2><a href="index.html">Home</a></h2><h3>Namespaces</h3><ul><li><a href="FP.html">FP</a></li><li><a href="RealFunctions.html">RealFunctions</a></li></ul><h3>Classes</h3><ul><li><a href="RealInterval.html">RealInterval</a></li></ul><h3>Global</h3><ul><li><a href="global.html#isBigEndian">isBigEndian</a></li></ul>
+    <h2><a href="index.html">Home</a></h2><h3>Namespaces</h3><ul><li><a href="FP.html">FP</a></li><li><a href="RealFunctions.html">RealFunctions</a></li><li><a href="utils.html">utils</a></li></ul><h3>Classes</h3><ul><li><a href="BigInt.html">BigInt</a></li><li><a href="RealInterval.html">RealInterval</a></li><li><a href="RealIntervalSet.html">RealIntervalSet</a></li><li><a href="TaggedRealInterval.html">TaggedRealInterval</a></li></ul><h3>Global</h3><ul><li><a href="global.html#addInternal">addInternal</a></li><li><a href="global.html#BAD_INTERVAL">BAD_INTERVAL</a></li><li><a href="global.html#closestRational">closestRational</a></li><li><a href="global.html#doubleToRational">doubleToRational</a></li><li><a href="global.html#getID">getID</a></li><li><a href="global.html#getIntervals">getIntervals</a></li><li><a href="global.html#wrapIntervalFunction">wrapIntervalFunction</a></li></ul>
 </nav>
 
 <br class="clear">
 
 <footer>
-    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Thu Oct 01 2020 05:59:44 GMT-0700 (Pacific Daylight Time)
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 3.6.6</a> on Fri Oct 09 2020 05:50:04 GMT-0700 (Pacific Daylight Time)
 </footer>
 
 <script> prettyPrint(); </script>

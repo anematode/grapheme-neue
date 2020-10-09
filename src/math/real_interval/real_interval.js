@@ -5,7 +5,7 @@
  * @typedef {(RealInterval|RealIntervalSet)} RealIntervalLike
  */
 
-import { roundDown, roundUp, toExactFloat } from '../real/fp_manip.js'
+import { roundDown, roundUp } from '../real/fp_manip.js'
 
 /**
  * A real interval is a closed interval that is represents a nonstrict superset of a set of real numbers. The minimum
@@ -162,11 +162,11 @@ export class RealInterval {
    * @returns {RealInterval}
    */
   static from (x, correctRounding = true) {
-    if (correctRounding && typeof x === 'string') {
+    /* if (correctRounding && typeof x === 'string') {
       const val = toExactFloat(x)
 
       if (!Number.isNaN(val)) { return new RealInterval(val, val) }
-    }
+    } */
 
     const val = parseFloat(x)
 

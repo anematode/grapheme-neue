@@ -1,4 +1,4 @@
-import { roundUp, roundDown, isDenormal } from './fp_manip'
+import { roundUp, roundDown, isDenormal, pow2 } from './fp_manip'
 
 test('roundUp correct on special float values', () => {
   const testCases = [
@@ -92,4 +92,11 @@ test('isDenormal correct', () => {
 
   expectAllEquals(isDenormal, fails, false)
   expectAllEquals(isDenormal, passes, true)
+})
+
+test('pow2 correct', () => {
+  const testI = [Infinity, -Infinity, NaN]
+  for (let i = -1080; i < 1080; i += 0.5) testI.push(i)
+
+  for (const i of testI) expect(pow2(i)).toBe(2 ** i)
 })

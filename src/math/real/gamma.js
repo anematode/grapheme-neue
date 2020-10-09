@@ -1,4 +1,8 @@
-// Number of coefficients in the approximation
+/**
+ * @file This file implements the gamma function and related functions, though not to least-significant-bit accuracy.
+ */
+
+// Lanczos approximation data
 const LANCZOS_COUNT = 7
 const LANCZOS_COEFFICIENTS = [
   0.99999999999980993,
@@ -32,17 +36,15 @@ const INTEGER_FACTORIAL_LEN = INTEGER_FACTORIALS.length
  * x. If there is a pole at x, NaN is returned. NaN is returned instead of Infinity to distinguish a pole
  * (at -1, -2, ...) from a massive value (e.g. at 100). The function is relatively accurate and fast, though I
  * would like to assess its accuracy at some point.
- *
- * Handling of special values: NaN -> NaN, Infinity -> Infinity, -Infinity -> NaN
- *
+ * <br>
  * The algorithm works based on the Lanczos approximation. The original code was written in Python by
  * Fredrik Johansson and published to Wikipedia, which means it is compatible license-wise with this
  * project. The relevant diff (on the Swedish Wikipedia) is at
- * https://sv.wikipedia.org/w/index.php?title=Gammafunktionen&diff=1146966&oldid=1146894.
+ * {@link https://sv.wikipedia.org/w/index.php?title=Gammafunktionen&diff=1146966&oldid=1146894}.
  * Values below 0.5 are calculated using the reflection formula, see
- * https://en.wikipedia.org/wiki/Gamma_function#General.
- * @param x {number}
- * @returns {number}
+ * {@link https://en.wikipedia.org/wiki/Gamma_function#General}.
+ * @param x {number} The argument to the gamma function
+ * @returns {number} gamma(x), approximately
  * @function gamma
  * @memberOf RealFunctions
  */
@@ -85,8 +87,8 @@ export function gamma (x) {
 
 /**
  * The factorial of x. This function accepts all numerical values and just internally uses the gamma function.
- * @param x {number}
- * @returns {number}
+ * @param x {number} The argument to the factorial function
+ * @returns {number} factorial(x), approximately (but exact if possible for integer x)
  * @function factorial
  * @memberOf RealFunctions
  */
@@ -99,11 +101,10 @@ export function factorial (x) {
  * useful to work with its larger values. It is just the natural logarithm of the gamma function. The
  * algorithm is identical to the above, except there is no special case for positive integers > 2 (since
  * there is little point, and the list would have to be enormous).
- *
+ * <br>
  * Handling of special values: NaN -> NaN, Infinity -> Infinity, -Infinity -> NaN
- *
- * @param x {number}
- * @returns {number}
+ * @param x {number} The argument to the lnGamma function
+ * @returns {number} lnGamma(x), approximately
  * @function lnGamma
  * @memberOf RealFunctions
  */
