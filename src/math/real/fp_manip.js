@@ -116,17 +116,6 @@ export function isDenormal (x) {
   return x !== 0 && x < POSITIVE_NORMAL_MIN && x > NEGATIVE_NORMAL_MAX
 }
 
-// unused... might use it later
-function reverseUint32 (x) {
-  x = (x & 0x55555555)  <<   1 | (x & 0xAAAAAAAA) >>>  1;
-  x = (x & 0x33333333)  <<   2 | (x & 0xCCCCCCCC) >>>  2;
-  x = (x & 0x0F0F0F0F)  <<   4 | (x & 0xF0F0F0F0) >>>  4;
-  x = (x & 0x00FF00FF)  <<   8 | (x & 0xFF00FF00) >>>  8;
-  x = (x & 0x0000FFFF)  <<  16 | (x & 0xFFFF0000) >>> 16;
-
-  return x >>> 0;
-}
-
 /**
  * Get the non-biased exponent of a floating-point number x. Equivalent mathematically to floor(log2(abs(x))) for
  * finite values, but more accurate as the precision of log2 is not technically guaranteed.
@@ -143,23 +132,22 @@ export function getExponent (x) {
 export function countFloatsBetween (x1, x2) {
   // Count the number of floats in the range [x1, x2). NaN if either is undefined. May not be exact (TODO: return bigint)
 
-  if (Number.isNaN(x1) || Number.isNaN(x2))
-    return NaN
+  if (Number.isNaN(x1) || Number.isNaN(x2)) { return NaN }
 
   if (x1 === x2) {
     return 0
   }
 
   if (x2 < x1) {
-    let tmp = x1
+    const tmp = x1
     x1 = x2
     x2 = tmp
   }
 
-  const [ x1man, x1exp ] = frexp(x1)
-  const [ x2man, x2exp ] = frexp(x2)
+  const [x1man, x1exp] = frexp(x1)
+  const [x2man, x2exp] = frexp(x2)
 
-  return (x2man - x1man) * 2**53 + (x2exp - x1exp) * 2**52
+  return (x2man - x1man) * 2 ** 53 + (x2exp - x1exp) * 2 ** 52
 }
 
 /**
@@ -175,33 +163,7 @@ export function frexp (x) {
   // +1 so that the fraction is between
   const exp = getExponent(x) + 1
 
-  return [ x / Math.pow(2, exp), exp ]
-}
-
-// Credit to {@link https://stackoverflow.com/a/55592455/13458117} by User "Yannis T.", licensed under CC BY-SA 4.0.
-export const floatRegex = /^(?<sign>[+-]?)((?<significand1>\d+([.]\d*)?)([eE](?<exp1>[+-]?\d+))?|(?<significand2>[.]\d+)([eE](?<exp2>[+-]?\d+))?)$/
-
-/**
- * Given a string, return whether it is a valid string representing a real number. "inf" and "undefined" aren't included
- * here.
- * @param str {string} The string to check.
- * @returns {boolean} Whether it is a valid float.
- */
-export function isValidGraphemeReal (str) {
-  return floatRegex.test(str)
-}
-
-/**
- * Gets the significand from a float string.
- * @param str {string}
- * @returns {string}
- */
-function getSignificand (str) {
-  const match = str.match(floatRegex)
-  if (!match) return ""
-
-  const groups = match.groups
-  return groups.significand1 || groups.significand2
+  return [x / Math.pow(2, exp), exp]
 }
 
 /**
@@ -222,16 +184,4 @@ export function toExactFloat (str) {
   // TODO
 
   return NaN
-
-  /*const match = str.match(floatRegex)
-  if (!match) return false
-
-  const groups = match.groups
-  const significand = groups.significand1 || groups.significand2
-  const exponent = groups.exp1 || groups.exp2
-
-  if (exponent) {
-
-  }*/
-
 }

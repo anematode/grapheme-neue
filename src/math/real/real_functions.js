@@ -1,5 +1,6 @@
 import { add, divide, multiply, subtract } from './basic_arithmetic.js'
 import { gamma, lnGamma, factorial } from './gamma.js'
+import { pow } from './pow.js'
 
 /**
  * Functions that accept double-precision floating point numbers as arguments. Common functions not here are likely
@@ -13,7 +14,8 @@ const RealFunctions = Object.freeze({
   subtract,
   gamma,
   lnGamma,
-  factorial
+  factorial,
+  pow
 })
 
 export { RealFunctions }

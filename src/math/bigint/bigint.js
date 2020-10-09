@@ -1,12 +1,11 @@
 
-const digits = "0123456789abcdefghijklmnopqrstuvwxyz"
+const digits = '0123456789abcdefghijklmnopqrstuvwxyz'
 const base10Verify = /^[0-9]+$/
 
 const BI_WORD_BITS = 30
 
 // Numbers between 0 and this are allowed in a BigInt's words
 const MAX_BI_WORD = 2 ** BI_WORD_BITS - 1
-
 
 // Maximum, stolen from JSBI
 const MAX_BI_LENGTH = 1 << 25
@@ -16,8 +15,7 @@ function fromStringBase10 (str) {
   // Verify the string is okay
   if (!str.match(base10Verify)) {
     str.forEach(char => {
-      if (!isValidDigit(char.charCodeAt(0), 10))
-        throw new Error(`Invalid digit '${char}'`)
+      if (!isValidDigit(char.charCodeAt(0), 10)) { throw new Error(`Invalid digit '${char}'`) }
     })
   }
 
@@ -52,10 +50,10 @@ function fromString (str, radix) {
 
 function isValidDigit (base, digitCode) {
   // Bases <= 10
-  if (base <= 10) return 48 <= digitCode && digitCode < (base + 48)
+  if (base <= 10) return digitCode >= 48 && digitCode < (base + 48)
 
   // Other bases
-  return (48 <= digitCode && digitCode < 57) || (97 <= digitCode && digitCode < (87 + base))
+  return (digitCode >= 48 && digitCode < 57) || (digitCode >= 97 && digitCode < (87 + base))
 }
 
 /**
@@ -73,7 +71,7 @@ function isValidDigit (base, digitCode) {
  * number. There may be trailing zeroes in the words array.
  */
 export class BigInt {
-  constructor (words=[], sign=0) {
+  constructor (words = [], sign = 0) {
     this.words = words
     this.sign = sign
   }
@@ -94,11 +92,11 @@ export class BigInt {
    * @param str
    * @param radix
    */
-  static fromString (str, radix=10) {
+  static fromString (str, radix = 10) {
     radix = Number(radix)
 
     if (radix < 2 || radix > digits.length || !Number.isInteger(radix)) {
-      throw new RangeError("Invalid radix")
+      throw new RangeError('Invalid radix')
     }
 
     str = str.trim()
@@ -106,30 +104,26 @@ export class BigInt {
     return fromString(str, radix)
   }
 
-  wordCount() {
+  wordCount () {
     return this.words.length
   }
 
-  bitCount() {
+  bitCount () {
     const lastElem = this.words[this.wordCount() - 1]
 
-    if (!lastElem)
-      return 0
-
-
+    if (!lastElem) { return 0 }
   }
 
-  setZero() {
+  setZero () {
     this.words = []
     this.sign = 0
 
     return this
   }
 
-  multiplyInPlace(num) {
-    if (typeof num === "number") {
-      if (!Number.isInteger(num))
-        throw new TypeError("Can't multiply by non-integer")
+  multiplyInPlace (num) {
+    if (typeof num === 'number') {
+      if (!Number.isInteger(num)) { throw new TypeError("Can't multiply by non-integer") }
 
       if (num === 0) {
         this.setZero()
@@ -156,10 +150,9 @@ export class BigInt {
     num = Number(num)
 
     if (!num) // handles NaN and 0
-      return
+    { return }
 
-    if (num < 0)
-      return this.shiftRight(-num)
+    if (num < 0) { return this.shiftRight(-num) }
 
     const newWordCount = this
   }
@@ -168,9 +161,8 @@ export class BigInt {
     num = Number(num)
 
     if (!num) // handles NaN and 0
-      return
+    { return }
 
-    if (num < 0)
-      return this.shiftLeft(-num)
+    if (num < 0) { return this.shiftLeft(-num) }
   }
 }

@@ -5,7 +5,7 @@
  * @typedef {(RealInterval|RealIntervalSet)} RealIntervalLike
  */
 
-import {roundDown, roundUp, toExactFloat} from "../real/fp_manip.js"
+import { roundDown, roundUp, toExactFloat } from '../real/fp_manip.js'
 
 /**
  * A real interval is a closed interval that is represents a nonstrict superset of a set of real numbers. The minimum
@@ -162,17 +162,15 @@ export class RealInterval {
    * @returns {RealInterval}
    */
   static from (x, correctRounding = true) {
-    if (correctRounding && typeof x === "string") {
+    if (correctRounding && typeof x === 'string') {
       const val = toExactFloat(x)
 
-      if (!Number.isNaN(val))
-        return new RealInterval(val, val)
+      if (!Number.isNaN(val)) { return new RealInterval(val, val) }
     }
 
     const val = parseFloat(x)
 
-    if (Number.isNaN(val))
-      return BAD_INTERVAL
+    if (Number.isNaN(val)) { return BAD_INTERVAL }
 
     return new RealInterval(roundDown(val), roundUp(val))
   }
@@ -218,7 +216,7 @@ export class RealIntervalSet {
    * Construct a RealIntervalSet from an Array of RealIntervals.
    * @param intervals {Array<RealInterval>} The real intervals in this set of intervals.
    */
-  constructor (intervals=[]) {
+  constructor (intervals = []) {
     /**
      * The set of intervals this contains.
      * @type {Array<RealInterval>}
@@ -242,7 +240,7 @@ export class RealIntervalSet {
   setMin () {
     const { intervals } = this
 
-    let min = Infinity
+    const min = Infinity
   }
 }
 
@@ -251,14 +249,14 @@ export function getIntervals (int) {
   if (int.isSet()) {
     return int.intervals
   } else {
-    return [ int ]
+    return [int]
   }
 }
 
 /** Interval returned when a function is completely undefined. */
 const BAD_INTERVAL = Object.freeze(new RealInterval(NaN, NaN, false, false, false, false))
 
-function evalIntervalSet1(func, int1, furtherArgs) {
+function evalIntervalSet1 (func, int1, furtherArgs) {
   const intervals = []
   let undefIntervalReturned = false
 
@@ -281,14 +279,14 @@ function evalIntervalSet1(func, int1, furtherArgs) {
   return new RealIntervalSet(intervals)
 }
 
-function evalIntervalSet2(func, int1, int2, furtherArgs) {
+function evalIntervalSet2 (func, int1, int2, furtherArgs) {
   const int1Intervals = getIntervals(int1)
   const int2Intervals = getIntervals(int2)
 
   const intervals = []
   let undefIntervalReturned = false
 
-  function undefinedIntervalNeeded() {
+  function undefinedIntervalNeeded () {
     if (!undefIntervalReturned) {
       undefIntervalReturned = true
       intervals.push(BAD_INTERVAL)
@@ -327,7 +325,7 @@ function evalIntervalSet2(func, int1, int2, furtherArgs) {
  * @param func {Function} Function to forward arguments to
  * @param argCount {number} The number of arguments in the function. Further arguments will be forwarded unmodified.
  */
-export function wrapIntervalFunction (func, argCount=2) {
+export function wrapIntervalFunction (func, argCount = 2) {
   let ret
 
   if (argCount === 0) {
@@ -349,7 +347,7 @@ export function wrapIntervalFunction (func, argCount=2) {
       }
     }
   } else {
-    throw new RangeError("Unimplemented")
+    throw new RangeError('Unimplemented')
   }
 
   // Store the internal interval function for convenience

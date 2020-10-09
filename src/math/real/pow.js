@@ -1,11 +1,10 @@
-import { getExponent } from "./fp_manip.js"
-import { gcd } from "./basic_arithmetic.js"
+import { getExponent } from './fp_manip.js'
+import { gcd } from './basic_arithmetic.js'
 
 // Computes a ^ (c/d), where c and d are integers.
 function powRational (a, c, d) {
   // Simple return cases
-  if (d === 0 || Number.isNaN(c) || Number.isNaN(d) || !Number.isInteger(c) || !Number.isInteger(d) || Number.isNaN(a))
-    return NaN
+  if (d === 0 || Number.isNaN(c) || Number.isNaN(d) || !Number.isInteger(c) || !Number.isInteger(d) || Number.isNaN(a)) { return NaN }
 
   if (a === 0) return 0
 
@@ -87,11 +86,11 @@ function closestRational (x, maxDenominator, maxNumerator = Number.MAX_SAFE_INTE
     const nshift = bestd * flr
 
     // If numerator or denominator are too big, or the approximation is exact, return the approximation
-    if (cd > maxDenominator || cn > maxNumerator - nshift || bestErr === 0) return [ bestn + nshift, bestd, bestErr ]
+    if (cd > maxDenominator || cn > maxNumerator - nshift || bestErr === 0) return [bestn + nshift, bestd, bestErr]
 
     const c = cn / cd
 
-    if (c === frac) return [ cn + cd * flr, cd, 0 ]
+    if (c === frac) return [cn + cd * flr, cd, 0]
 
     if (frac < c) {
       bn = cn
@@ -102,9 +101,6 @@ function closestRational (x, maxDenominator, maxNumerator = Number.MAX_SAFE_INTE
     }
   }
 }
-
-const MAX_DENOM = 10000
-const MAX_NUM = Number.MAX_SAFE_INTEGER
 
 // [...Array(53 + 25).keys()].map(n => { n = n - 52; return Math.floor(Math.min(Math.PI * 2 ** (26 - n/2) / 300, Number.MAX_SAFE_INTEGER)) })
 const dnLookupTable = [
@@ -119,16 +115,12 @@ const dnLookupTable = [
 ]
 
 function _doubleToRational (d) {
-  if (d === 0)
-    return [0, 1]
-  else if (Number.isInteger(d))
-    return [d, 1]
+  if (d === 0) { return [0, 1] } else if (Number.isInteger(d)) { return [d, 1] }
 
   const negative = d < 0
   d = Math.abs(d)
 
-  if (d <= 1.1102230246251565e-16 /** 2^-53 */ || d > 67108864 /** 2^26 */ || !Number.isFinite(d))
-    return [NaN, NaN]
+  if (d <= 1.1102230246251565e-16 /** 2^-53 */ || d > 67108864 /** 2^26 */ || !Number.isFinite(d)) { return [NaN, NaN] }
 
   // Guaranteed that d > 0 and is finite, and that its exponent n is in the range [-52, 25] inclusive.
   const exp = getExponent(d)
@@ -138,12 +130,12 @@ function _doubleToRational (d) {
   const dn = dnLookupTable[exp + 52]
 
   // We find the nearest rational number that satisfies our requirements
-  const [ p, q, err ] = closestRational(d, dn)
+  const [p, q, err] = closestRational(d, dn)
 
   // Close enough, but rigorously so (see Theory)
-  if (err <= Math.pow(2, exp - 52)) return [ negative ? -p : p, q ]
+  if (err <= Math.pow(2, exp - 52)) return [negative ? -p : p, q]
 
-  return [ NaN, NaN ]
+  return [NaN, NaN]
 }
 
 let lastDoubleToRationalArg = 0
@@ -178,7 +170,7 @@ export function doubleToRational (d) {
  * @param b {number}
  */
 function powSpecial (a, b) {
-  const [ num, den ] = doubleToRational(b)
+  const [num, den] = doubleToRational(b)
 
   // deemed irrational
   if (!den) return NaN
@@ -205,8 +197,7 @@ function powSpecial (a, b) {
  * @returns {number}
  */
 export function pow (a, b) {
-  if (Number.isNaN(a) || Number.isNaN(b))
-    return NaN
+  if (Number.isNaN(a) || Number.isNaN(b)) { return NaN }
 
   if (a < 0 && !Number.isInteger(b)) {
     return powSpecial(a, b)

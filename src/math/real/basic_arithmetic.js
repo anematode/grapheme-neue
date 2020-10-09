@@ -53,19 +53,17 @@ export function gcd (a, b) {
   b = Math.abs(b)
 
   if (b > a) {
-    let tmp = a
+    const tmp = a
     a = b
     b = tmp
   }
 
   while (true) {
-    if (b === 0)
-      return a
+    if (b === 0) { return a }
 
     a %= b
 
-    if (a === 0)
-      return b
+    if (a === 0) { return b }
 
     b %= a
   }
