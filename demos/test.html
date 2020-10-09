@@ -8,7 +8,17 @@
 <script type="module">
   import * as Grapheme from "../src/main.js"
 
-  Object.assign(window, { Grapheme })
+  Object.assign(window, {Grapheme})
+
+  Object.assign(window, setup())
+</script>
+
+<script>
+  function setup() {
+    const int = new Grapheme.BigInt([1], 1)
+
+    return {int}
+  }
 </script>
 </body>
 </html>
