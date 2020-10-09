@@ -47,3 +47,26 @@ export function multiply (x, y) {
 export function divide (x, y) {
   return x / y
 }
+
+export function gcd (a, b) {
+  a = Math.abs(a)
+  b = Math.abs(b)
+
+  if (b > a) {
+    let tmp = a
+    a = b
+    b = tmp
+  }
+
+  while (true) {
+    if (b === 0)
+      return a
+
+    a %= b
+
+    if (a === 0)
+      return b
+
+    b %= a
+  }
+}

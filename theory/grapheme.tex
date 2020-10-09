@@ -1,6 +1,7 @@
 \documentclass{article}
 \usepackage{amsmath}
 \usepackage{amsfonts}
+\usepackage{enumitem}
 
 \newcommand{\NaN}{\texttt{NaN}}
 \newcommand{\allfp}{\mathbb{F}_\text{all}}
@@ -47,15 +48,16 @@ Among the real numbers, exponentiation is straightforward for positive bases, bu
 
 \subsubsection{Doubles to Rationals}
 
-There are two competing interests: one, to correctly recognize mathematical rational numbers that would be reasonably encountered in a graphing session, and two, to make coincidences that lead to the recognition of irrational numbers as rational unlikely. We restrict our further work to the positive domain, since this makes our life far easier. In other words, we want to find a reasonable function $d : \finitefp_{>0} \to \mathbb{Z}^2$, so that the resulting numerator–denominator pair corresponds closely to the floating-point number argument.
+We hence describe the function \texttt{doubleToRational}. There are two competing interests: one, to correctly recognize mathematical rational numbers that would be reasonably encountered in a graphing session, and two, to make coincidences that lead to the recognition of irrational numbers as rational unlikely. We restrict our further work to the positive domain, since this makes our life far easier. In other words, we want to find a reasonable function $d : \finitefp_{>0} \to \mathbb{Z}^2$, so that the resulting numerator–denominator pair corresponds closely to the floating-point number argument.
 
 To do this, we make some stipulations.
 
 \begin{enumerate}
-  \item There are at most $\frac{1}{1000}$ of floating-point numbers in any range $\left(2^n, 2^{n+1}\right)$ are classified as rational. This makes it unlikely that a randomly-generated real number will be considered rational.
+  \item At most approximately $\frac{1}{10000}$ of floating-point numbers in any range $\left(2^n, 2^{n+1}\right)$ are classified as rational. This makes it unlikely that a randomly-generated real number will be considered rational.
   \item The floating-point numbers corresponding to a rational number $\frac{p}{q}$ are at most those inside \texttt{RealInterval.from(p/q)}; in other words, they are either \texttt{p/q} as evaluated by JS, or the preceding or succeeding float.
   \item There must be no intersections between these intervals.
-  \item We assert that the numerator and denominator be less than or equal in magnitude to Number.MAX_SAFE_INTEGER ($2^{53}-1$), which makes our life easier (and such numbers are the majority of rational numbers we'd encounter).
+  \item We assert that the numerator and denominator be less than or equal in magnitude to $2^{53}-1$, which makes our life easier (and such numbers are the majority of rational numbers we'd encounter).
+  \item If we are to recognize any floats in a range, we must recognize up to at least denominator $100$.
 \end{enumerate}
 
 For example, \texttt{1/3} evaluates to the floating-point number $0.3333333333333333$. The preceding and succeeding members of $\finitefp$, namely $0.33333333333333337$ and $0.33333333333333326$ should also correspond to the same number, but no other numbers should correspond to the rational number $\frac{1}{3}$. Because the spacing between floating-point numbers varies, we split up our recognition algorithm over each of the $2046$ sets $\left(2^n, 2^{n+1}\right)$ for $-1022\leq n\leq 1023$ available to floating-point numbers. (Denormalized numbers are ignored, since they are too small.)
@@ -64,7 +66,43 @@ The minimum returnable rational number is $\frac{1}{2^{53}-1}$, which means that
 
 $$\underbrace{2\cdot 2^{n-53}}_{\text{rounding}}+\underbrace{3\cdot 2^{n-52}}_{\text{interval widths}} = 2^{n-50}$$
 
-to comply with stipulation #2 and #3. We wish to support all (reduced-form) rational numbers $p/q$ with $q \leq d_n$ in a range $[2^n, 2^{n+1})$, where we choose $d_n$ intelligently. The minimum distance between any two floating-point numbers 
+to comply with stipulations 2 and 3. We wish to support all (reduced-form) rational numbers $p/q$ with $q \leq d_n$ in a range $[2^n, 2^{n+1})$, where we choose $d_n$ intelligently. The minimum distance between any two supported rational numbers is at least $\frac{1}{d_n^2}$, so
+
+$$\frac{1}{d_n^2} \geq 2^{n-50}\Longrightarrow d_n^2 \leq 2^{50-n}\Longrightarrow d_n \leq 2^{25 - n/2}. \label{eq:dn_restriction_1}$$
+
+Finally, to comply with the first stipulation, we wish to compute the number of rational numbers $p/q$ with $q \leq d_n$ in the given range. This is approximately the length of the Farey sequence of order $d_n$ (the number of such rationals between $0$ and $1$), times $2^n$, which asymptotically is $\frac{3d_n^2\cdot 2^n}{\pi^2}$. The number of floats classified as rational is three times this. The number of floats in the entire range is $2^{52}$. Thus, to comply with the first requirement,
+
+$$\frac{9d_n^2 2^n}{\pi^2} \leq \frac{1}{10000}\cdot 2^{52}\Longrightarrow d_n^2 \leq \frac{\pi^2\cdot 2^{52}\cdot 2^{-n}}{9\cdot 10000} \Longrightarrow d_n \leq \frac{\pi\cdot 2^{26 - n/2}}{300}. \label{eq:dn_restriction_2}$$
+
+We see that \eqref{eq:dn_restriction_2} is always stricter than \eqref{eq:dn_restriction_1}, and we know that $100 \leq d_n < 2^{53}$, so the final expression is now
+
+$$\boxed{100 \leq d_n \leq \min \left\{ \frac{\pi\cdot 2^{26 - n/2}}{300}, 2^{53} - 1\right\}}.$$
+
+Such a $d_n$ only exists for $n \leq 25$, so we can consider numbers above $2^26$ irrational. Our procedure for numbers $x\in [1/2^{53}, 2^26]$ is now as follows:
+
+\begin{enumerate}
+\item Get the exponent $n$ via any reliable method (presumably the \texttt{getExponent} function).
+\item Look up the corresponding maximum value of $d_n$.
+\item Find the nearest rational number $p/q$ whose denominator is less than or equal to $d_n$.
+\item If $x-\frac{p}{q}\leq 2^{n-52}$, return $p/q$; otherwise, return nothing.
+\end{enumerate}
+
+Step 1 can be done via looking at the binary representation of the function, which is what \texttt{getExponent} does. Step 3 is the tricky part to do rigorously and quickly. Here is how it works:
+
+\begin{enumerate}[label=(\alph*)]
+\item We get the fractional part $f = \{ x \}$, which is an exact operation.
+\item We start with the fractions $a=0/1$ and $b=1/1$.
+\item We compute the intermediate Farey fraction, which is $c=\frac{a_n+b_n}{a_d+b_d}$.
+\item We compute the float values of $a$ and $b$ and ask which one is closer, storing this fraction as $\text{best}$
+\item If $\text{best}$ is equal to $f$, we return it with error $0$. This satisfies stipulation 2.
+\item We compute the maximum permissible numerator of the fractional part, namely $\text{maxFrac}=2^{53} - 1 - \lfloor x \rfloor \cdot \text{best}_d$.
+\item If $c_d > d_n$ or $c_n > \text{maxFrac}$, we return $\text{best}$ with the calculated error. This is the best possible rational approximation.
+\item We compute $c$, and if it is equal to $f$, we return it with error $0$.
+\item If $c < f$ we set $a$ to $c$; otherwise, we set $b$ to $c$.
+\item Go to step (c).
+\end{enumerate}
+
+This is implemented in \texttt{closestRational}. Together, this gives a complete implementation of rational-guessing for \texttt{pow}. An important optimization is that arguments to \texttt{doubleToRational} are cached, since often the exponent of \texttt{pow} is constant. We only cache the previous float; caching multiple floats is a rather finnicky process, since it would be expensive to store it in an associative array with strings as keys.
 
 Once tagged real numbers are implemented, this issue should be less important, but will still likely be used as a fallback.
 

@@ -161,7 +161,7 @@ export class BigInt {
     if (num < 0)
       return this.shiftRight(-num)
 
-    const newWordCount = this.
+    const newWordCount = this
   }
 
   shiftRight (num) {

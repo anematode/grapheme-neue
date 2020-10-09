@@ -140,6 +140,28 @@ export function getExponent (x) {
   return ((intView[1] & 0x7ff00000) >> 20) - 1023
 }
 
+export function countFloatsBetween (x1, x2) {
+  // Count the number of floats in the range [x1, x2). NaN if either is undefined. May not be exact (TODO: return bigint)
+
+  if (Number.isNaN(x1) || Number.isNaN(x2))
+    return NaN
+
+  if (x1 === x2) {
+    return 0
+  }
+
+  if (x2 < x1) {
+    let tmp = x1
+    x1 = x2
+    x2 = tmp
+  }
+
+  const [ x1man, x1exp ] = frexp(x1)
+  const [ x2man, x2exp ] = frexp(x2)
+
+  return (x2man - x1man) * 2**53 + (x2exp - x1exp) * 2**52
+}
+
 /**
  * Converts a floating-point number into a fraction in [0.5, 1), except special cases, and a power of 2 to multiply it by.
  * @param x
