@@ -23,7 +23,8 @@
     "document": "readonly",
     "navigator": "readonly",
     "window": "readonly",
-    "globalThis": "readonly"
+    "globalThis": "readonly",
+    "performance": "readonly"
   },
 
   "rules": {
