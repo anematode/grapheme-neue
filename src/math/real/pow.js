@@ -32,7 +32,7 @@ function powRational (a, c, d) {
 }
 
 /**
- * Return the closest rational number p/q to x where p, q < maxDenominator.
+ * Return the closest rational number p/q to x where q < maxDenominator and p < maxNumerator.
  * @param x {number}
  * @param maxDenominator {number}
  * @param maxNumerator {number}
@@ -40,13 +40,12 @@ function powRational (a, c, d) {
  */
 function closestRational (x, maxDenominator, maxNumerator = Number.MAX_SAFE_INTEGER) {
   const flr = Math.floor(x)
-  const frac = x - flr
 
   // If we find frac is approximately p/q, the true numerator is q * flr + p. Thus, the maximum numerator is dn - q * flr
 
-  let an = 0
+  let an = flr
   let ad = 1
-  let bn = 1
+  let bn = flr + 1
   let bd = 1
 
   while (true) {
@@ -65,8 +64,8 @@ function closestRational (x, maxDenominator, maxNumerator = Number.MAX_SAFE_INTE
     const a = an / ad
     const b = bn / bd
 
-    const errA = frac - a
-    const errB = b - frac
+    const errA = x - a
+    const errB = b - x
 
     let bestn
     let bestd
@@ -83,16 +82,14 @@ function closestRational (x, maxDenominator, maxNumerator = Number.MAX_SAFE_INTE
       bestErr = errB
     }
 
-    const nshift = bestd * flr
-
     // If numerator or denominator are too big, or the approximation is exact, return the approximation
-    if (cd > maxDenominator || cn > maxNumerator - nshift || bestErr === 0) return [bestn + nshift, bestd, bestErr]
+    if (cd > maxDenominator || cn > maxNumerator || bestErr === 0) return [bestn, bestd, bestErr]
 
     const c = cn / cd
 
-    if (c === frac) return [cn + cd * flr, cd, 0]
+    if (c === x) return [cn, cd, 0]
 
-    if (frac < c) {
+    if (x < c) {
       bn = cn
       bd = cd
     } else {
@@ -183,7 +180,8 @@ function powSpecial (a, b) {
 
 /**
  * This function computes a^b, where a and b are floats, but does not always return NaN for a < 0 and b ≠ Z. The
- * method by which this is bodged is specified in Grapheme Theory.
+ * method by which this is bodged is specified in Grapheme Theory. For the special cases, it takes about 0.006 ms per
+ * evaluation on my computer.
  *
  * There are some special cases:
  *   a. if a === b === 0, 1 is returned (this is same as Math.pow)
@@ -197,11 +195,9 @@ function powSpecial (a, b) {
  * @returns {number}
  */
 export function pow (a, b) {
-  if (Number.isNaN(a) || Number.isNaN(b)) { return NaN }
+  if (Number.isNaN(a) || Number.isNaN(b)) return NaN
 
-  if (a < 0 && !Number.isInteger(b)) {
-    return powSpecial(a, b)
-  }
+  if (a < 0 && a > -Infinity && !Number.isInteger(b)) return powSpecial(a, b)
 
   return Math.pow(a, b)
 }

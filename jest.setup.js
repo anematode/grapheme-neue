@@ -2,7 +2,8 @@
 
 globalThis.expectMultipleCases = (func, testCases) => {
   testCases.forEach(testCase => {
-    expect(func(testCase[0]), `Input was ${testCase[0]}`).toBe(testCase[1])
+    const args = testCase.slice(0, testCase.length)
+    expect(func(...args), `Input was ${args.join(', ')}`).toBe(testCase[testCase.length - 1])
   })
 }
 

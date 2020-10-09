@@ -129,9 +129,15 @@ export function getExponent (x) {
   return ((intView[1] & 0x7ff00000) >> 20) - 1023
 }
 
+/**
+ * Testing function. Counts the approximate number of floats between x1 and x2, including x1 but excluding x2. NaN if
+ * either is undefined. It is approximate because the answer may sometimes exceed Number.MAX_SAFE_INTEGER, but it is
+ * reliable if the answer is less than Number.MAX_SAFE_INTEGER.
+ * @param x1 {number}
+ * @param x2 {number}
+ * @returns {number}
+ */
 export function countFloatsBetween (x1, x2) {
-  // Count the number of floats in the range [x1, x2). NaN if either is undefined. May not be exact (TODO: return bigint)
-
   if (Number.isNaN(x1) || Number.isNaN(x2)) { return NaN }
 
   if (x1 === x2) {
