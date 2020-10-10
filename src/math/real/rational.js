@@ -85,7 +85,8 @@ export function closestRational (x, maxDenominator, maxNumerator = Number.MAX_SA
   let dn = 1
 
   // Store the best numerators and denominators found so far
-  let bestN = Math.round(x); let bestD = 1
+  let bestN = Math.round(x)
+  let bestD = 1
 
   // Same indexing variable as Grapheme Theory. In case there's a bug I don't know about; it should terminate in < 55 steps
   for (let i = 2; i < 100; ++i) {
