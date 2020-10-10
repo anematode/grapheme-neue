@@ -48,13 +48,13 @@ The basic idea is to treat a floating-point number as a 64-bit integer, which we
 
 \subsection{Other Helpful Functions}
 
-\texttt{pow2(x)} computes $2^x$ exactly for integers $-1074\leq x \leq 1023$, which is done via bit manipulation. \texttt{getExponent} and \texttt{getMantissa} return the non-biased exponent and mantissa, respectively, of a given float. \texttt{mantissaCtz} and \texttt{mantissaClz} count the number of trailing and leading zeros, respectively, of a given float. \texttt{frExp(x)}, for $x\in \finitefp$, returns a floating-point number $0.5\leq |f| < 1$ and integer $e$ which guarantees that $f\cdot \texttt{pow2}(e)=x$. This guarantee is preserved for $x\in \allfp$, but $f$ in that case may be $\NaN$ or $\pm \infty$. It handles denormalized numbers correctly but uses a special algorithm for them.
+\texttt{pow2(x)} computes $2^x$ exactly for integers $-1074\leq x \leq 1023$, which is done via bit manipulation. \texttt{getExponent} and \texttt{getMantissa} return the non-biased exponent and mantissa, respectively, of a given float. \texttt{mantissaCtz} and \texttt{mantissaClz} count the number of trailing and leading zeros, respectively, of a given float. \texttt{frExp(x)}, for $x\in \finitefp$, returns a floating-point number $0.5\leq |f| < 1$ and integer $e$ and guarantees that $f\cdot \texttt{pow2}(e)=x$. This guarantee is preserved for $x\in \allfp$, but $f$ in that case may be $\NaN$ or $\pm \infty$. It handles denormalized numbers correctly but uses a special algorithm for them.
 
-\texttt{rationalExp(x)} returns a minimal fraction $n/d$ and exponent $e$ such that $n/d\cdot \texttt{pow2}(e)=x$. $n$ and $d$ are guaranteed to be reduced. It does this by first using \texttt{frExp} to find $f$ and $e$ such that $f\cdot 2^e = x$, then representing $f$ as a fraction $(f\cdot 2^{53})/2^{53}$; since $0.5\leq |f| < 1$, the numerator is positive. It finally cancels out as many powers as two as it can to ensure it is reduced.
+\texttt{rationalExp(x)} returns a reduced fraction $n/d$ and exponent $e$ such that $n/d\cdot \texttt{pow2}(e)=x$ in JS arithmetic. It does this by first using \texttt{frExp} to find $f$ and $e$ such that $f\cdot 2^e = x$, then representing $f$ as a fraction $(f\cdot 2^{53})/2^{53}$; since $0.5\leq |f| < 1$, the numerator is positive. It finally cancels out as many powers as two as it can to ensure it is reduced.
 
 \subsection{Intelligent Pow}
 
-Among the real numbers, exponentiation is straightforward for positive bases, but rather complicated for negative bases. Negative bases raised to a rational power are variously positive, negative or undefined, depending on the fraction. Among $\finitefp$, however, negative bases raised to any power are undefined. This can be logically seen from the fact that all floating-point numbers are rational numbers. But the number $0.3333333333333333\in\finitefp$ likely refers to $\frac{1}{3}$, and so does $0.33333333333333326$, but probably not $0.3333333333001$.
+Among the real numbers, exponentiation is straightforward for positive bases, but rather complicated for negative bases. Negative bases raised to a rational power are variously positive, negative or undefined, depending on the fraction. Among $\finitefp$, however, negative bases raised to any power $p\in\finitefp\setminus\mathbb{Z}$ are undefined. This can be logically seen from the fact that all floating-point numbers, besides the integers, are rational numbers with a power-of-two base. But the number $0.3333333333333333\in\finitefp$ likely refers to $\frac{1}{3}$, and so does $0.33333333333333326$, but probably not $0.3333333333001$.
 
 \subsubsection{Doubles to Rationals}
 
@@ -76,13 +76,17 @@ The minimum returnable rational number is $\frac{1}{2^{53}-1}$, which means that
 
 $$\underbrace{2\cdot 2^{n-53}}_{\text{rounding}}+\underbrace{3\cdot 2^{n-52}}_{\text{interval widths}} = 2^{n-50}$$
 
-to comply with stipulations 2 and 3. We wish to support all (reduced-form) rational numbers $p/q$ with $q \leq d_n$ in a range $[2^n, 2^{n+1})$, where we choose $d_n$ intelligently. The minimum distance between any two supported rational numbers is at least $\frac{1}{d_n^2}$, so
+to comply with stipulations 2 and 3. We wish to support all reduced rational numbers $p/q$ with $q \leq d_n$ in a range $[2^n, 2^{n+1})$, where we choose $d_n$ intelligently. The minimum distance between any two supported rational numbers is at least $\frac{1}{d_n^2}$, so
 
-$$\frac{1}{d_n^2} \geq 2^{n-50}\Longrightarrow d_n^2 \leq 2^{50-n}\Longrightarrow d_n \leq 2^{25 - n/2}. \label{eq:dn_restriction_1}$$
+\begin{equation}
+  \frac{1}{d_n^2} \geq 2^{n-50}\Longrightarrow d_n^2 \leq 2^{50-n}\Longrightarrow d_n \leq 2^{25 - n/2}. \label{eq:dn_restriction_1}
+\end{equation}
 
-Finally, to comply with the first stipulation, we wish to compute the number of rational numbers $p/q$ with $q \leq d_n$ in the given range. This is approximately the length of the Farey sequence of order $d_n$ (the number of such rationals between $0$ and $1$), times $2^n$, which asymptotically is $\frac{3d_n^2\cdot 2^n}{\pi^2}$. The number of floats classified as rational is three times this. The number of floats in the entire range is $2^{52}$. Thus, to comply with the first requirement,
+Finally, to comply with the first stipulation, we wish to compute the number of rational numbers $p/q$ with $q \leq d_n$ in the given range. This is approximately the length of the Farey sequence of order $d_n$ (the number of such rationals between $0$ and $1$) times $2^n$, which asymptotically is $\frac{3d_n^2\cdot 2^n}{\pi^2}$. The number of floats classified as rational is three times this. The number of floats in the entire range is $2^{52}$. Thus, to comply with the first requirement,
 
-$$\frac{9d_n^2 2^n}{\pi^2} \leq \frac{1}{10000}\cdot 2^{52}\Longrightarrow d_n^2 \leq \frac{\pi^2\cdot 2^{52}\cdot 2^{-n}}{9\cdot 10000} \Longrightarrow d_n \leq \frac{\pi\cdot 2^{26 - n/2}}{300}. \label{eq:dn_restriction_2}$$
+\begin{equation}
+  \frac{9d_n^2 2^n}{\pi^2} \leq \frac{1}{10000}\cdot 2^{52}\Longrightarrow d_n^2 \leq \frac{\pi^2\cdot 2^{52}\cdot 2^{-n}}{9\cdot 10000} \Longrightarrow d_n \leq \frac{\pi\cdot 2^{26 - n/2}}{300}. \label{eq:dn_restriction_2}
+\end{equation}
 
 We see that \eqref{eq:dn_restriction_2} is always stricter than \eqref{eq:dn_restriction_1}, and we know that $100 \leq d_n < 2^{53}$, so the final expression is now
 
@@ -100,15 +104,15 @@ Such a $d_n$ only exists for $n \leq 25$, so we can consider numbers above $2^{2
 Step 1 can be done via looking at the binary representation of the function, which is what \texttt{getExponent} does. Step 3 is the tricky part to do rigorously and quickly. A bit more detail is given in the implementation, but the gist of it is below:
 
 \begin{enumerate}[label=(\alph*)]
-  \item Given a floating-point number $x$ and integers \texttt{maxDenominator} and \texttt{maxNumerator}.
-  \item If $x < 0$, return the negation of the function evaluated for $-x$.
+  \item Given a floating-point number $x$ and integers \texttt{maxDenominator} and \texttt{maxNumerator}:
+  \item If $x < 0$, return the negation of this function evaluated for $-x$.
   \item If $x$ is not finite, return $\NaN, \NaN, \NaN$.
   \item If $x$ is an integer, return the minimum of \texttt{maxNumerator} and $x$ for the numerator, $1$ for the denominator, and the error.
   \item Compute the integer and fractional part of $x$, \texttt{flr} and \texttt{frac} respectively.
   \item Using \texttt{rationalExp}, find floats $p$ and $q$ in reduced form such that $p/q=\texttt{flr}$ and the equation is mathematically exact. $q$ might overflow to $\infty$, but that only happens when $x$ is smaller than $2^{1000}$ or so, in which case we return $0$ as the nearest rational. The reason we operate on \texttt{flr} is because we can guarantee that $p$ is a safe integer (though $q$, as mentioned, will be exact but not necessarily safe).
   \item If $p/q$ satisfies the bounds given, return it with error $0$.
   \item The continued fraction expansion of $x$ is $$\texttt{flr} + \texttt{frac}=\texttt{flr} + \tfrac{1}{\tfrac{q}{p}}.$$ Compute the integer part of $\frac{q}{p}$, \texttt{inv\_flr}, and the remainder, \texttt{inv\_rem}. \texttt{inv\_flr} must be nudged so that rounding errors don't cause \texttt{Math.floor} to fail; see the code for how this happens. As an example, consider $x=\texttt{1/5}$, which leads to calculating \texttt{inv\_flr} for $\lfloor\frac{q}{p}\rfloor=\lfloor\frac{18014398509481984}{3602879701896397}\rfloor$. The JS result is $5$ due to the fraction being closer to $5$ than $5$'s predecessor in $\finitefp$, but the mathematically exact result (which we need) is $4$. \texttt{inv\_rem} is exact per the ECMAScript standard, since the result is exactly representable.
-  \item Define $c_i$ as the exact, terminating continued fraction expansion of $x$, computed as $$\texttt{flr} + \frac{1}{\texttt{inv\_flr} + \frac{1}{\frac{\texttt{inv\_rem}}{p}}\ddots}.$$ Note that $\texttt{inv\_rem},p \leq \texttt{Number.MAX\_SAFE\_INTEGER}$, so we don't have to do any special handling here on out. Indexing: $c_1 = \texttt{flr}$ and $c_2 = \texttt{inv\_flr}$.
+  \item Define $c_i$ as the exact, terminating continued fraction expansion of $x$, computed as $$\texttt{flr} + \tfrac{1}{\texttt{inv\_flr} + \tfrac{1}{\tfrac{\texttt{inv\_rem}}{p}}\ddots}.$$ Note that $\texttt{inv\_rem},p \leq \texttt{Number.MAX\_SAFE\_INTEGER}$, so we don't have to do any special handling here on out. Indexing: $c_1 = \texttt{flr}$ and $c_2 = \texttt{inv\_flr}$.
   \item We define additional recurrence relations. These provide the convergent numerators and denominators at each step. \begin{enumerate}
     \item Convergent numerators: $n_0 = 1, n_1 = \texttt{flr}, n_{i+1} = c_{i+1}n_i + n_{i-1}$.
     \item Convergent denominators: $d_0 = 1, d_1 = \texttt{flr}, n_{i+1} = c_{i+1}n_i + n_{i-1}$.
