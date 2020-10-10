@@ -15,9 +15,27 @@
 
 <script>
   function setup() {
-    const int = new Grapheme.BigInt([1], 1)
+    function evaluateCont(contFrac) {
+      if (contFrac.length === 0)
+        return 0
 
-    return {int}
+      let num = 1, den = 0
+
+      for (let i = contFrac.length - 1; i >= 0; --i) {
+        let val = contFrac[i]
+
+        let newNum = den + val * num
+        let newDen = num
+
+        num = newNum
+        den = newDen
+
+      }
+
+      return [num, den]
+    }
+
+    return {evaluateCont}
   }
 </script>
 </body>

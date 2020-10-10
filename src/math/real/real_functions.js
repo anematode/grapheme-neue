@@ -2,7 +2,7 @@
  * @file Definition of the {@link RealFunctions}, or functions outside of the built-in <i>Math</i> that accept
  * floating-point numbers as arguments.
  */
-import { add, divide, multiply, subtract } from './basic_arithmetic.js'
+import { add, divide, multiply, subtract, gcd } from './basic_arithmetic.js'
 import { gamma, lnGamma, factorial } from './gamma.js'
 import { pow } from './pow.js'
 
@@ -17,6 +17,7 @@ const RealFunctions = Object.freeze({
   divide,
   multiply,
   subtract,
+  gcd,
   gamma,
   lnGamma,
   factorial,

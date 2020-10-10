@@ -17,8 +17,8 @@ const isBigEndian = (() => {
 if (isBigEndian) throw new Error('only works on little-endian systems; your system is mixed- or big-endian.')
 
 // Used for bit-level manipulation of floats
-const floatStore = new Float64Array(1)
-const intView = new Uint32Array(floatStore.buffer)
+export const floatStore = new Float64Array(1)
+export const intView = new Uint32Array(floatStore.buffer)
 
 /**
  * Returns the next floating point number after a positive x, but doesn't account for special cases.
@@ -131,6 +131,24 @@ export function getExponent (x) {
   return ((intView[1] & 0x7ff00000) >> 20) - 1023
 }
 
+// Internal function
+function _getMantissaHighWord () {
+  return intView[1] & 0x000fffff
+}
+
+/**
+ * Get the mantissa of a floating-point number as an integer in [0, 2^52).
+ * @param x {number} Any floating-point number
+ * @returns {number} An integer in [0, 2^52) containing the mantissa of that number
+ * @function getMantissa
+ * @memberOf FP
+ */
+export function getMantissa (x) {
+  floatStore[0] = x
+
+  return intView[0] + _getMantissaHighWord() * 4294967296
+}
+
 /**
  * Testing function counting the approximate number of floats between x1 and x2, including x1 but excluding x2. NaN if
  * either is undefined. It is approximate because the answer may sometimes exceed Number.MAX_SAFE_INTEGER, but it is
@@ -152,8 +170,8 @@ export function countFloatsBetween (x1, x2) {
     x2 = tmp
   }
 
-  const [x1man, x1exp] = frexp(x1)
-  const [x2man, x2exp] = frexp(x2)
+  const [x1man, x1exp] = frExp(x1)
+  const [x2man, x2exp] = frExp(x2)
 
   return (x2man - x1man) * 2 ** 53 + (x2exp - x1exp) * 2 ** 52
 }
@@ -191,20 +209,137 @@ export function pow2 (exp) {
   return floatStore[0]
 }
 
+// Counts the number of trailing zeros in a 32-bit integer n; similar to <i>Math.clz32</i>.
+function countTrailingZeros (n) {
+  let bits = 0
+
+  if (n !== 0) {
+    let x = n
+
+    // Suck off groups of 16 bits, then 8 bits, et cetera
+    if ((x & 0x0000FFFF) === 0) {
+      bits += 16
+      x >>>= 16
+    }
+
+    if ((x & 0x000000FF) === 0) {
+      bits += 8
+      x >>>= 8
+    }
+
+    if ((x & 0x0000000F) === 0) {
+      bits += 4
+      x >>>= 4
+    }
+
+    if ((x & 0x00000003) === 0) {
+      bits += 2
+      x >>>= 2
+    }
+
+    bits += (x & 1) ^ 1
+  } else {
+    return 32
+  }
+
+  return bits
+}
+
+// Internal function
+function _mantissaCtz () {
+  const bits = countTrailingZeros(intView[0])
+
+  if (bits === 32) {
+    const secondWordCount = countTrailingZeros(_getMantissaHighWord())
+
+    return 32 + Math.min(secondWordCount, 20)
+  }
+
+  return bits
+}
+
+/**
+ * Counts the number of trailing zeros in the mantissa of a floating-point number, between 0 and 52.
+ * @param d {number} A floating-point number
+ * @returns {number} The number of trailing zeros in that number's mantissa
+ * @function mantissaCtz
+ * @memberOf FP
+ */
+export function mantissaCtz (d) {
+  floatStore[0] = d
+
+  return _mantissaCtz()
+}
+
+// Internal function
+function _mantissaClz () {
+  const bits = Math.clz32(_getMantissaHighWord()) - 12 // subtract the exponent zeroed part
+
+  return bits !== 20 ? bits : bits + Math.clz32(intView[0])
+}
+
+/**
+ * Counts the number of leading zeros in the mantissa of a floating-point number, between 0 and 52.
+ * @param d {number} A floating-point number
+ * @returns {number} The number of leading zeros in that number's mantissa
+ * @function mantissaClz
+ * @memberOf FP
+ */
+export function mantissaClz (d) {
+  floatStore[0] = d
+
+  return _mantissaClz()
+}
+
 /**
  * Converts a floating-point number into a fraction in [0.5, 1) or (-1, -0.5], except special cases, and an exponent,
  * such that fraction * 2 ^ exponent gives the original floating point number. If x is ±0, ±Infinity or NaN, [x, 0] is
  * returned to maintain this guarantee.
  * @param x {number} Any floating-point number
  * @returns {number[]} [fraction, exponent]
- * @function frexp
+ * @function frExp
  * @memberOf FP
  */
-export function frexp (x) {
+export function frExp (x) {
   if (x === 0 || !Number.isFinite(x)) return [x, 0]
 
   // +1 so that the fraction is between 0.5 and 1 instead of 1 and 2
-  const exp = getExponent(x) + 1
+  let exp = getExponent(x) + 1
 
-  return [x / Math.pow(2, exp), exp]
+  // Denormal
+  if (exp === -1022) {
+    // If the mantissa is the integer m, then we should subtract clz(m) from exp to get a suitable answer
+    exp -= _mantissaClz()
+  }
+
+  return [x / pow2(exp), exp]
+}
+
+/**
+ * Converts a floating-point number into a numerator, denominator and exponent such that it is equal to n/d * 2^e. n and
+ * d are guaranteed to be less than or equal to 2^53 and greater than or equal to 0 (unless the number is ±0, Infinity,
+ * or NaN, at which point [x, 1, 0] is returned). See Grapheme Theory for details.
+ * @param x {number} Any floating-point number
+ * @returns {number[]} [numerator, denominator, exponent]
+ * @function rationalExp
+ * @memberOf FP
+ */
+export function rationalExp (x) {
+  if (x < 0) {
+    const [ num, den, exp ] = rationalExp(-x)
+
+    return [ -num, den, exp ]
+  }
+
+  if (x === 0 || !Number.isFinite(x)) return [ x, 1, 0 ]
+
+  // Decompose into frac * 2 ^ exp
+  const [ frac, exp ] = frExp(x)
+
+  // This tells us the smallest power of two which frac * (2 ** shift) is an integer, which is the denominator
+  // of the dyadic rational corresponding to x
+  const den = pow2(53 - mantissaCtz(frac))
+  const num = frac * den
+
+  return [ num, den, exp ]
 }

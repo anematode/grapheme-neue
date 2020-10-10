@@ -40,7 +40,17 @@ Some conventions:
 
 \subsection{Directed Rounding}
 
-Per the ECMAScript standard, JS operations all use round-to-nearest, ties-to-even. That means that if the mathematical result of an operation is, say, $3.261$, and the nearest permitted floats are $3.26$ and $3.27$, the operation will return $3.26$. Unfortunately, JS does not provide facilities to set the rounding mode, which is understandable given the niche use of these modes.
+Per the ECMAScript standard, JS operations all use round-to-nearest, ties-to-even. That means that if the mathematical result of an operation is, say, $3.261$, and the nearest permitted floats are $3.26$ and $3.27$, the operation will return $3.26$. Unfortunately, JS does not provide facilities to set the rounding mode, which is understandable given the niche use of these modes. Grapheme does provide the functions \texttt{FP.roundUp} and \texttt{FP.roundDown}.
+
+\subsubsection{FP.roundUp and FP.roundDown}
+
+The basic idea is to treat a floating-point number as a 64-bit integer, which we can do via typed arrays. Incrementing this integer moves us to the next floating-point value, and decrementing it moves us to the previous one. This works for all values except special values, 0, and -\texttt{Number.MIN\_VALUE} (the last is only an issue for \texttt{roundUp}). It even works for denormals!
+
+\subsection{Other Helpful Functions}
+
+\texttt{pow2(x)} computes $2^x$ exactly for integers $-1074\leq x \leq 1023$, which is done via bit manipulation. \texttt{getExponent} and \texttt{getMantissa} return the non-biased exponent and mantissa, respectively, of a given float. \texttt{mantissaCtz} and \texttt{mantissaClz} count the number of trailing and leading zeros, respectively, of a given float. \texttt{frExp(x)}, for $x\in \finitefp$, returns a floating-point number $0.5\leq |f| < 1$ and integer $e$ which guarantees that $f\cdot \texttt{pow2}(e)=x$. This guarantee is preserved for $x\in \allfp$, but $f$ in that case may be $\NaN$ or $\pm \infty$. It handles denormalized numbers correctly but uses a special algorithm for them.
+
+\texttt{rationalExp(x)} returns a minimal fraction $n/d$ and exponent $e$ such that $n/d\cdot \texttt{pow2}(e)=x$. $n$ and $d$ are guaranteed to be reduced. It does this by first using \texttt{frExp} to find $f$ and $e$ such that $f\cdot 2^e = x$, then representing $f$ as a fraction $(f\cdot 2^{53})/2^{53}$; since $0.5\leq |f| < 1$, the numerator is positive. It finally cancels out as many powers as two as it can to ensure it is reduced.
 
 \subsection{Intelligent Pow}
 
@@ -87,19 +97,31 @@ Such a $d_n$ only exists for $n \leq 25$, so we can consider numbers above $2^{2
 \item If $x-\frac{p}{q}\leq 2^{n-52}$, return $p/q$; otherwise, return nothing.
 \end{enumerate}
 
-Step 1 can be done via looking at the binary representation of the function, which is what \texttt{getExponent} does. Step 3 is the tricky part to do rigorously and quickly. Here is how it works:
+Step 1 can be done via looking at the binary representation of the function, which is what \texttt{getExponent} does. Step 3 is the tricky part to do rigorously and quickly. A bit more detail is given in the implementation, but the gist of it is below:
 
 \begin{enumerate}[label=(\alph*)]
-\item We get the fractional part $f = \{ x \}$, which is an exact operation.
-\item We start with the fractions $a=0/1$ and $b=1/1$.
-\item We compute the intermediate Farey fraction, which is $c=\frac{a_n+b_n}{a_d+b_d}$.
-\item We compute the float values of $a$ and $b$ and ask which one is closer, storing this fraction as $\text{best}$
-\item If $\text{best}$ is equal to $f$, we return it with error $0$. This satisfies stipulation 2.
-\item We compute the maximum permissible numerator of the fractional part, namely $\text{maxFrac}=2^{53} - 1 - \lfloor x \rfloor \cdot \text{best}_d$.
-\item If $c_d > d_n$ or $c_n > \text{maxFrac}$, we return $\text{best}$ with the calculated error. This is the best possible rational approximation.
-\item We compute $c$, and if it is equal to $f$, we return it with error $0$.
-\item If $c < f$ we set $a$ to $c$; otherwise, we set $b$ to $c$.
-\item Go to step (c).
+  \item Given a floating-point number $x$ and integers \texttt{maxDenominator} and \texttt{maxNumerator}.
+  \item If $x < 0$, return the negation of the function evaluated for $-x$.
+  \item If $x$ is not finite, return $\NaN, \NaN, \NaN$.
+  \item If $x$ is an integer, return the minimum of \texttt{maxNumerator} and $x$ for the numerator, $1$ for the denominator, and the error.
+  \item Compute the integer and fractional part of $x$, \texttt{flr} and \texttt{frac} respectively.
+  \item Using \texttt{rationalExp}, find floats $p$ and $q$ in reduced form such that $p/q=\texttt{flr}$ and the equation is mathematically exact. $q$ might overflow to $\infty$, but that only happens when $x$ is smaller than $2^{1000}$ or so, in which case we return $0$ as the nearest rational. The reason we operate on \texttt{flr} is because we can guarantee that $p$ is a safe integer (though $q$, as mentioned, will be exact but not necessarily safe).
+  \item If $p/q$ satisfies the bounds given, return it with error $0$.
+  \item The continued fraction expansion of $x$ is $$\texttt{flr} + \texttt{frac}=\texttt{flr} + \tfrac{1}{\tfrac{q}{p}}.$$ Compute the integer part of $\frac{q}{p}$, \texttt{inv\_flr}, and the remainder, \texttt{inv\_rem}. \texttt{inv\_flr} must be nudged so that rounding errors don't cause \texttt{Math.floor} to fail; see the code for how this happens. As an example, consider $x=\texttt{1/5}$, which leads to calculating \texttt{inv\_flr} for $\lfloor\frac{q}{p}\rfloor=\lfloor\frac{18014398509481984}{3602879701896397}\rfloor$. The JS result is $5$ due to the fraction being closer to $5$ than $5$'s predecessor in $\finitefp$, but the mathematically exact result (which we need) is $4$. \texttt{inv\_rem} is exact per the ECMAScript standard, since the result is exactly representable.
+  \item Define $c_i$ as the exact, terminating continued fraction expansion of $x$, computed as $$\texttt{flr} + \frac{1}{\texttt{inv\_flr} + \frac{1}{\frac{\texttt{inv\_rem}}{p}}\ddots}.$$ Note that $\texttt{inv\_rem},p \leq \texttt{Number.MAX\_SAFE\_INTEGER}$, so we don't have to do any special handling here on out. Indexing: $c_1 = \texttt{flr}$ and $c_2 = \texttt{inv\_flr}$.
+  \item We define additional recurrence relations. These provide the convergent numerators and denominators at each step. \begin{enumerate}
+    \item Convergent numerators: $n_0 = 1, n_1 = \texttt{flr}, n_{i+1} = c_{i+1}n_i + n_{i-1}$.
+    \item Convergent denominators: $d_0 = 1, d_1 = \texttt{flr}, n_{i+1} = c_{i+1}n_i + n_{i-1}$.
+\end{enumerate}
+  \item Define variables $\texttt{bestN}=\texttt{Math.round}(x)$ and $\texttt{bestD}=1$. We begin at $i=2$.
+  \item Compute $c_i, n_i,$ and $d_i$ via the recurrence relations. The computation of $c_i$ from previous values is done simply by storing the numerator and denominator of the unresolved part of the continued fraction; the relevant variables are \texttt{contFracGeneratorNum} and \texttt{contFracGeneratorDen}. \label{closestRationalLoopStart}
+  \item If $n_i/d_i$ satisfies our bounds, record it in $\texttt{bestN}$ and $\texttt{bestD}$, then go to \ref{closestRationalLoopStart}.
+  \item If one of the variables is too big, compute the maximum reduction $r$ of $c_i$ which would give $n_i$ and $d_i$ small enough values.
+  \item If $r < \frac{c_i}{2}$, return $\texttt{bestN}/\texttt{bestD}$ with its computed error.
+  \item If $r > \frac{c_i}{2}$, compute the corresponding new value $n_i'/d_i'$ and return that with its computed error.
+  \item If $r = \frac{c_i}{2}$, compute $n_i'/d_i'$, its error and the error of $\texttt{bestN}/\texttt{bestD}$. If the latter error is worse than the former, return the new convergent with its error; otherwise, return the old convergent with its error.
+  \item If $c_{i+1}$ does not exist, return the $\texttt{bestN}/\texttt{bestD}$ with its computed error.
+  \item Go to step \ref{closestRationalLoopStart}
 \end{enumerate}
 
 This is implemented in \texttt{closestRational}. Together, this gives a complete implementation of rational-guessing for \texttt{pow}. An important optimization is that arguments to \texttt{doubleToRational} are cached, since often the exponent of \texttt{pow} is constant. We only cache the previous float; caching multiple floats is a rather finnicky process, since it would be expensive to store it in an associative array with strings as keys.

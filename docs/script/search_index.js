@@ -72,9 +72,9 @@ window.esdocSearchIndex = [
     "function"
   ],
   [
-    "grapheme/src/math/real/fp_manip.js~frexp",
-    "function/index.html#static-function-frexp",
-    "<span>frexp</span> <span class=\"search-result-import-path\">grapheme/src/math/real/fp_manip.js</span>",
+    "grapheme/src/math/real/fp_manip.js~frExp",
+    "function/index.html#static-function-frExp",
+    "<span>frExp</span> <span class=\"search-result-import-path\">grapheme/src/math/real/fp_manip.js</span>",
     "function"
   ],
   [
