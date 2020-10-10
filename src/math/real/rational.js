@@ -2,9 +2,8 @@
  * @file This file allows floating-point numbers to be recognized consistently as rational or irrational, with a
  * customizable error rate.
  */
-import { getExponent, pow2 } from './fp_manip.js'
-import {assertRange} from "../../utils.js"
-import {rationalExp} from "./fp_manip.js"
+import { getExponent, pow2, rationalExp } from './fp_manip.js'
+import { assertRange } from '../../utils.js'
 
 /**
  * Return the closest rational number p/q to x where 1 <= q <= maxDenominator and |p| <= maxNumerator. The algorithm is
@@ -17,12 +16,12 @@ import {rationalExp} from "./fp_manip.js"
  */
 export function closestRational (x, maxDenominator, maxNumerator = Number.MAX_SAFE_INTEGER) {
   if (x < 0) {
-    const [ p, q, error ] = closestRational (-x, maxDenominator, maxNumerator)
-    return [ -p, q, error ]
+    const [p, q, error] = closestRational(-x, maxDenominator, maxNumerator)
+    return [-p, q, error]
   }
 
-  assertRange(maxDenominator, 2, Number.MAX_SAFE_INTEGER, "maxDenominator")
-  assertRange(maxNumerator, 1, Number.MAX_SAFE_INTEGER, "maxNumerator")
+  assertRange(maxDenominator, 2, Number.MAX_SAFE_INTEGER, 'maxDenominator')
+  assertRange(maxNumerator, 1, Number.MAX_SAFE_INTEGER, 'maxNumerator')
 
   // Make integers
   maxDenominator = Math.round(maxDenominator)
@@ -48,7 +47,7 @@ export function closestRational (x, maxDenominator, maxNumerator = Number.MAX_SA
   const frac = x - flr
 
   // frac = exactFracNum / (exactFracDenWithoutExp * 2 ^ exp) = exactN / exactD (last equality is by definition); exp >= 0 guaranteed
-  const [ exactFracNum, exactFracDenWithoutExp, expN ] = rationalExp(frac)
+  const [exactFracNum, exactFracDenWithoutExp, expN] = rationalExp(frac)
   const exp = -expN
 
   // exactFracDen = exactD; exactFracNum = exactN. Note that x * 2^n is always exactly representable, so exactFracDen
@@ -86,7 +85,7 @@ export function closestRational (x, maxDenominator, maxNumerator = Number.MAX_SA
   let dn = 1
 
   // Store the best numerators and denominators found so far
-  let bestN = Math.round(x), bestD = 1
+  let bestN = Math.round(x); let bestD = 1
 
   // Same indexing variable as Grapheme Theory. In case there's a bug I don't know about; it should terminate in < 55 steps
   for (let i = 2; i < 100; ++i) {
@@ -157,7 +156,7 @@ export function closestRational (x, maxDenominator, maxNumerator = Number.MAX_SA
 
   const quot = bestN / bestD
 
-  return [ bestN, bestD, Math.abs(quot - x) ]
+  return [bestN, bestD, Math.abs(quot - x)]
 }
 
 // [...Array(53 + 25).keys()].map(n => { n = n - 52; return Math.floor(Math.min(Math.PI * 2 ** (26 - n/2) / 300, Number.MAX_SAFE_INTEGER)) })

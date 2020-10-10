@@ -18,7 +18,7 @@ export function benchmark (callback, iterations = 100, output = console.log) {
   output(`Function ${callback.name} took ${duration / iterations} ms per call.`)
 }
 
-export function assertRange (num, min, max, variableName="Unknown variable") {
+export function assertRange (num, min, max, variableName = 'Unknown variable') {
   if (num < min || num > max || Number.isNaN(num)) {
     throw new RangeError(`${variableName} must be in the range [${min}, ${max}]`)
   }

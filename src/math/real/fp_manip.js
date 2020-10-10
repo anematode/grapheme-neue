@@ -326,20 +326,20 @@ export function frExp (x) {
  */
 export function rationalExp (x) {
   if (x < 0) {
-    const [ num, den, exp ] = rationalExp(-x)
+    const [num, den, exp] = rationalExp(-x)
 
-    return [ -num, den, exp ]
+    return [-num, den, exp]
   }
 
-  if (x === 0 || !Number.isFinite(x)) return [ x, 1, 0 ]
+  if (x === 0 || !Number.isFinite(x)) return [x, 1, 0]
 
   // Decompose into frac * 2 ^ exp
-  const [ frac, exp ] = frExp(x)
+  const [frac, exp] = frExp(x)
 
   // This tells us the smallest power of two which frac * (2 ** shift) is an integer, which is the denominator
   // of the dyadic rational corresponding to x
   const den = pow2(53 - mantissaCtz(frac))
   const num = frac * den
 
-  return [ num, den, exp ]
+  return [num, den, exp]
 }
