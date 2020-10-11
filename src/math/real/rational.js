@@ -20,7 +20,7 @@ export function closestRational (x, maxDenominator, maxNumerator = Number.MAX_SA
     return [-p, q, error]
   }
 
-  assertRange(maxDenominator, 2, Number.MAX_SAFE_INTEGER, 'maxDenominator')
+  assertRange(maxDenominator, 1, Number.MAX_SAFE_INTEGER, 'maxDenominator')
   assertRange(maxNumerator, 1, Number.MAX_SAFE_INTEGER, 'maxNumerator')
 
   // Make integers
@@ -33,6 +33,10 @@ export function closestRational (x, maxDenominator, maxNumerator = Number.MAX_SA
     if (x <= maxNumerator) {
       return [x, 1, 0]
     }
+  } else if (maxDenominator === 1) {
+    const rnd = Math.min(maxNumerator, Math.round(x))
+
+    return [rnd, 1, Math.abs(rnd - x)]
   }
 
   if (x > maxNumerator) {
