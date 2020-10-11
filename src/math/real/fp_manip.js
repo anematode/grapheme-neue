@@ -170,8 +170,8 @@ export function countFloatsBetween (x1, x2) {
     x2 = tmp
   }
 
-  const [x1man, x1exp] = frExp(x1)
-  const [x2man, x2exp] = frExp(x2)
+  const [ x1man, x1exp ] = frExp(x1)
+  const [ x2man, x2exp ] = frExp(x2)
 
   return (x2man - x1man) * 2 ** 53 + (x2exp - x1exp) * 2 ** 52
 }
@@ -301,7 +301,7 @@ export function mantissaClz (d) {
  * @memberOf FP
  */
 export function frExp (x) {
-  if (x === 0 || !Number.isFinite(x)) return [x, 0]
+  if (x === 0 || !Number.isFinite(x)) return [ x, 0 ]
 
   // +1 so that the fraction is between 0.5 and 1 instead of 1 and 2
   let exp = getExponent(x) + 1
@@ -312,7 +312,7 @@ export function frExp (x) {
     exp -= _mantissaClz()
   }
 
-  return [x / pow2(exp), exp]
+  return [ x / pow2(exp), exp ]
 }
 
 /**
@@ -326,20 +326,20 @@ export function frExp (x) {
  */
 export function rationalExp (x) {
   if (x < 0) {
-    const [num, den, exp] = rationalExp(-x)
+    const [ num, den, exp ] = rationalExp(-x)
 
-    return [-num, den, exp]
+    return [ -num, den, exp ]
   }
 
-  if (x === 0 || !Number.isFinite(x)) return [x, 1, 0]
+  if (x === 0 || !Number.isFinite(x)) return [ x, 1, 0 ]
 
   // Decompose into frac * 2 ^ exp
-  const [frac, exp] = frExp(x)
+  const [ frac, exp ] = frExp(x)
 
   // This tells us the smallest power of two which frac * (2 ** shift) is an integer, which is the denominator
   // of the dyadic rational corresponding to x
   const den = pow2(53 - mantissaCtz(frac))
   const num = frac * den
 
-  return [num, den, exp]
+  return [ num, den, exp ]
 }

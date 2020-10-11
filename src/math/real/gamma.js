@@ -17,7 +17,7 @@ const LANCZOS_COEFFICIENTS = [
 ]
 
 // 1, 1, 2, 6, ...
-const INTEGER_FACTORIALS = [1]
+const INTEGER_FACTORIALS = [ 1 ]
 
 // Populate INTEGER_FACTORIALS
 let fact = 1

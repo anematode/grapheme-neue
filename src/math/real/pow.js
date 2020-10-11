@@ -41,7 +41,7 @@ function powRational (a, c, d) {
  * @private
  */
 function powSpecial (a, b) {
-  const [num, den] = doubleToRational(b)
+  const [ num, den ] = doubleToRational(b)
 
   // deemed irrational
   if (!den) return NaN

@@ -249,7 +249,7 @@ export function getIntervals (int) {
   if (int.isSet()) {
     return int.intervals
   } else {
-    return [int]
+    return [ int ]
   }
 }
 

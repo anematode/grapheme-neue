@@ -81,7 +81,7 @@ export class BigInt {
   }
 
   static one () {
-    return new BigInt([1], 1)
+    return new BigInt([ 1 ], 1)
   }
 
   /**

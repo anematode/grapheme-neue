@@ -29,7 +29,7 @@
 
   "rules": {
     "accessor-pairs": "error",
-    "array-bracket-spacing": ["error", "never"],
+    "array-bracket-spacing": ["error", "always"],
     "arrow-spacing": ["error", { "before": true, "after": true }],
     "block-spacing": ["error", "always"],
     "brace-style": ["error", "1tbs", { "allowSingleLine": true }],

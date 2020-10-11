@@ -9,7 +9,7 @@ function combinations (cows, l) {
 
   for (const perm of rec) {
     for (const cow of cows) {
-      ret.push([...perm, cow])
+      ret.push([ ...perm, cow ])
     }
   }
 
@@ -18,39 +18,39 @@ function combinations (cows, l) {
 
 test('behaves like Math.pow for most arguments', () => {
   let cases = [
-    [1, 2],
-    [1, -2.4],
-    [1.5, 12.1241],
-    [1, 0.51241],
-    [0.1409128, 120.124],
-    [0, 0.1241],
-    [150.12498, 12.14928],
-    [10, 2],
-    [-2, 3],
-    [-152001.3, 2],
-    [-142919, 40],
-    [-20104.42, -22],
-    [-219, 22],
-    [-49.001, 22],
-    [-1.0009, 391],
-    [-40, -30],
-    [120, 0],
-    [-100, 0],
-    [4102, 0],
-    [-210.5, 0],
-    ...combinations([Infinity, -Infinity, 0, -0], 2)
+    [ 1, 2 ],
+    [ 1, -2.4 ],
+    [ 1.5, 12.1241 ],
+    [ 1, 0.51241 ],
+    [ 0.1409128, 120.124 ],
+    [ 0, 0.1241 ],
+    [ 150.12498, 12.14928 ],
+    [ 10, 2 ],
+    [ -2, 3 ],
+    [ -152001.3, 2 ],
+    [ -142919, 40 ],
+    [ -20104.42, -22 ],
+    [ -219, 22 ],
+    [ -49.001, 22 ],
+    [ -1.0009, 391 ],
+    [ -40, -30 ],
+    [ 120, 0 ],
+    [ -100, 0 ],
+    [ 4102, 0 ],
+    [ -210.5, 0 ],
+    ...combinations([ Infinity, -Infinity, 0, -0 ], 2)
   ]
 
-  cases = cases.map((...args) => [...args, Math.pow(...args)])
+  cases = cases.map((...args) => [ ...args, Math.pow(...args) ])
 
   expectMultipleCases(pow, cases)
 })
 
 test('returns NaN if any argument is NaN', () => {
   const cases = [
-    [NaN, NaN, NaN],
-    [NaN, 0, NaN],
-    [0, NaN, NaN]
+    [ NaN, NaN, NaN ],
+    [ NaN, 0, NaN ],
+    [ 0, NaN, NaN ]
   ]
 
   expectMultipleCases(pow, cases)
@@ -75,7 +75,7 @@ test('returns NaN for negative base with exponent with even denominator', () => 
   ]
 
   angers.push(...angers.map(anger => -anger))
-  angers.push(...angers.map(anger => [roundUp(anger), roundDown(anger)]).flat())
+  angers.push(...angers.map(anger => [ roundUp(anger), roundDown(anger) ]).flat())
 
   for (const base of bases) {
     for (const anger of angers) {
@@ -84,7 +84,7 @@ test('returns NaN for negative base with exponent with even denominator', () => 
   }
 })
 
-const getSurrounding = cow => [roundUp(cow), cow, roundDown(cow)]
+const getSurrounding = cow => [ roundUp(cow), cow, roundDown(cow) ]
 
 test('Happy values for negative base and fractions', () => {
   const happyNegatives = [
@@ -125,10 +125,10 @@ test('Happy values for negative base and fractions', () => {
 
 test('pi and e considered irrational', () => {
   expectMultipleCases(pow, [
-    [-2, Math.PI, NaN],
-    [-2, -Math.PI, NaN],
-    [-2, Math.E, NaN],
-    [-2, -Math.E, NaN]
+    [ -2, Math.PI, NaN ],
+    [ -2, -Math.PI, NaN ],
+    [ -2, Math.E, NaN ],
+    [ -2, -Math.E, NaN ]
   ])
 })
 
@@ -170,10 +170,10 @@ test('Various other fractions correct', () => {
     -3.4210526315789473, -0.3738738738738739, -1.0401785714285714,
     1.0209424083769634
   ]
-  const alsohappy = [...fractions.map(roundUp), ...fractions.map(roundDown)]
-  const angers = [...fractions.map(roundUp).map(roundUp), ...fractions.map(roundDown).map(roundDown)]
+  const alsohappy = [ ...fractions.map(roundUp), ...fractions.map(roundDown) ]
+  const angers = [ ...fractions.map(roundUp).map(roundUp), ...fractions.map(roundDown).map(roundDown) ]
 
-  for (const frac of [...fractions, ...alsohappy]) {
+  for (const frac of [ ...fractions, ...alsohappy ]) {
     for (const base of bases) {
       expect(pow(base, frac), `Input was ${base} ^ ${frac}`).toBeDefined()
     }
