@@ -134,4 +134,25 @@ Once tagged real numbers are implemented, this issue should be less important, b
 
 \section{Interval Arithmetic}
 
+\section{Rendering Model}
+
+Grapheme has a rendering model designed for relatively simple 2D and 3D drawing operations, with a focus on performance. After creating a \texttt{Grapheme.Plot}, elements may be added to that plot in a tree structure. The plot's canvas element may be inserted into the DOM, and the plot's \texttt{render} function may be called. It accepts a \texttt{timeout} argument, defaulting to $-1$, which throws an error if the plot could not be rendered within \texttt{timeout} milliseconds (note that it may be inaccurate for small \texttt{timeout} values). This function first updates the plot's elements that have been marked as "needing an update" (see below), then renders the entire plot synchronously. The function \texttt{renderAsync} may also be called; it returns a custom promise which resolves when the rendering completes, and raises an error otherwise. \texttt{renderAsync}, along with \texttt{timeout}, accepts an optional parameter \texttt{progressCallback} for progress management.
+
+Grapheme uses both Canvas 2D and WebGL, because both of these systems have their strengths. WebGL is blazingly fast on most computers due to its low-level abilities and GPU usage, but it is not effective for things like text. Canvas 2D is good for text and certain effects which are difficult to do in WebGL alone. Each \texttt{Plot} has a canvas element which has a Canvas 2D context, but also is assigned a \texttt{Universe} which has a single canvas used for WebGL. Multiple \texttt{Universe}s may be created for special cases, but by default every \texttt{Plot} is assigned to a single default \texttt{Universe}. The universe has a single canvas which is at least as
+big as all of the plots assigned to that universe. The elements of a plot indicate at render time if they need to use the WebGL or Canvas 2D API (possibly both). If they use the WebGL API, this is recorded so that when another element uses the Canvas 2D API, the contents of the \textit{universe}'s WebGL canvas are first copied onto the \textit{plot}'s canvas; this call is also guaranteed to happen at the end of rendering in case the last element didn't use Canvas 2D. We do this because while Canvas 2D instances are comparatively lightweight and an unlimited number of them may be used, WebGL instances are usually limited per tab to a number like $6$ (and it's good to reuse shaders and the like anyway).
+
+There are four classes of major importance to understand the system.
+
+\subsection{Element}
+
+\texttt{Grapheme.Element} is the base for all elements in a Grapheme plot, be it 2D or 3D. Its fields include \texttt{precedence}, which is the order in which the element will be drawn relative to other elements; \texttt{id}, a unique string identifier corresponding to that element; \texttt{needsUpdate}, a variable used mostly internally that signifies an element needs recalculation; \texttt{visible}, a variable which determines whether an element should be updated and/or rendered; \texttt{parent}, the parent of the element in the tree; and \texttt{plot}, the plot the element uses.
+
+\subsection{Group}
+
+\subsection{Plot}
+
+\texttt{Grapheme.Plot}
+
+\subsection{Universe}
+
 \end{document}

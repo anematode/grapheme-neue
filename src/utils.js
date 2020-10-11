@@ -23,3 +23,11 @@ export function assertRange (num, min, max, variableName = 'Unknown variable') {
     throw new RangeError(`${variableName} must be in the range [${min}, ${max}]`)
   }
 }
+
+// Credit to broofa at https://stackoverflow.com/a/2117523/13458117, though this is modified for simpler use
+export function getUUID () {
+  return 'xxxx-xxxx'.replace(/[xy]/g, function(c) {
+    let r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  })
+}
