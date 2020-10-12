@@ -1,5 +1,5 @@
 
-import {getUUID} from "../utils.js"
+import {getID} from "../utils.js"
 import {Eventful} from "./eventful.js"
 
 /**
@@ -15,6 +15,12 @@ import {Eventful} from "./eventful.js"
  */
 export class Element extends Eventful {
   /**
+   * Abbreviated form for identifying elements of this class; subclasses may define this differently
+   * @type {string}
+   */
+  static abbrName = "element"
+
+  /**
    * Construct a new Grapheme element.
    * @param params {Object} Parameters
    * @param params.precedence {number} The drawing precedence of this object
@@ -24,13 +30,12 @@ export class Element extends Eventful {
     super()
 
     /**
-     * The order in which this element will be drawn. Two given elements, e1 and e2, who are children of the same group,
-     * will have e1 drawn first before e2 is drawn if e1.precedence < e2.precedence. The same thing applies to updating;
-     * e1 will be updated before e2 is updated
-     * @type {number}
-     * @public
+     * A unique ID associated with this element to disambiguate it from other elements, and to be used in things like
+     * WebGL buffer names. May be defined in params
+     * @type {string}
+     * @private
      */
-    this.precedence = precedence
+    this.id = id ? id + '' : this.constructor.abbrName + "-" + getID()
 
     /**
      * Whether this element needs to be updated. This can be marked using the function markUpdate(). Updating occurs
@@ -39,22 +44,6 @@ export class Element extends Eventful {
      * @public
      */
     this.needsUpdate = false
-
-    /**
-     * A unique ID associated with this element to disambiguate it from other elements, and to be used in things like
-     * WebGL buffer names. May be defined in params
-     * @type {string}
-     * @private
-     */
-    this.id = id ? id + '' : "element-" + getUUID()
-
-    /**
-     * Whether this element is visible. If the element is marked as invisible, it will not be updated OR rendered;
-     * however, needsUpdate will remain unmodified and events will still propagate
-     * @type {boolean}
-     * @public
-     */
-    this.visible = true
 
     /**
      * The parent of this element (there can be only one)
@@ -69,21 +58,31 @@ export class Element extends Eventful {
      * @public
      */
     this.plot = null
+
+    /**
+     * The order in which this element will be drawn. Two given elements, e1 and e2, who are children of the same element,
+     * will have e1 drawn first before e2 is drawn if e1.precedence < e2.precedence. The same thing applies to updating;
+     * e1 will be updated before e2 is updated
+     * @type {number}
+     * @public
+     */
+    this.precedence = precedence
+
+    /**
+     * Whether this element is visible. If the element is marked as invisible, it will not be updated OR rendered;
+     * however, needsUpdate will remain unmodified and events will still propagate
+     * @type {boolean}
+     * @public
+     */
+    this.visible = true
   }
 
   /**
-   * Mark the element as needing to be updated at the next render call.
+   * Sets the plot of this element, as well as any children, to the given plot
+   * @param plot {Plot}
    */
-  markUpdate () {
-    this.needsUpdate = true
-  }
-
-  /**
-   * Handy to check if an Element is a Group.
-   * @returns {boolean} False; not a group
-   */
-  isGroup () {
-    return false
+  _setPlot (plot) {
+    this.plot = plot
   }
 
   /**
@@ -95,6 +94,14 @@ export class Element extends Eventful {
   }
 
   /**
+   * Destroy this element, cleaning up its WebGL resources (and potentially releasing handles to other stuff), and
+   * removing it as a child; its children will also be destroyed
+   */
+  destroy () {
+    this.removeSelf()
+  }
+
+  /**
    * Whether this has any children.
    * @returns {boolean} False; will never have any children
    */
@@ -103,11 +110,10 @@ export class Element extends Eventful {
   }
 
   /**
-   * Sets the plot of this element to the given plot
-   * @param plot {Plot}
+   * Mark the element as needing to be updated at the next render call.
    */
-  _setPlot (plot) {
-    this.plot = plot
+  markUpdate () {
+    this.needsUpdate = true
   }
 
   /**
@@ -119,14 +125,7 @@ export class Element extends Eventful {
 
     this.plot = null
     this.parent = null
-    return this
-  }
 
-  /**
-   * Destroy this element, cleaning up its WebGL resources (and potentially releasing handles to other stuff), and
-   * removing it as a child
-   */
-  destroy () {
-    this.removeSelf()
+    return this
   }
 }

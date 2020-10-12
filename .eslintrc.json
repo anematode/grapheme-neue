@@ -222,7 +222,8 @@
       },
       "globals": {
         "expectMultipleCases": false,
-        "expectAllEquals": false
+        "expectAllEquals": false,
+        "describe": false
       }
     }
   ],

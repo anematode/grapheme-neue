@@ -1,14 +1,15 @@
 import { Element } from "./element.js"
-import { getUUID } from "../utils.js"
 
 export class Group extends Element {
+  static abbrName = "group"
+
   /**
-   * Construct a new Grapheme element.
+   * Construct a new Grapheme group.
    * @param params {Object} Parameters
-   * @param params.id {string} The id of this group (will be randomly generated if not provided)
+   * @param params.precedence {number} The drawing precedence of this object
+   * @param params.id {string} The id of this element (will be randomly generated if not provided)
    */
-  constructor (params = { id = '' } = {}) {
-    if (!id) params.id = "group-" + getUUID()
+  constructor (params = {}) {
     super(params)
 
     /**
@@ -20,14 +21,27 @@ export class Group extends Element {
   }
 
   /**
-   * Add an element as a child of this group. Corresponding inverse operation is remove(child).
+   * Sets the plot of this element, as well as any children, to the given plot
+   * @param plot {Plot}
+   */
+  _setPlot (plot) {
+    this.plot = plot
+
+    const { children } = this.children
+    for (let i = 0; i < children.length; ++i) {
+      children[i]._setPlot(plot)
+    }
+  }
+
+  /**
+   * Add an element as a child of this element. Corresponding inverse operation is remove(child).
    * @param element {Array|Element} Array of elements, or single element to remove
-   * @returns {Group} Returns itself (for chaining)
+   * @returns {Element} Returns itself (for chaining)
    */
   add (element) {
     if (element instanceof Element) {
       if (element.parent || element.plot) {
-        throw new Error("Element is already assigned a plot and/or is a child of another element")
+        throw new Error("Element is already assigned a plot and/or is a child of an element")
       }
 
       element._setPlot(this.plot)
@@ -50,22 +64,38 @@ export class Group extends Element {
   }
 
   /**
-   * Sets the plot of this group, as well as any children, to the given plot
-   * @param plot {Plot}
+   * How many children this element has.
+   * @returns {number}
    */
-  _setPlot (plot) {
-    this.plot = plot
+  childCount () {
+    return this.children.length
+  }
 
-    const { children } = this.children
-    for (let i = 0; i < children.length; ++i) {
-      children[i]._setPlot(plot)
+  destroy () {
+    super.destroy()
+
+    // Destroy children
+    if (this.hasChildren()) {
+      const children = this.children.slice()
+      this.removeAll()
+      for (let i = 0; i < children.length; ++i) {
+        children[i].destroy()
+      }
     }
   }
 
   /**
-   * Remove an immediate child from the group. Fails silently if the child is not a child of this group.
+   * Whether this has any children.
+   * @returns {boolean}
+   */
+  hasChildren () {
+    return this.children.length !== 0
+  }
+
+  /**
+   * Remove an immediate child from the element. Fails silently if the child is not a child of this element.
    * @param child {Array|Element|string} Array of elements, single element, or id of element to remove.
-   * @returns {Group} Returns itself (for chaining)
+   * @returns {Element} Returns itself (for chaining)
    */
   remove (child) {
     let index = -1
@@ -101,8 +131,8 @@ export class Group extends Element {
   }
 
   /**
-   * Remove all the children from this group; faster than calling remove( ... ) individually.
-   * @returns {Group} Returns itself (for chaining)
+   * Remove all the children from this element; faster than calling remove( ... ) individually.
+   * @returns {Element} Returns itself (for chaining)
    */
   removeAll () {
     this.children.forEach(child => {
