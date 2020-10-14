@@ -4,281 +4,6 @@
   (global = global || self, factory(global.Grapheme = {}));
 }(this, function (exports) { 'use strict';
 
-  function _classCallCheck(instance, Constructor) {
-    if (!(instance instanceof Constructor)) {
-      throw new TypeError("Cannot call a class as a function");
-    }
-  }
-
-  function _defineProperties(target, props) {
-    for (var i = 0; i < props.length; i++) {
-      var descriptor = props[i];
-      descriptor.enumerable = descriptor.enumerable || false;
-      descriptor.configurable = true;
-      if ("value" in descriptor) descriptor.writable = true;
-      Object.defineProperty(target, descriptor.key, descriptor);
-    }
-  }
-
-  function _createClass(Constructor, protoProps, staticProps) {
-    if (protoProps) _defineProperties(Constructor.prototype, protoProps);
-    if (staticProps) _defineProperties(Constructor, staticProps);
-    return Constructor;
-  }
-
-  function _defineProperty(obj, key, value) {
-    if (key in obj) {
-      Object.defineProperty(obj, key, {
-        value: value,
-        enumerable: true,
-        configurable: true,
-        writable: true
-      });
-    } else {
-      obj[key] = value;
-    }
-
-    return obj;
-  }
-
-  function _inherits(subClass, superClass) {
-    if (typeof superClass !== "function" && superClass !== null) {
-      throw new TypeError("Super expression must either be null or a function");
-    }
-
-    subClass.prototype = Object.create(superClass && superClass.prototype, {
-      constructor: {
-        value: subClass,
-        writable: true,
-        configurable: true
-      }
-    });
-    if (superClass) _setPrototypeOf(subClass, superClass);
-  }
-
-  function _getPrototypeOf(o) {
-    _getPrototypeOf = Object.setPrototypeOf ? Object.getPrototypeOf : function _getPrototypeOf(o) {
-      return o.__proto__ || Object.getPrototypeOf(o);
-    };
-    return _getPrototypeOf(o);
-  }
-
-  function _setPrototypeOf(o, p) {
-    _setPrototypeOf = Object.setPrototypeOf || function _setPrototypeOf(o, p) {
-      o.__proto__ = p;
-      return o;
-    };
-
-    return _setPrototypeOf(o, p);
-  }
-
-  function _isNativeReflectConstruct() {
-    if (typeof Reflect === "undefined" || !Reflect.construct) return false;
-    if (Reflect.construct.sham) return false;
-    if (typeof Proxy === "function") return true;
-
-    try {
-      Date.prototype.toString.call(Reflect.construct(Date, [], function () {}));
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  function _assertThisInitialized(self) {
-    if (self === void 0) {
-      throw new ReferenceError("this hasn't been initialised - super() hasn't been called");
-    }
-
-    return self;
-  }
-
-  function _possibleConstructorReturn(self, call) {
-    if (call && (typeof call === "object" || typeof call === "function")) {
-      return call;
-    }
-
-    return _assertThisInitialized(self);
-  }
-
-  function _createSuper(Derived) {
-    var hasNativeReflectConstruct = _isNativeReflectConstruct();
-
-    return function _createSuperInternal() {
-      var Super = _getPrototypeOf(Derived),
-          result;
-
-      if (hasNativeReflectConstruct) {
-        var NewTarget = _getPrototypeOf(this).constructor;
-
-        result = Reflect.construct(Super, arguments, NewTarget);
-      } else {
-        result = Super.apply(this, arguments);
-      }
-
-      return _possibleConstructorReturn(this, result);
-    };
-  }
-
-  function _superPropBase(object, property) {
-    while (!Object.prototype.hasOwnProperty.call(object, property)) {
-      object = _getPrototypeOf(object);
-      if (object === null) break;
-    }
-
-    return object;
-  }
-
-  function _get(target, property, receiver) {
-    if (typeof Reflect !== "undefined" && Reflect.get) {
-      _get = Reflect.get;
-    } else {
-      _get = function _get(target, property, receiver) {
-        var base = _superPropBase(target, property);
-
-        if (!base) return;
-        var desc = Object.getOwnPropertyDescriptor(base, property);
-
-        if (desc.get) {
-          return desc.get.call(receiver);
-        }
-
-        return desc.value;
-      };
-    }
-
-    return _get(target, property, receiver || target);
-  }
-
-  function _slicedToArray(arr, i) {
-    return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest();
-  }
-
-  function _toConsumableArray(arr) {
-    return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _unsupportedIterableToArray(arr) || _nonIterableSpread();
-  }
-
-  function _arrayWithoutHoles(arr) {
-    if (Array.isArray(arr)) return _arrayLikeToArray(arr);
-  }
-
-  function _arrayWithHoles(arr) {
-    if (Array.isArray(arr)) return arr;
-  }
-
-  function _iterableToArray(iter) {
-    if (typeof Symbol !== "undefined" && Symbol.iterator in Object(iter)) return Array.from(iter);
-  }
-
-  function _iterableToArrayLimit(arr, i) {
-    if (typeof Symbol === "undefined" || !(Symbol.iterator in Object(arr))) return;
-    var _arr = [];
-    var _n = true;
-    var _d = false;
-    var _e = undefined;
-
-    try {
-      for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) {
-        _arr.push(_s.value);
-
-        if (i && _arr.length === i) break;
-      }
-    } catch (err) {
-      _d = true;
-      _e = err;
-    } finally {
-      try {
-        if (!_n && _i["return"] != null) _i["return"]();
-      } finally {
-        if (_d) throw _e;
-      }
-    }
-
-    return _arr;
-  }
-
-  function _unsupportedIterableToArray(o, minLen) {
-    if (!o) return;
-    if (typeof o === "string") return _arrayLikeToArray(o, minLen);
-    var n = Object.prototype.toString.call(o).slice(8, -1);
-    if (n === "Object" && o.constructor) n = o.constructor.name;
-    if (n === "Map" || n === "Set") return Array.from(o);
-    if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen);
-  }
-
-  function _arrayLikeToArray(arr, len) {
-    if (len == null || len > arr.length) len = arr.length;
-
-    for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i];
-
-    return arr2;
-  }
-
-  function _nonIterableSpread() {
-    throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-  }
-
-  function _nonIterableRest() {
-    throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-  }
-
-  function _createForOfIteratorHelper(o, allowArrayLike) {
-    var it;
-
-    if (typeof Symbol === "undefined" || o[Symbol.iterator] == null) {
-      if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") {
-        if (it) o = it;
-        var i = 0;
-
-        var F = function () {};
-
-        return {
-          s: F,
-          n: function () {
-            if (i >= o.length) return {
-              done: true
-            };
-            return {
-              done: false,
-              value: o[i++]
-            };
-          },
-          e: function (e) {
-            throw e;
-          },
-          f: F
-        };
-      }
-
-      throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
-    }
-
-    var normalCompletion = true,
-        didErr = false,
-        err;
-    return {
-      s: function () {
-        it = o[Symbol.iterator]();
-      },
-      n: function () {
-        var step = it.next();
-        normalCompletion = step.done;
-        return step;
-      },
-      e: function (e) {
-        didErr = true;
-        err = e;
-      },
-      f: function () {
-        try {
-          if (!normalCompletion && it.return != null) it.return();
-        } finally {
-          if (didErr) throw err;
-        }
-      }
-    };
-  }
-
   /**
    * @file This file defines functions for bit-level manipulation of double-precision floating point numbers. More
    * information can be found in Grapheme Theory.
@@ -290,16 +15,16 @@
    * It is released under CC BY-SA 4.0, which is compatible with this project.
    * @ignore
    */
-  var isBigEndian = function () {
-    var array = new Uint8Array(4);
-    var view = new Uint32Array(array.buffer);
+  const isBigEndian = (() => {
+    const array = new Uint8Array(4);
+    const view = new Uint32Array(array.buffer);
     return !((view[0] = 1) & array[0]);
-  }();
+  })();
 
   if (isBigEndian) throw new Error('only works on little-endian systems; your system is mixed- or big-endian.'); // Used for bit-level manipulation of floats
 
-  var floatStore = new Float64Array(1);
-  var intView = new Uint32Array(floatStore.buffer);
+  const floatStore = new Float64Array(1);
+  const intView = new Uint32Array(floatStore.buffer);
   /**
    * Returns the next floating point number after a positive x, but doesn't account for special cases.
    * @param x {number}
@@ -372,9 +97,9 @@
     return x < 0 ? -_roundUp(-x) : _roundDown(x);
   } // The first positive normal number
 
-  var POSITIVE_NORMAL_MIN = 2.2250738585072014e-308; // The first negative normal number
+  const POSITIVE_NORMAL_MIN = 2.2250738585072014e-308; // The first negative normal number
 
-  var NEGATIVE_NORMAL_MAX = -POSITIVE_NORMAL_MIN;
+  const NEGATIVE_NORMAL_MAX = -POSITIVE_NORMAL_MIN;
   /**
    * Return whether a number is denormal; see {@link https://en.wikipedia.org/wiki/Denormal_number|Wikipedia} for a
    * technical explanation of what this means. ±0 are not considered denormal numbers. Denormal numbers are sometimes
@@ -441,22 +166,14 @@
     if (x1 === x2) return 0;
 
     if (x2 < x1) {
-      var tmp = x1;
+      const tmp = x1;
       x1 = x2;
       x2 = tmp;
     }
 
-    var _frExp = frExp(x1),
-        _frExp2 = _slicedToArray(_frExp, 2),
-        x1man = _frExp2[0],
-        x1exp = _frExp2[1];
-
-    var _frExp3 = frExp(x2),
-        _frExp4 = _slicedToArray(_frExp3, 2),
-        x2man = _frExp4[0],
-        x2exp = _frExp4[1];
-
-    return (x2man - x1man) * Math.pow(2, 53) + (x2exp - x1exp) * Math.pow(2, 52);
+    const [x1man, x1exp] = frExp(x1);
+    const [x2man, x2exp] = frExp(x2);
+    return (x2man - x1man) * 2 ** 53 + (x2exp - x1exp) * 2 ** 52;
   }
   /**
    * Calculates 2 ^ exp, using a customized method for integer exponents. An examination of V8's pow function didn't
@@ -475,7 +192,7 @@
 
     if (exp < -1022) {
       // Works because of JS's insane casting systems
-      var field = 1 << exp + 1074;
+      const field = 1 << exp + 1074;
 
       if (exp > -1043) {
         // denormalized case 1
@@ -495,10 +212,10 @@
   } // Counts the number of trailing zeros in a 32-bit integer n; similar to <i>Math.clz32</i>.
 
   function countTrailingZeros(n) {
-    var bits = 0;
+    let bits = 0;
 
     if (n !== 0) {
-      var x = n; // Suck off groups of 16 bits, then 8 bits, et cetera
+      let x = n; // Suck off groups of 16 bits, then 8 bits, et cetera
 
       if ((x & 0x0000FFFF) === 0) {
         bits += 16;
@@ -530,10 +247,10 @@
 
 
   function _mantissaCtz() {
-    var bits = countTrailingZeros(intView[0]);
+    const bits = countTrailingZeros(intView[0]);
 
     if (bits === 32) {
-      var secondWordCount = countTrailingZeros(_getMantissaHighWord());
+      const secondWordCount = countTrailingZeros(_getMantissaHighWord());
       return 32 + Math.min(secondWordCount, 20);
     }
 
@@ -554,7 +271,7 @@
   } // Internal function
 
   function _mantissaClz() {
-    var bits = Math.clz32(_getMantissaHighWord()) - 12; // subtract the exponent zeroed part
+    const bits = Math.clz32(_getMantissaHighWord()) - 12; // subtract the exponent zeroed part
 
     return bits !== 20 ? bits : bits + Math.clz32(intView[0]);
   }
@@ -584,7 +301,7 @@
   function frExp(x) {
     if (x === 0 || !Number.isFinite(x)) return [x, 0]; // +1 so that the fraction is between 0.5 and 1 instead of 1 and 2
 
-    var exp = getExponent(x) + 1; // Denormal
+    let exp = getExponent(x) + 1; // Denormal
 
     if (exp === -1022) {
       // If the mantissa is the integer m, then we should subtract clz(m) from exp to get a suitable answer
@@ -605,26 +322,17 @@
 
   function rationalExp(x) {
     if (x < 0) {
-      var _rationalExp = rationalExp(-x),
-          _rationalExp2 = _slicedToArray(_rationalExp, 3),
-          _num = _rationalExp2[0],
-          _den = _rationalExp2[1],
-          _exp = _rationalExp2[2];
-
-      return [-_num, _den, _exp];
+      const [num, den, exp] = rationalExp(-x);
+      return [-num, den, exp];
     }
 
     if (x === 0 || !Number.isFinite(x)) return [x, 1, 0]; // Decompose into frac * 2 ^ exp
 
-    var _frExp5 = frExp(x),
-        _frExp6 = _slicedToArray(_frExp5, 2),
-        frac = _frExp6[0],
-        exp = _frExp6[1]; // This tells us the smallest power of two which frac * (2 ** shift) is an integer, which is the denominator
+    const [frac, exp] = frExp(x); // This tells us the smallest power of two which frac * (2 ** shift) is an integer, which is the denominator
     // of the dyadic rational corresponding to x
 
-
-    var den = pow2(53 - mantissaCtz(frac));
-    var num = frac * den;
+    const den = pow2(53 - mantissaCtz(frac));
+    const num = frac * den;
     return [num, den, exp];
   }
 
@@ -644,27 +352,23 @@
     rationalExp: rationalExp
   });
 
-  var id = 0;
+  let id = 0;
   /** Returns a single unique positive integer */
 
   function getID() {
     return ++id;
   }
-  function benchmark(callback) {
-    var iterations = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 100;
-    var output = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : console.log;
-    var start = performance.now();
+  function benchmark(callback, iterations = 100, output = console.log) {
+    const start = performance.now();
 
-    for (var i = 0; i < iterations; ++i) {
+    for (let i = 0; i < iterations; ++i) {
       callback(i);
     }
 
-    var duration = performance.now() - start;
+    const duration = performance.now() - start;
     output("Function ".concat(callback.name, " took ").concat(duration / iterations, " ms per call."));
   }
-  function assertRange(num, min, max) {
-    var variableName = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 'Unknown variable';
-
+  function assertRange(num, min, max, variableName = 'Unknown variable') {
     if (num < min || num > max || Number.isNaN(num)) {
       throw new RangeError("".concat(variableName, " must be in the range [").concat(min, ", ").concat(max, "]"));
     }
@@ -751,7 +455,7 @@
     }
 
     if (b > a) {
-      var tmp = a;
+      const tmp = a;
       a = b;
       b = tmp;
     }
@@ -775,14 +479,14 @@
    * @file This file implements the gamma function and related functions, though not to least-significant-bit accuracy.
    */
   // Lanczos approximation data
-  var LANCZOS_COUNT = 7;
-  var LANCZOS_COEFFICIENTS = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7]; // 1, 1, 2, 6, ...
+  const LANCZOS_COUNT = 7;
+  const LANCZOS_COEFFICIENTS = [0.99999999999980993, 676.5203681218851, -1259.1392167224028, 771.32342877765313, -176.61502916214059, 12.507343278686905, -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7]; // 1, 1, 2, 6, ...
 
-  var INTEGER_FACTORIALS = [1]; // Populate INTEGER_FACTORIALS
+  const INTEGER_FACTORIALS = [1]; // Populate INTEGER_FACTORIALS
 
-  var fact = 1;
+  let fact = 1;
 
-  for (var i = 1;; ++i) {
+  for (let i = 1;; ++i) {
     fact *= i;
 
     if (fact === Infinity) {
@@ -792,7 +496,7 @@
     INTEGER_FACTORIALS.push(fact);
   }
 
-  var INTEGER_FACTORIAL_LEN = INTEGER_FACTORIALS.length;
+  const INTEGER_FACTORIAL_LEN = INTEGER_FACTORIALS.length;
   /**
    * This function accepts a real-valued number x and returns the value of the gamma function evaluated at
    * x. If there is a pole at x, NaN is returned. NaN is returned instead of Infinity to distinguish a pole
@@ -832,14 +536,14 @@
       // Lanczos approximation
       x -= 1; // The value of A_g(x), see https://en.wikipedia.org/wiki/Lanczos_approximation#Introduction
 
-      var z = LANCZOS_COEFFICIENTS[0];
+      let z = LANCZOS_COEFFICIENTS[0];
 
-      for (var _i = 1; _i < LANCZOS_COUNT + 2; ++_i) {
-        z += LANCZOS_COEFFICIENTS[_i] / (x + _i);
+      for (let i = 1; i < LANCZOS_COUNT + 2; ++i) {
+        z += LANCZOS_COEFFICIENTS[i] / (x + i);
       }
 
-      var t = x + LANCZOS_COUNT + 0.5;
-      var sqrt2Pi = Math.sqrt(2 * Math.PI); // for performance, since Math.sqrt can be overwritten
+      const t = x + LANCZOS_COUNT + 0.5;
+      const sqrt2Pi = Math.sqrt(2 * Math.PI); // for performance, since Math.sqrt can be overwritten
 
       return sqrt2Pi * Math.pow(t, x + 0.5) * Math.exp(-t) * z;
     }
@@ -886,26 +590,30 @@
 
     if (x < 0.5) {
       // Reflection formula, as above
-      var reflected = lnGamma(1 - x);
-      var lnPi = Math.log(Math.PI); // for performance, since Math.log can be overwritten
+      const reflected = lnGamma(1 - x);
+      const lnPi = Math.log(Math.PI); // for performance, since Math.log can be overwritten
 
       return lnPi - Math.log(Math.sin(Math.PI * x)) - reflected;
     } else {
       // See above for explanation
       x -= 1;
-      var z = LANCZOS_COEFFICIENTS[0];
+      let z = LANCZOS_COEFFICIENTS[0];
 
-      for (var _i2 = 1; _i2 < LANCZOS_COUNT + 2; ++_i2) {
-        z += LANCZOS_COEFFICIENTS[_i2] / (x + _i2);
+      for (let i = 1; i < LANCZOS_COUNT + 2; ++i) {
+        z += LANCZOS_COEFFICIENTS[i] / (x + i);
       }
 
-      var t = x + LANCZOS_COUNT + 0.5;
-      var lnSqrt2Pi = Math.log(2 * Math.PI) / 2; // for performance, since Math.log can be overwritten
+      const t = x + LANCZOS_COUNT + 0.5;
+      const lnSqrt2Pi = Math.log(2 * Math.PI) / 2; // for performance, since Math.log can be overwritten
 
       return lnSqrt2Pi + Math.log(t) * (x + 0.5) - t + Math.log(z);
     }
   }
 
+  /**
+   * @file This file allows floating-point numbers to be recognized consistently as rational or irrational, with a
+   * customizable error rate.
+   */
   /**
    * Return the closest rational number p/q to x where 1 <= q <= maxDenominator and |p| <= maxNumerator. The algorithm is
    * described in Grapheme Theory, but the basic idea is that we express the given floating-point number as an exact
@@ -916,16 +624,9 @@
    * @returns {number[]} A three-element array [ p, q, error ], where error is abs(x - p/q) as calculated by JS
    */
 
-  function closestRational(x, maxDenominator) {
-    var maxNumerator = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : Number.MAX_SAFE_INTEGER;
-
+  function closestRational(x, maxDenominator, maxNumerator = Number.MAX_SAFE_INTEGER) {
     if (x < 0) {
-      var _closestRational = closestRational(-x, maxDenominator, maxNumerator),
-          _closestRational2 = _slicedToArray(_closestRational, 3),
-          p = _closestRational2[0],
-          q = _closestRational2[1],
-          error = _closestRational2[2];
-
+      const [p, q, error] = closestRational(-x, maxDenominator, maxNumerator);
       return [-p, q, error];
     }
 
@@ -944,7 +645,7 @@
         return [x, 1, 0];
       }
     } else if (maxDenominator === 1) {
-      var rnd = Math.min(maxNumerator, Math.round(x));
+      const rnd = Math.min(maxNumerator, Math.round(x));
       return [rnd, 1, Math.abs(rnd - x)];
     }
 
@@ -954,21 +655,16 @@
     } // Floor and fractional part of x
 
 
-    var flr = Math.floor(x); // Guaranteed to be in (0, 1) and to be exact
+    const flr = Math.floor(x); // Guaranteed to be in (0, 1) and to be exact
 
-    var frac = x - flr; // frac = exactFracNum / (exactFracDenWithoutExp * 2 ^ exp) = exactN / exactD (last equality is by definition); exp >= 0 guaranteed
+    const frac = x - flr; // frac = exactFracNum / (exactFracDenWithoutExp * 2 ^ exp) = exactN / exactD (last equality is by definition); exp >= 0 guaranteed
 
-    var _rationalExp = rationalExp(frac),
-        _rationalExp2 = _slicedToArray(_rationalExp, 3),
-        exactFracNum = _rationalExp2[0],
-        exactFracDenWithoutExp = _rationalExp2[1],
-        expN = _rationalExp2[2];
-
-    var exp = -expN; // exactFracDen = exactD; exactFracNum = exactN. Note that x * 2^n is always exactly representable, so exactFracDen
+    const [exactFracNum, exactFracDenWithoutExp, expN] = rationalExp(frac);
+    const exp = -expN; // exactFracDen = exactD; exactFracNum = exactN. Note that x * 2^n is always exactly representable, so exactFracDen
     // is exact even though it may be greater than MAX_SAFE_INTEGER. Occasionally, this will overflow to Infinity, but
     // that is okay; we just return 0.
 
-    var exactFracDen = exactFracDenWithoutExp * pow2(exp);
+    const exactFracDen = exactFracDenWithoutExp * pow2(exp);
     if (exactFracDen === Infinity) return [0, 1, x]; // We express frac as a continued fraction. To do this, we start with the definition that frac = exactN/exactD.
     // Then frac = 0 + 1 / (floor(exactD/exactN) + 1 / (exactN / mod(exactD,exactN))). Note that
     // the term mod(eD,eN) / eN is always representable exactly, since eN <= MAX_SAFE_INTEGER, and the rest of the
@@ -980,27 +676,26 @@
     // the nudging makes no difference, then a small error doesn't matter because the convergent will be too big for
     // consideration anyway.
 
-    var modDN = exactFracDen % exactFracNum;
-    var flrDN = Math.round(exactFracDen / exactFracNum - modDN / exactFracNum);
-    var contFracGeneratorNum = exactFracNum;
-    var contFracGeneratorDen = modDN; // Define a recursive function d(i+1) = c_(i+1) * d(i) + d(i-1), where c_i is the ith term (indexed from 1) of the
+    const modDN = exactFracDen % exactFracNum;
+    const flrDN = Math.round(exactFracDen / exactFracNum - modDN / exactFracNum);
+    let contFracGeneratorNum = exactFracNum;
+    let contFracGeneratorDen = modDN; // Define a recursive function d(i+1) = c_(i+1) * d(i) + d(i-1), where c_i is the ith term (indexed from 1) of the
     // continued fraction, as well as n(i+1) = c_(i+1) * n(i) + n(i-1). Then n(i+1) / d(i+1) is indeed the (i+1)th
     // convergent of the continued fraction. Thus, we store the previous two numerators and denominators, which is all we
     // need to calculate the next convergent.
     // n_(i-1), n_i, d_(i-1), d_i, starting at i = 1
 
-    var nnm1 = 1;
-    var nn = flr;
-    var dnm1 = 0;
-    var dn = 1; // Store the best numerators and denominators found so far
+    let nnm1 = 1;
+    let nn = flr;
+    let dnm1 = 0;
+    let dn = 1; // Store the best numerators and denominators found so far
 
-    var bestN = Math.round(x);
-    var bestD = 1; // Same indexing variable as Grapheme Theory. In case there's a bug I don't know about; it should terminate in < 55 steps
+    let bestN = Math.round(x);
+    let bestD = 1; // Same indexing variable as Grapheme Theory. In case there's a bug I don't know about; it should terminate in < 55 steps
 
-    for (var i = 2; i < 100; ++i) {
+    for (let i = 2; i < 100; ++i) {
       // term is equivalent to c_i from Grapheme theory
-      var term = void 0,
-          rem = void 0;
+      let term, rem;
 
       if (i !== 2) {
         // All steps besides the first
@@ -1015,8 +710,8 @@
       } // nnp1 and dnp1 are equivalent to Grapheme Theory's n_i and d_i
 
 
-      var nnp1 = term * nn + nnm1;
-      var dnp1 = term * dn + dnm1; // Having computed the next convergent, we see if it meets our criteria. If it does not, we see whether a reduction
+      let nnp1 = term * nn + nnm1;
+      let dnp1 = term * dn + dnm1; // Having computed the next convergent, we see if it meets our criteria. If it does not, we see whether a reduction
       // of that convergent can produce a fraction of better accuracy. If that is so, we return this reduced
       // value; otherwise, we return bestN/bestD, which we know to be a valid (and best possible) approximation.
 
@@ -1029,8 +724,8 @@
         // term_r * nn + nnm1 <= maxNumerator and term_r * dn + dnm1 <= maxDenominator. Some finagling results in
         // term_r <= (maxNumerator - nnm1) / nn and term_r <= (maxDenominator - dnm1) / dn, thus we have our final ineq,
         // term / 2 < term_r <= Math.min((maxNumerator - nnm1) / nn, (maxDenominator - dnm1) / dn).
-        var maxTermR = Math.floor(Math.min((maxNumerator - nnm1) / nn, (maxDenominator - dnm1) / dn));
-        var minTermR = term / 2;
+        const maxTermR = Math.floor(Math.min((maxNumerator - nnm1) / nn, (maxDenominator - dnm1) / dn));
+        const minTermR = term / 2;
 
         if (maxTermR >= minTermR) {
           // reduced semiconvergent (maybe) possible
@@ -1042,8 +737,8 @@
             bestD = dnp1;
           } else {
             // rare special case. We check whether bestN/bestD is a BETTER convergent than this, and select the better one.
-            var reduced = nnp1 / dnp1;
-            var oldBest = bestN / bestD;
+            const reduced = nnp1 / dnp1;
+            const oldBest = bestN / bestD;
 
             if (Math.abs(reduced - x) < Math.abs(oldBest - x)) {
               bestN = nnp1;
@@ -1063,11 +758,11 @@
       dn = dnp1;
     }
 
-    var quot = bestN / bestD;
+    const quot = bestN / bestD;
     return [bestN, bestD, Math.abs(quot - x)];
   } // [...Array(53 + 25).keys()].map(n => { n = n - 52; return Math.floor(Math.min(Math.PI * 2 ** (26 - n/2) / 300, Number.MAX_SAFE_INTEGER)) })
 
-  var dnLookupTable = [47161585013522, 33348276574567, 23580792506761, 16674138287283, 11790396253380, 8337069143641, 5895198126690, 4168534571820, 2947599063345, 2084267285910, 1473799531672, 1042133642955, 736899765836, 521066821477, 368449882918, 260533410738, 184224941459, 130266705369, 92112470729, 65133352684, 46056235364, 32566676342, 23028117682, 16283338171, 11514058841, 8141669085, 5757029420, 4070834542, 2878514710, 2035417271, 1439257355, 1017708635, 719628677, 508854317, 359814338, 254427158, 179907169, 127213579, 89953584, 63606789, 44976792, 31803394, 22488396, 15901697, 11244198, 7950848, 5622099, 3975424, 2811049, 1987712, 1405524, 993856, 702762, 496928, 351381, 248464, 175690, 124232, 87845, 62116, 43922, 31058, 21961, 15529, 10980, 7764, 5490, 3882, 2745, 1941, 1372, 970, 686, 485, 343, 242, 171, 121]; // Internal function used to convert a double to a rational; does the actual work.
+  const dnLookupTable = [47161585013522, 33348276574567, 23580792506761, 16674138287283, 11790396253380, 8337069143641, 5895198126690, 4168534571820, 2947599063345, 2084267285910, 1473799531672, 1042133642955, 736899765836, 521066821477, 368449882918, 260533410738, 184224941459, 130266705369, 92112470729, 65133352684, 46056235364, 32566676342, 23028117682, 16283338171, 11514058841, 8141669085, 5757029420, 4070834542, 2878514710, 2035417271, 1439257355, 1017708635, 719628677, 508854317, 359814338, 254427158, 179907169, 127213579, 89953584, 63606789, 44976792, 31803394, 22488396, 15901697, 11244198, 7950848, 5622099, 3975424, 2811049, 1987712, 1405524, 993856, 702762, 496928, 351381, 248464, 175690, 124232, 87845, 62116, 43922, 31058, 21961, 15529, 10980, 7764, 5490, 3882, 2745, 1941, 1372, 970, 686, 485, 343, 242, 171, 121]; // Internal function used to convert a double to a rational; does the actual work.
 
   function _doubleToRational(d) {
     if (d === 0) {
@@ -1076,7 +771,7 @@
       return [d, 1];
     }
 
-    var negative = d < 0;
+    const negative = d < 0;
     d = Math.abs(d); // Early exit conditions
 
     if (d <= 1.1102230246251565e-16
@@ -1088,25 +783,20 @@
     } // Guaranteed that d > 0 and is finite, and that its exponent n is in the range [-52, 25] inclusive.
 
 
-    var exp = getExponent(d); // We now look up the corresponding value of d_n, as explained in Grapheme Theory. It is offset by 52 because arrays
+    const exp = getExponent(d); // We now look up the corresponding value of d_n, as explained in Grapheme Theory. It is offset by 52 because arrays
     // start from 0
 
-    var dn = dnLookupTable[exp + 52]; // We find the nearest rational number that satisfies our requirements
+    const dn = dnLookupTable[exp + 52]; // We find the nearest rational number that satisfies our requirements
 
-    var _closestRational3 = closestRational(d, dn, Number.MAX_SAFE_INTEGER),
-        _closestRational4 = _slicedToArray(_closestRational3, 3),
-        p = _closestRational4[0],
-        q = _closestRational4[1],
-        err = _closestRational4[2]; // Return the fraction if close enough, but rigorously so (see Theory)
-
+    const [p, q, err] = closestRational(d, dn, Number.MAX_SAFE_INTEGER); // Return the fraction if close enough, but rigorously so (see Theory)
 
     if (err <= pow2(exp - 52)) return [negative ? -p : p, q];
     return [NaN, NaN];
   } // Cached values for doubleToRational
 
 
-  var lastDoubleToRationalArg = 0;
-  var lastDoubleToRationalRes = [0, 1];
+  let lastDoubleToRationalArg = 0;
+  let lastDoubleToRationalRes = [0, 1];
   /**
    * This function classifies floats, which are all technically rationals (more specifically, dyadic rationals), as
    * rational or irrational numbers. See Grapheme Theory, "Intelligent Pow" for more information. In short, at most
@@ -1118,11 +808,10 @@
    * @returns {number[]} Two-element array; first is the numerator, second is the denominator
    */
 
-  function doubleToRational(d) {
-    var cache = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
+  function doubleToRational(d, cache = true) {
     if (d === lastDoubleToRationalArg) return lastDoubleToRationalRes;
 
-    var res = _doubleToRational(d);
+    const res = _doubleToRational(d);
 
     if (cache) {
       lastDoubleToRationalRes = res;
@@ -1132,6 +821,10 @@
     return res;
   }
 
+  /**
+   * @file This file allows the computation of pow with "near-rational" numbers.
+   */
+
   function powRational(a, c, d) {
     // Simple return cases
     if (d === 0 || Number.isNaN(c) || Number.isNaN(d) || !Number.isInteger(c) || !Number.isInteger(d) || Number.isNaN(a)) {
@@ -1139,8 +832,8 @@
     }
 
     if (a === 0) return 0;
-    var evenDenom = d % 2 === 0;
-    var evenNumer = c % 2 === 0;
+    const evenDenom = d % 2 === 0;
+    const evenNumer = c % 2 === 0;
     if (evenDenom && a < 0) return NaN;
 
     if (d < 0) {
@@ -1149,7 +842,7 @@
     } // Now we know that a is not NaN, c is an integer, and d is a nonzero positive integer. Also, the answer is not NaN.
 
 
-    var mag = Math.pow(Math.abs(a), c / d);
+    const mag = Math.pow(Math.abs(a), c / d);
 
     if (a >= 0) {
       // Can just do Math.pow
@@ -1172,11 +865,7 @@
 
 
   function powSpecial(a, b) {
-    var _doubleToRational = doubleToRational(b),
-        _doubleToRational2 = _slicedToArray(_doubleToRational, 2),
-        num = _doubleToRational2[0],
-        den = _doubleToRational2[1]; // deemed irrational
-
+    const [num, den] = doubleToRational(b); // deemed irrational
 
     if (!den) return NaN; // integer, just use <i>Math.pow</i> directly
 
@@ -1220,17 +909,32 @@
    * @namespace RealFunctions
    */
 
-  var RealFunctions = Object.freeze({
-    add: add,
-    divide: divide,
-    multiply: multiply,
-    subtract: subtract,
-    gcd: gcd,
-    gamma: gamma,
-    lnGamma: lnGamma,
-    factorial: factorial,
-    pow: pow
+  const RealFunctions = Object.freeze({
+    add,
+    divide,
+    multiply,
+    subtract,
+    gcd,
+    gamma,
+    lnGamma,
+    factorial,
+    pow
   });
+
+  function _defineProperty(obj, key, value) {
+    if (key in obj) {
+      Object.defineProperty(obj, key, {
+        value: value,
+        enumerable: true,
+        configurable: true,
+        writable: true
+      });
+    } else {
+      obj[key] = value;
+    }
+
+    return obj;
+  }
 
   /**
    * A base class to use for event listeners and the like. Supports things like addEventListener(eventName, callback),
@@ -1241,196 +945,160 @@
    * or its children's listeners are called. Children which are not instances of Eventful will not have their triggerEvent
    * method called.
    */
-  var Eventful = /*#__PURE__*/function () {
-    function Eventful() {
-      _classCallCheck(this, Eventful);
-
+  class Eventful {
+    constructor() {
       _defineProperty(this, "_eventListeners", new Map());
     }
 
-    _createClass(Eventful, [{
-      key: "addEventListener",
+    /**
+     * Register an event listener to a given event name. It will be given lower priority than the ones that came before.
+     * The callbacks will be given a single parameter "data".
+     * @param eventName {string} The name of the event
+     * @param callback {function|Array} The callback(s) to register
+     * @returns {Eventful} Returns self (for chaining)
+     */
+    addEventListener(eventName, callback) {
+      if (Array.isArray(callback)) {
+        for (const c of callback) this.addEventListener(eventName, c);
 
-      /**
-       * Register an event listener to a given event name. It will be given lower priority than the ones that came before.
-       * The callbacks will be given a single parameter "data".
-       * @param eventName {string} The name of the event
-       * @param callback {function|Array} The callback(s) to register
-       * @returns {Eventful} Returns self (for chaining)
-       */
-      value: function addEventListener(eventName, callback) {
-        if (Array.isArray(callback)) {
-          var _iterator = _createForOfIteratorHelper(callback),
-              _step;
+        return this;
+      } else if (typeof callback === "function") {
+        if (typeof eventName !== "string" || !eventName) throw new TypeError("Invalid event name");
 
-          try {
-            for (_iterator.s(); !(_step = _iterator.n()).done;) {
-              var c = _step.value;
-              this.addEventListener(eventName, c);
-            }
-          } catch (err) {
-            _iterator.e(err);
-          } finally {
-            _iterator.f();
-          }
+        let listeners = this._eventListeners.get(eventName);
 
-          return this;
-        } else if (typeof callback === "function") {
-          if (typeof eventName !== "string" || !eventName) throw new TypeError("Invalid event name");
+        if (!listeners) {
+          listeners = [];
 
-          var listeners = this._eventListeners.get(eventName);
-
-          if (!listeners) {
-            listeners = [];
-
-            this._eventListeners.set(eventName, listeners);
-          }
-
-          if (!listeners.includes(callback)) listeners.push(callback);
-          return this;
-        } else throw new TypeError("Invalid callback");
-      }
-      /**
-       * Get the event listeners under "eventName"
-       * @param eventName {string} Name of the event whose listeners we want
-       * @returns {Array<function>}
-       */
-
-    }, {
-      key: "getEventListeners",
-      value: function getEventListeners(eventName) {
-        var _this$_eventListeners, _this$_eventListeners2;
-
-        return (_this$_eventListeners = (_this$_eventListeners2 = this._eventListeners.get(e)) === null || _this$_eventListeners2 === void 0 ? void 0 : _this$_eventListeners2.slice()) !== null && _this$_eventListeners !== void 0 ? _this$_eventListeners : [];
-      }
-      /**
-       * Whether there are any event listeners registered for the given name
-       * @param eventName
-       * @returns {boolean} Whether any listeners are registered for that event
-       */
-
-    }, {
-      key: "hasEventListenersFor",
-      value: function hasEventListenersFor(eventName) {
-        return this._eventListeners.has(eventName);
-      }
-      /**
-       * Remove an event listener from the given event. Fails silently if that listener is not registered.
-       * @param eventName {string} The name of the event
-       * @param callback {function} The callback to remove
-       * @returns {Eventful} Returns self (for chaining)
-       */
-
-    }, {
-      key: "removeEventListener",
-      value: function removeEventListener(eventName, callback) {
-        if (Array.isArray(callback)) {
-          var _iterator2 = _createForOfIteratorHelper(callback),
-              _step2;
-
-          try {
-            for (_iterator2.s(); !(_step2 = _iterator2.n()).done;) {
-              var c = _step2.value;
-              this.removeEventListener(eventName, c);
-            }
-          } catch (err) {
-            _iterator2.e(err);
-          } finally {
-            _iterator2.f();
-          }
-
-          return this;
+          this._eventListeners.set(eventName, listeners);
         }
 
-        var listeners = this._eventListeners.get(eventName);
+        if (!listeners.includes(callback)) listeners.push(callback);
+        return this;
+      } else throw new TypeError("Invalid callback");
+    }
+    /**
+     * Get the event listeners under "eventName"
+     * @param eventName {string} Name of the event whose listeners we want
+     * @returns {Array<function>}
+     */
+
+
+    getEventListeners(eventName) {
+      var _this$_eventListeners, _this$_eventListeners2;
+
+      return (_this$_eventListeners = (_this$_eventListeners2 = this._eventListeners.get(e)) === null || _this$_eventListeners2 === void 0 ? void 0 : _this$_eventListeners2.slice()) !== null && _this$_eventListeners !== void 0 ? _this$_eventListeners : [];
+    }
+    /**
+     * Whether there are any event listeners registered for the given name
+     * @param eventName
+     * @returns {boolean} Whether any listeners are registered for that event
+     */
+
+
+    hasEventListenersFor(eventName) {
+      return this._eventListeners.has(eventName);
+    }
+    /**
+     * Remove an event listener from the given event. Fails silently if that listener is not registered.
+     * @param eventName {string} The name of the event
+     * @param callback {function} The callback to remove
+     * @returns {Eventful} Returns self (for chaining)
+     */
+
+
+    removeEventListener(eventName, callback) {
+      if (Array.isArray(callback)) {
+        for (const c of callback) this.removeEventListener(eventName, c);
+
+        return this;
+      }
+
+      const listeners = this._eventListeners.get(eventName);
+
+      if (listeners) {
+        const index = listeners.indexOf(callback);
+        if (index !== -1) listeners.splice(index, 1);
+      }
+
+      if (listeners.length === 0) this._eventListeners.delete(eventName);
+      return this;
+    }
+    /**
+     * Remove all event listeners for a given event. Fails silently if there are no listeners registered for that event.
+     * @param eventName {string} The name of the event whose listeners should be cleared
+     * @returns {Eventful} Returns self (for chaining)
+     */
+
+
+    removeEventListeners(eventName) {
+      this._eventListeners.delete(eventName);
+
+      return this;
+    }
+    /**
+     * Trigger the listeners registered under an event name, passing (data, this, eventName) to each. Returns true if
+     * some listener returned true, stopping propagation; returns false otherwise
+     * @param eventName {string} Name of the event to be triggered
+     * @param data {any} Optional data parameter to be passed to listeners
+     * @returns {boolean} Whether any listener stopped propagation
+     */
+
+
+    triggerEvent(eventName, data) {
+      // Trigger only this element's listeners
+      const triggerListeners = () => {
+        const listeners = this._eventListeners.get(eventName);
 
         if (listeners) {
-          var index = listeners.indexOf(callback);
-          if (index !== -1) listeners.splice(index, 1);
-        }
-
-        if (listeners.length === 0) this._eventListeners.delete(eventName);
-        return this;
-      }
-      /**
-       * Remove all event listeners for a given event. Fails silently if there are no listeners registered for that event.
-       * @param eventName {string} The name of the event whose listeners should be cleared
-       * @returns {Eventful} Returns self (for chaining)
-       */
-
-    }, {
-      key: "removeEventListeners",
-      value: function removeEventListeners(eventName) {
-        this._eventListeners.delete(eventName);
-
-        return this;
-      }
-      /**
-       * Trigger the listeners registered under an event name, passing (data, this, eventName) to each. Returns true if
-       * some listener returned true, stopping propagation; returns false otherwise
-       * @param eventName {string} Name of the event to be triggered
-       * @param data {any} Optional data parameter to be passed to listeners
-       * @returns {boolean} Whether any listener stopped propagation
-       */
-
-    }, {
-      key: "triggerEvent",
-      value: function triggerEvent(eventName, data) {
-        var _this = this;
-
-        // Trigger only this element's listeners
-        var triggerListeners = function triggerListeners() {
-          var listeners = _this._eventListeners.get(eventName);
-
-          if (listeners) {
-            for (var i = 0; i < listeners.length; ++i) {
-              if (listeners[i](data, _this, eventName)) return true;
-            }
+          for (let i = 0; i < listeners.length; ++i) {
+            if (listeners[i](data, this, eventName)) return true;
           }
-
-          return false;
-        }; // Trigger all the children
-
-
-        var triggerChildren = function triggerChildren() {
-          var children = _this.children;
-          if (children.length === 0) return false;
-
-          for (var i = 0; i < children.length; ++i) {
-            var child = children[i];
-
-            if (child.triggerEvent) {
-              if (child.triggerEvent(eventName, data)) return true;
-            }
-          }
-
-          return false;
-        }; // For Eventfuls with children
-
-
-        if (this.children) {
-          var triggerChildrenFirst = !!this.triggerChildrenFirst;
-
-          if (triggerChildrenFirst) {
-            if (triggerChildren()) return true;
-          }
-
-          if (triggerListeners()) return true;
-
-          if (!triggerChildrenFirst) {
-            if (triggerChildren()) return true;
-          }
-        } else {
-          // Other case
-          if (triggerListeners()) return true;
         }
 
         return false;
-      }
-    }]);
+      }; // Trigger all the children
 
-    return Eventful;
-  }();
+
+      const triggerChildren = () => {
+        const {
+          children
+        } = this;
+        if (children.length === 0) return false;
+
+        for (let i = 0; i < children.length; ++i) {
+          const child = children[i];
+
+          if (child.triggerEvent) {
+            if (child.triggerEvent(eventName, data)) return true;
+          }
+        }
+
+        return false;
+      }; // For Eventfuls with children
+
+
+      if (this.children) {
+        const triggerChildrenFirst = !!this.triggerChildrenFirst;
+
+        if (triggerChildrenFirst) {
+          if (triggerChildren()) return true;
+        }
+
+        if (triggerListeners()) return true;
+
+        if (!triggerChildrenFirst) {
+          if (triggerChildren()) return true;
+        }
+      } else {
+        // Other case
+        if (triggerListeners()) return true;
+      }
+
+      return false;
+    }
+
+  }
 
   /**
    * The base class for all elements in a Grapheme canvas. Grapheme uses a similar style to THREE.js: elements exist in a
@@ -1444,11 +1112,7 @@
    * Thus, only one plot may have control over the canvas at a time.
    */
 
-  var Element = /*#__PURE__*/function (_Eventful) {
-    _inherits(Element, _Eventful);
-
-    var _super = _createSuper(Element);
-
+  class Element extends Eventful {
     /**
      * Abbreviated form for identifying elements of this class; subclasses may define this differently
      * @type {string}
@@ -1460,18 +1124,11 @@
      * @param params.precedence {number} The drawing precedence of this object
      * @param params.id {string} The id of this element (will be randomly generated if not provided)
      */
-    function Element() {
-      var _this;
-
-      var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
-          _ref$precedence = _ref.precedence,
-          precedence = _ref$precedence === void 0 ? 0 : _ref$precedence,
-          _ref$id = _ref.id,
-          id = _ref$id === void 0 ? '' : _ref$id;
-
-      _classCallCheck(this, Element);
-
-      _this = _super.call(this);
+    constructor({
+      precedence = 0,
+      id = ''
+    } = {}) {
+      super();
       /**
        * A unique ID associated with this element to disambiguate it from other elements, and to be used in things like
        * WebGL buffer names. May be defined in params
@@ -1479,7 +1136,7 @@
        * @private
        */
 
-      _this.id = id ? id + '' : _this.constructor.abbrName + "-" + getID();
+      this.id = id ? id + '' : this.constructor.abbrName + "-" + getID();
       /**
        * Whether this element needs to be updated. This can be marked using the function markUpdate(). Updating occurs
        * before rendering.
@@ -1487,21 +1144,21 @@
        * @public
        */
 
-      _this.needsUpdate = false;
+      this.needsUpdate = false;
       /**
        * The parent of this element (there can be only one)
        * @type {Element}
        * @public
        */
 
-      _this.parent = null;
+      this.parent = null;
       /**
        * The plot associated with the element (there can be only one)
        * @type {Plot}
        * @public
        */
 
-      _this.plot = null;
+      this.plot = null;
       /**
        * The order in which this element will be drawn. Two given elements, e1 and e2, who are children of the same element,
        * will have e1 drawn first before e2 is drawn if e1.precedence < e2.precedence. The same thing applies to updating;
@@ -1510,7 +1167,7 @@
        * @public
        */
 
-      _this.precedence = precedence;
+      this.precedence = precedence;
       /**
        * Whether this element is visible. If the element is marked as invisible, it will not be updated OR rendered;
        * however, needsUpdate will remain unmodified and events will still propagate
@@ -1518,8 +1175,7 @@
        * @public
        */
 
-      _this.visible = true;
-      return _this;
+      this.visible = true;
     }
     /**
      * Sets the plot of this element, as well as any children, to the given plot
@@ -1527,97 +1183,77 @@
      */
 
 
-    _createClass(Element, [{
-      key: "_setPlot",
-      value: function _setPlot(plot) {
-        this.plot = plot;
-      }
-      /**
-       * How many children this element has.
-       * @returns {number} 0; no children
-       */
+    _setPlot(plot) {
+      this.plot = plot;
+    }
+    /**
+     * How many children this element has.
+     * @returns {number} 0; no children
+     */
 
-    }, {
-      key: "childCount",
-      value: function childCount() {
-        return 0;
-      }
-      /**
-       * Destroy this element, cleaning up its WebGL resources (and potentially releasing handles to other stuff), and
-       * removing it as a child; its children will also be destroyed
-       */
 
-    }, {
-      key: "destroy",
-      value: function destroy() {
-        this.removeSelf();
-      }
-      /**
-       * Whether this has any children.
-       * @returns {boolean} False; will never have any children
-       */
+    childCount() {
+      return 0;
+    }
+    /**
+     * Destroy this element, cleaning up its WebGL resources (and potentially releasing handles to other stuff), and
+     * removing it as a child; its children will also be destroyed
+     */
 
-    }, {
-      key: "hasChildren",
-      value: function hasChildren() {
-        return false;
-      }
-      /**
-       * Mark the element as needing to be updated at the next render call.
-       */
 
-    }, {
-      key: "markUpdate",
-      value: function markUpdate() {
-        this.needsUpdate = true;
-      }
-      /**
-       * Remove this element from its parent
-       * @returns {Element} Returns itself (for chaining)
-       */
+    destroy() {
+      this.removeSelf();
+    }
+    /**
+     * Whether this has any children.
+     * @returns {boolean} False; will never have any children
+     */
 
-    }, {
-      key: "removeSelf",
-      value: function removeSelf() {
-        if (this.parent) this.parent.remove(this);
-        this.plot = null;
-        this.parent = null;
-        return this;
-      }
-    }]);
 
-    return Element;
-  }(Eventful);
+    hasChildren() {
+      return false;
+    }
+    /**
+     * Mark the element as needing to be updated at the next render call.
+     */
+
+
+    markUpdate() {
+      this.needsUpdate = true;
+    }
+    /**
+     * Remove this element from its parent
+     * @returns {Element} Returns itself (for chaining)
+     */
+
+
+    removeSelf() {
+      if (this.parent) this.parent.remove(this);
+      this.plot = null;
+      this.parent = null;
+      return this;
+    }
+
+  }
 
   _defineProperty(Element, "abbrName", "element");
 
-  var Group = /*#__PURE__*/function (_Element) {
-    _inherits(Group, _Element);
-
-    var _super = _createSuper(Group);
-
+  class Group extends Element {
     /**
      * Construct a new Grapheme group.
      * @param params {Object} Parameters
      * @param params.precedence {number} The drawing precedence of this object
      * @param params.id {string} The id of this element (will be randomly generated if not provided)
      */
-    function Group() {
-      var _this;
-
-      var params = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-
-      _classCallCheck(this, Group);
-
-      _this = _super.call(this, params);
+    constructor(params = {}) {
+      super(params);
       /**
        * The children of this Group.
        * @type {Array}
        * @private
        */
 
-      _this.children = [];
-      return _this;
+      this.children = [];
     }
     /**
      * Sets the plot of this element, as well as any children, to the given plot
@@ -1625,147 +1261,136 @@
      */
 
 
-    _createClass(Group, [{
-      key: "_setPlot",
-      value: function _setPlot(plot) {
-        this.plot = plot;
-        var children = this.children.children;
+    _setPlot(plot) {
+      this.plot = plot;
+      const {
+        children
+      } = this.children;
 
-        for (var i = 0; i < children.length; ++i) {
-          children[i]._setPlot(plot);
-        }
+      for (let i = 0; i < children.length; ++i) {
+        children[i]._setPlot(plot);
       }
-      /**
-       * Add an element as a child of this element. Corresponding inverse operation is remove(child).
-       * @param element {Array|Element} Array of elements, or single element to remove
-       * @returns {Element} Returns itself (for chaining)
-       */
+    }
+    /**
+     * Add an element as a child of this element. Corresponding inverse operation is remove(child).
+     * @param element {Array|Element} Array of elements, or single element to remove
+     * @returns {Element} Returns itself (for chaining)
+     */
 
-    }, {
-      key: "add",
-      value: function add(element) {
-        if (element instanceof Element) {
-          if (element.parent || element.plot) {
-            throw new Error("Element is already assigned a plot and/or is a child of an element");
-          }
 
-          element._setPlot(this.plot);
-
-          element.parent = this;
-          this.children.push(element);
-        } else if (Array.isArray(element)) {
-          for (var i = 0; i < element.length; ++i) {
-            this.add(element[i]);
-          }
-        } else if (arguments.length > 1) {
-          // Additional elements passed as arguments
-          for (var _i = 0; _i < arguments.length; ++_i) {
-            this.add(arguments[_i]);
-          }
-        } else {
-          throw new TypeError("Given parameter is not an array of elements or an element");
+    add(element) {
+      if (element instanceof Element) {
+        if (element.parent || element.plot) {
+          throw new Error("Element is already assigned a plot and/or is a child of an element");
         }
 
-        return this;
+        element._setPlot(this.plot);
+
+        element.parent = this;
+        this.children.push(element);
+      } else if (Array.isArray(element)) {
+        for (let i = 0; i < element.length; ++i) {
+          this.add(element[i]);
+        }
+      } else if (arguments.length > 1) {
+        // Additional elements passed as arguments
+        for (let i = 0; i < arguments.length; ++i) {
+          this.add(arguments[i]);
+        }
+      } else {
+        throw new TypeError("Given parameter is not an array of elements or an element");
       }
-      /**
-       * How many children this element has.
-       * @returns {number}
-       */
 
-    }, {
-      key: "childCount",
-      value: function childCount() {
-        return this.children.length;
-      }
-    }, {
-      key: "destroy",
-      value: function destroy() {
-        _get(_getPrototypeOf(Group.prototype), "destroy", this).call(this); // Destroy children
+      return this;
+    }
+    /**
+     * How many children this element has.
+     * @returns {number}
+     */
 
 
-        if (this.hasChildren()) {
-          var children = this.children.slice();
-          this.removeAll();
+    childCount() {
+      return this.children.length;
+    }
 
-          for (var i = 0; i < children.length; ++i) {
-            children[i].destroy();
-          }
+    destroy() {
+      super.destroy(); // Destroy children
+
+      if (this.hasChildren()) {
+        const children = this.children.slice();
+        this.removeAll();
+
+        for (let i = 0; i < children.length; ++i) {
+          children[i].destroy();
         }
       }
-      /**
-       * Whether this has any children.
-       * @returns {boolean}
-       */
+    }
+    /**
+     * Whether this has any children.
+     * @returns {boolean}
+     */
 
-    }, {
-      key: "hasChildren",
-      value: function hasChildren() {
-        return this.children.length !== 0;
-      }
-      /**
-       * Remove an immediate child from the element. Fails silently if the child is not a child of this element.
-       * @param child {Array|Element|string} Array of elements, single element, or id of element to remove.
-       * @returns {Element} Returns itself (for chaining)
-       */
 
-    }, {
-      key: "remove",
-      value: function remove(child) {
-        var index = -1;
+    hasChildren() {
+      return this.children.length !== 0;
+    }
+    /**
+     * Remove an immediate child from the element. Fails silently if the child is not a child of this element.
+     * @param child {Array|Element|string} Array of elements, single element, or id of element to remove.
+     * @returns {Element} Returns itself (for chaining)
+     */
 
-        if (child instanceof Element) {
-          index = this.children.indexOf(child);
-        } else if (typeof child === "string") {
-          index = this.children.findIndex(function (c) {
-            return c.id === child;
-          });
-        } else if (child instanceof Array) {
-          // If the provided array is literally the children, call removeAll() instead
-          if (child !== this.children) {
-            for (var i = 0; i < child.length; ++i) {
-              this.remove(child[i]);
-            }
+
+    remove(child) {
+      let index = -1;
+
+      if (child instanceof Element) {
+        index = this.children.indexOf(child);
+      } else if (typeof child === "string") {
+        index = this.children.findIndex(c => c.id === child);
+      } else if (child instanceof Array) {
+        // If the provided array is literally the children, call removeAll() instead
+        if (child !== this.children) {
+          for (let i = 0; i < child.length; ++i) {
+            this.remove(child[i]);
           }
-        } else if (arguments.length > 1) {
-          for (var _i2 = 0; _i2 < arguments.length; ++_i2) {
-            this.remove(arguments[_i2]);
-          }
-        } else {
-          throw new TypeError("Given parameter is not an array of elements or an element");
         }
-
-        if (index !== -1) {
-          // Remove from children
-          this.children.splice(index, 1);
-
-          child._setPlot(null);
-
-          child.parent = null;
+      } else if (arguments.length > 1) {
+        for (let i = 0; i < arguments.length; ++i) {
+          this.remove(arguments[i]);
         }
-
-        return this;
+      } else {
+        throw new TypeError("Given parameter is not an array of elements or an element");
       }
-      /**
-       * Remove all the children from this element; faster than calling remove( ... ) individually.
-       * @returns {Element} Returns itself (for chaining)
-       */
 
-    }, {
-      key: "removeAll",
-      value: function removeAll() {
-        this.children.forEach(function (child) {
-          child._setPlot(null);
+      if (index !== -1) {
+        // Remove from children
+        this.children.splice(index, 1);
 
-          child.parent = null;
-        });
-        this.children = [];
-        return this;
+        child._setPlot(null);
+
+        child.parent = null;
       }
-    }]);
 
-    return Group;
-  }(Element);
+      return this;
+    }
+    /**
+     * Remove all the children from this element; faster than calling remove( ... ) individually.
+     * @returns {Element} Returns itself (for chaining)
+     */
+
+
+    removeAll() {
+      this.children.forEach(child => {
+        child._setPlot(null);
+
+        child.parent = null;
+      });
+      this.children = [];
+      return this;
+    }
+
+  }
 
   _defineProperty(Group, "abbrName", "group");
 
@@ -1819,26 +1444,11 @@
    */
 
 
-  function syncDigest(bolus) {
-    var _ref = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
-        _ref$args = _ref.args,
-        args = _ref$args === void 0 ? [] : _ref$args,
-        _ref$timeout = _ref.timeout;
-
-    var ingestedBolus = bolus.apply(void 0, _toConsumableArray(args));
-
-    var _iterator = _createForOfIteratorHelper(ingestedBolus),
-        _step;
-
-    try {
-      for (_iterator.s(); !(_step = _iterator.n()).done;) {
-        var progress = _step.value;
-      }
-    } catch (err) {
-      _iterator.e(err);
-    } finally {
-      _iterator.f();
-    }
+  function syncDigest(bolus, {
+    args = [],
+    timeout = -1
+  } = {}) {
+    const ingestedBolus = bolus(...args);
   }
 
   exports.Element = Element;

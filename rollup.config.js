@@ -19,7 +19,10 @@ export default {
         ['@babel/preset-env', {
           "targets": {
             "chrome": "58",
-            "ie": "11"
+            //"ie": "11",
+            "safari": "12",
+            "edge": "84",
+            "opera": "68"
           }
         }]
       ]
