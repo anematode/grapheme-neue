@@ -9,8 +9,8 @@ import {Eventful} from "./eventful.js"
  * single parameter. The order of updating is guaranteed to be the same as precedence, and <i>_update()</i> should be a
  * generator function, to allow for both synchronous and asynchronous updating. Once finished updating, the elements are
  * traversed again and rendered. Similarly to _update(), _render() is a generator function to allow for asynchronous
- * rendering. Unlike _update(), however, two plots in the same universe cannot be rendered asynchronously simultaneously.
- * It would be annoying to have to copy the canvas, buffers, and the GL state every time when switching between plots.
+ * rendering. Unlike _update(), however, two children in the same universe cannot be rendered asynchronously simultaneously.
+ * It would be annoying to have to copy the canvas, buffers, and the GL state every time when switching between children.
  * Thus, only one plot may have control over the canvas at a time.
  */
 export class Element extends Eventful {

@@ -10,12 +10,26 @@ export function benchmark (callback, iterations = 100, output = console.log) {
   const start = performance.now()
 
   for (let i = 0; i < iterations; ++i) {
-    callback(i)
+    callback()
   }
 
   const duration = performance.now() - start
 
-  output(`Function ${callback.name} took ${duration / iterations} ms per call.`)
+  output(`Function ${callback.name} took ${duration / iterations} ms` + (iterations === 1) ? '.' : 'per call.')
+}
+
+export function time (callback, output = console.log) {
+  const start = performance.now()
+  let result = "finished"
+
+  try {
+    callback()
+  } catch (e) {
+    result = "threw"
+    throw e
+  } finally {
+    output(`Function ${callback.name} ${result} in ${performance.now() - start} ms.`)
+  }
 }
 
 export function assertRange (num, min, max, variableName = 'Unknown variable') {

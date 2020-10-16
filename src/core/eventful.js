@@ -11,9 +11,8 @@ export class Eventful {
   /**
    * Internal variable containing a map of strings (event names) to arrays of handlers.
    * @type {Map<string, Array<function>>}
-   * @private
    */
-  _eventListeners = new Map()
+  #eventListeners = new Map()
 
   /**
    * Register an event listener to a given event name. It will be given lower priority than the ones that came before.
@@ -30,11 +29,11 @@ export class Eventful {
     } else if (typeof callback === "function") {
       if (typeof eventName !== "string" || !eventName) throw new TypeError("Invalid event name")
 
-      let listeners = this._eventListeners.get(eventName)
+      let listeners = this.#eventListeners.get(eventName)
 
       if (!listeners) {
         listeners = []
-        this._eventListeners.set(eventName, listeners)
+        this.#eventListeners.set(eventName, listeners)
       }
 
       if (!listeners.includes(callback)) listeners.push(callback)
@@ -48,7 +47,7 @@ export class Eventful {
    * @returns {Array<function>}
    */
   getEventListeners (eventName) {
-    return this._eventListeners.get(e)?.slice() ?? []
+    return this.#eventListeners.get(e)?.slice() ?? []
   }
 
   /**
@@ -57,7 +56,7 @@ export class Eventful {
    * @returns {boolean} Whether any listeners are registered for that event
    */
   hasEventListenersFor (eventName) {
-    return this._eventListeners.has(eventName)
+    return this.#eventListeners.has(eventName)
   }
 
   /**
@@ -73,7 +72,7 @@ export class Eventful {
       return this
     }
 
-    const listeners = this._eventListeners.get(eventName)
+    const listeners = this.#eventListeners.get(eventName)
 
     if (listeners) {
       const index = listeners.indexOf(callback)
@@ -81,7 +80,7 @@ export class Eventful {
       if (index !== -1) listeners.splice(index, 1)
     }
 
-    if (listeners.length === 0) this._eventListeners.delete(eventName)
+    if (listeners.length === 0) this.#eventListeners.delete(eventName)
     return this
   }
 
@@ -91,7 +90,7 @@ export class Eventful {
    * @returns {Eventful} Returns self (for chaining)
    */
   removeEventListeners (eventName) {
-    this._eventListeners.delete(eventName)
+    this.#eventListeners.delete(eventName)
     return this
   }
 
@@ -105,7 +104,7 @@ export class Eventful {
   triggerEvent (eventName, data) {
     // Trigger only this element's listeners
     const triggerListeners = () => {
-      const listeners = this._eventListeners.get(eventName)
+      const listeners = this.#eventListeners.get(eventName)
 
       if (listeners) {
         for (let i = 0; i < listeners.length; ++i) {

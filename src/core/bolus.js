@@ -77,27 +77,76 @@ class BolusTimeoutError extends Error {
 /**
  * A Bolus is any object with a next() function and potentially a cleanup() function. The cleanup() function is called
  * only if the bolus is terminated early. If the bolus is cancelled after completing digestion, cleanup() is not called.
- * next() returns { value: ..., done: false/true }. cleanup() is optional, and will not be called if the generator has
- * finished. value is a number between 0 and 1.
+ * next() returns { value: ..., done: false/true }. cleanup() is optional, and will be called if the generator finishes,
+ * is canceled, or throws. value is a number between 0 and 1 representing the progress so far.
  * @typedef Bolus {Object}
  * @property {function} next
  * @property {function} cleanup
  */
 
 /**
- * Digest a bolus directly, which is ideal for
+ * Digest a bolus directly, which is ideal for some quickly evaluated boluses. A timeout may also be provided which will
+ * terminate the bolus early if necessary. Note that if the bolus finishes and more than timeout ms have elapsed, an
+ * error will not be thrown, but if the bolus has yielded without finishing and more than timeout ms have elapsed, it
+ * will throw a BolusTimeoutError.
+ *
+ * Functions may return a bolus or, if they are exceedingly cheap, may return the value. Thus, syncDigest forwards non-
+ * boluses directly.
  * @param bolus {Bolus} The bolus to evaluate, which may be a normal function or a generator.
- * @param timeout {number} How many milliseconds to permit the function evaluation before raising a BolusTimeoutError
+ * @param timeout {number} Timeout length in milliseconds
  */
 export function syncDigest (bolus, timeout = -1) {
-  if (timeout > 0 || timeout < 1e7) { // Do the timeout
-    // We could use performance.now(), but that function is about 10x slower. The issue now is 
-    const startTime = Date.now()
+  if (typeof bolus?.next !== "function") return bolus
 
+  try {
+    // Allow timeouts between one ms and one day
+    if (timeout >= 1 && timeout <= 8.64e7) {
+      /**
+       * Note: this code is not safe for time changes, which perhaps we can fix at some point.
+       * Also, there are some browser features (notably Firefox's privacy.resistFingerprinting) that artificially rounds
+       * the Date.now() and performance.now() values. Indeed, their accuracy is never guaranteed. That is unfortunately
+       * a fundamental limitation with Grapheme as it presently stands.
+       */
 
+      const startTime = Date.now()
+
+      while (true) { // Iterate through the bolus
+        const next = bolus.next()
+
+        if (next.done) { // return the result if done
+          return next.value
+        }
+
+        const delta = Date.now() - startTime
+
+        if (delta > timeout) { // anger
+          // Clean up if needed
+          if (bolus.cleanup) bolus.cleanup()
+
+          throw new BolusTimeoutError("Bolus did not digest within " + timeout + " ms.")
+        }
+      }
+    } else if (timeout !== -1) {
+      throw new RangeError("Invalid timeout, which must be between 1 and 86,400,000 ms, or -1 to signify no timeout.")
+    }
+
+    while (true) {
+      const next = bolus.next()
+
+      if (next.done) return next.value
+    }
+  } finally {
+    // Potentially clean up
+    bolus.cleanup?.()
   }
+}
 
-  for (const progress of ingestedBolus) {
+/**
+ * Digest a bolus asynchronously.
+ * @param bolus
+ * @param onProgress
+ * @param timeout
+ */
+export function asyncDigest (bolus, onProgress, timeout = -1) {
 
-  }
 }
