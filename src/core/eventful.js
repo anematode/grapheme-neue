@@ -99,9 +99,10 @@ export class Eventful {
    * some listener returned true, stopping propagation; returns false otherwise
    * @param eventName {string} Name of the event to be triggered
    * @param data {any} Optional data parameter to be passed to listeners
+   * @param opts {Object} Extra options to dictate how the event is triggered
    * @returns {boolean} Whether any listener stopped propagation
    */
-  triggerEvent (eventName, data) {
+  triggerEvent (eventName, data, opts={}) {
     // Trigger only this element's listeners
     const triggerListeners = () => {
       const listeners = this.#eventListeners.get(eventName)

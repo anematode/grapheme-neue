@@ -15,7 +15,7 @@ export function benchmark (callback, iterations = 100, output = console.log) {
 
   const duration = performance.now() - start
 
-  output(`Function ${callback.name} took ${duration / iterations} ms` + (iterations === 1) ? '.' : 'per call.')
+  output(`Function ${callback.name} took ${duration / iterations} ms` + ((iterations === 1) ? '.' : ' per call.'))
 }
 
 export function time (callback, output = console.log) {
