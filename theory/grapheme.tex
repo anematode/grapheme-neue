@@ -155,4 +155,10 @@ There are four classes of major importance to understand the system.
 
 \subsection{Universe}
 
+\section{Coordinate Spaces}
+
+Grapheme has several disparate coordinate spaces for different contexts. We try to abstract these away as much as possible so that the end user doesn't have as much difficulty. When we set the size of a plot with \texttt{plot.setSize(width, height)}, the displayed canvas will change to have that size in CSS pixels. The canvas itself, however, may have a different number of "true pixels" than the displayed canvas. This occurs if the dpr is not $1$. Indeed, the size of the canvas is internally \texttt{width}$*$\texttt{dpr}.
+
+A font of size $12$ will be twice the size, in true pixels, on a screen with dpr $2$ than one with dpr $1$. Most Grapheme elements, to make their life easier, consider everything in CSS pixels. Some elements, however, care about true pixels. If they have an artifact 
+
 \end{document}
