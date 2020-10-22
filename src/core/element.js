@@ -60,13 +60,6 @@ export class Element extends Eventful {
     this.parent = null
 
     /**
-     * The plot associated with the element (there can be only one)
-     * @type {Plot}
-     * @public
-     */
-    this.plot = null
-
-    /**
      * The order in which this element will be drawn. Two given elements, e1 and e2, who are children of the same element,
      * will have e1 drawn first before e2 is drawn if e1.precedence < e2.precedence. The same thing applies to updating;
      * e1 will be updated before e2 is updated
@@ -105,16 +98,13 @@ export class Element extends Eventful {
   }
 
   /**
-   * Sets the plot of this element, as well as any children, to the given plot
-   * @param plot {Plot}
+   * Returns whether the given element may be added to this element as a child
+   * @param element {Element}
+   * @returns {boolean}
+   * @private
    */
-  _setPlot (plot) {
-    this.plot = plot
-
-    const { children } = this.children
-    for (let i = 0; i < children.length; ++i) {
-      children[i]._setPlot(plot)
-    }
+  _isValidChild (element) {
+    return (element instanceof Element) && !element.parent && !element.isPlot()
   }
 
   /**
@@ -123,15 +113,7 @@ export class Element extends Eventful {
    * @returns {Element} Returns itself (for chaining)
    */
   add (element) {
-    if (element instanceof Element) {
-      if (element.parent || element.plot) {
-        throw new Error("Element is already assigned a plot and/or is a child of an element")
-      }
-
-      element._setPlot(this.plot)
-      element.parent = this
-      this.children.push(element)
-    } else if (Array.isArray(element)) {
+    if (Array.isArray(element)) {
       for (let i = 0; i < element.length; ++i) {
         this.add(element[i])
       }
@@ -141,10 +123,22 @@ export class Element extends Eventful {
         this.add(arguments[i])
       }
     } else {
-      throw new TypeError("Given parameter is not an array of elements or an element")
+      if (!this._isValidChild(element)) {
+        throw new TypeError("Invalid element given")
+      }
+
+      element.parent = this
+      this.children.push(element)
     }
 
     return this
+  }
+
+  /**
+   * Whether this element is a top-level plot, needing no parent (it's not)
+   */
+  isPlot () {
+    return false
   }
 
   /**
@@ -207,7 +201,6 @@ export class Element extends Eventful {
       // Remove from children
       this.children.splice(index, 1)
 
-      child._setPlot(null)
       child.parent = null
     }
 
@@ -220,7 +213,6 @@ export class Element extends Eventful {
    */
   removeAll () {
     this.children.forEach(child => {
-      child._setPlot(null)
       child.parent = null
     })
 
