@@ -75,6 +75,18 @@ export class Element extends Eventful {
      * @public
      */
     this.visible = true
+
+    /**
+     * Props object containing the properties of this element. Note that some properties can be *inherited*. Instead of
+     * being accessed directly, properties are manipulated via setProp, clearProp, et cetera.
+     */
+    this.props = {}
+
+    /**
+     * Computed properties of this object. It contains all the overrideable properties from props, as well as
+     * any inherited properties and any properties from the global styling information.
+     */
+    this.computedProps = {}
   }
 
   /**
