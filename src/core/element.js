@@ -4,22 +4,16 @@ import {Eventful} from "./eventful.js"
 
 /**
  * The base class for all elements in a Grapheme canvas. Grapheme uses a similar style to THREE.js: elements exist in a
- * tree structure. For each call to the plot's render() function, the tree is traversed, and any elements which are
+ * tree structure. For each call to the scene's render() function, the tree is traversed, and any elements which are
  * visible and marked for updating (via markUpdate()) have their _update() function called with <i>updateInfo</i> as a
  * single parameter. The order of updating is guaranteed to be the same as precedence, and <i>_update()</i> should be a
  * generator function, to allow for both synchronous and asynchronous updating. Once finished updating, the elements are
  * traversed again and rendered. Similarly to _update(), _render() is a generator function to allow for asynchronous
  * rendering. Unlike _update(), however, two children in the same universe cannot be rendered asynchronously simultaneously.
  * It would be annoying to have to copy the canvas, buffers, and the GL state every time when switching between children.
- * Thus, only one plot may have control over the canvas at a time.
+ * Thus, only one scene may have control over the renderer at a time.
  */
 export class Element extends Eventful {
-  /**
-   * Abbreviated form for identifying elements of this class; subclasses may define this differently
-   * @type {string}
-   */
-  static abbrName = "element"
-
   /**
    * Construct a new Grapheme element.
    * @param params {Object} Parameters
@@ -42,7 +36,7 @@ export class Element extends Eventful {
      * @type {string}
      * @private
      */
-    this.id = id ? id + '' : this.constructor.abbrName + "-" + getID()
+    this.id = id ? id + '' : this.getTagName() + "-" + getID()
 
     /**
      * Whether this element needs to be updated. This can be marked using the function markUpdate(). Updating occurs
@@ -58,6 +52,13 @@ export class Element extends Eventful {
      * @public
      */
     this.parent = null
+
+    /**
+     * The highest level element in the chain, defining a width and height of the scene (and potentially a canvas, etc.)
+     * @type {Element}
+     * @public
+     */
+    this.scene = null
 
     /**
      * The order in which this element will be drawn. Two given elements, e1 and e2, who are children of the same element,
@@ -89,6 +90,15 @@ export class Element extends Eventful {
     this.computedProps = {}
   }
 
+
+  /**
+   * Abbreviated form for identifying elements of this class; subclasses should define this differently
+   * @returns {string}
+   */
+  getTagName () {
+    return "element"
+  }
+
   /**
    * Mark the element as needing to be updated at the next render call.
    */
@@ -103,8 +113,8 @@ export class Element extends Eventful {
   removeSelf () {
     if (this.parent) this.parent.remove(this)
 
-    this.plot = null
     this.parent = null
+    this.scene = null
 
     return this
   }
@@ -146,10 +156,16 @@ export class Element extends Eventful {
     return this
   }
 
+  _setScene (scene) {
+    // Set this element's scene, along with all of its children's scenes
+    this.scene = scene
+
+  }
+
   /**
-   * Whether this element is a top-level plot, needing no parent (it's not)
+   * Whether this element is a top-level scene, needing no parent (it's not)
    */
-  isPlot () {
+  isScene () {
     return false
   }
 
@@ -217,6 +233,18 @@ export class Element extends Eventful {
     }
 
     return this
+  }
+
+  /**
+   * Trigger event, but only if this element is fully updated
+   * @param eventName
+   * @param data
+   * @param opts
+   */
+  triggerEvent (eventName, data, opts={}) {
+    if (!this.needsUpdate) {
+      super.triggerEvent(eventName, data, opts)
+    }
   }
 
   /**
