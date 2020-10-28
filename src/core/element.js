@@ -91,6 +91,27 @@ export class Element extends Eventful {
   }
 
   /**
+   * Set the value of the prop propName to value. props may not have undefined as a value; such props will instead be
+   * cleared. Props in this.props are stored in the form { value, inheritable: true/false, overridable: true/false,
+   * updated: true/false }. Value is the value of the prop, of course. Inheritable determines whether the prop will be
+   * cascaded in computedProps to child elements. Overridable determines whether children can override the prop
+   * (usually false). Updated keeps track of whether computedProps 
+   * @param propName
+   * @param value
+   */
+  set (propName, value) {
+
+  }
+
+  configure (propName, config = {}) {
+
+  }
+
+  has (propName) {
+
+  }
+
+  /**
    * Internal function used to avoid constant parameter packing and unpacking
    * @private
    */
