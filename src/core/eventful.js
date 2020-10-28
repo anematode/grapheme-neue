@@ -1,9 +1,10 @@
 
 // The things that would get messed up when using objects as dictionaries, things like __proto__, prototype
 const BANNED_PROP_NAMES = Object.getOwnPropertyNames(Object.getPrototypeOf({}))
+BANNED_PROP_NAMES.push("")
 
-const isPropNameBanned = name => BANNED_PROP_NAMES.includes(name)
-const checkPropNameBanned = name => {
+export const isPropNameBanned = name => BANNED_PROP_NAMES.includes(name)
+export const checkPropNameBanned = name => {
   if (isPropNameBanned(name)) throw new Error(name + " cannot be used as an identifier because it conflicts with the Object prototype")
 }
 
@@ -104,7 +105,14 @@ export class Eventful {
     return this
   }
 
-  _triggerEvent (eventName, data, opts={}) {
+  /**
+   * Trigger the listeners registered under an event name, passing (data, this, eventName) to each. Returns true if
+   * some listener returned true, stopping propagation; returns false otherwise
+   * @param eventName {string} Name of the event to be triggered
+   * @param data {any} Optional data parameter to be passed to listeners
+   * @returns {boolean} Whether any listener stopped propagation
+   */
+  triggerEvent (eventName, data) {
     const listeners = this.#eventListeners[eventName]
 
     if (Array.isArray(listeners)) {
@@ -114,19 +122,5 @@ export class Eventful {
     }
 
     return false
-  }
-
-  /**
-   * Trigger the listeners registered under an event name, passing (data, this, eventName) to each. Returns true if
-   * some listener returned true, stopping propagation; returns false otherwise
-   * @param eventName {string} Name of the event to be triggered
-   * @param data {any} Optional data parameter to be passed to listeners
-   * @param opts {Object} Extra options to dictate how the event is triggered
-   * @returns {boolean} Whether any listener stopped propagation
-   */
-  triggerEvent (eventName, data, opts={}) {
-    if (isPropNameBanned(eventName)) return false
-
-    return this._triggerEvent(eventName, data, opts)
   }
 }
