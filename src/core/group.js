@@ -5,6 +5,6 @@ import { Element } from "./element.js"
  */
 export class Group extends Element {
   getTagName () {
-
+    return "group"
   }
 }

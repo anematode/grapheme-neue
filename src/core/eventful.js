@@ -1,18 +1,23 @@
+
+// The things that would get messed up when using objects as dictionaries, things like __proto__, prototype
+const BANNED_PROP_NAMES = Object.getOwnPropertyNames(Object.getPrototypeOf({}))
+
+const isPropNameBanned = name => BANNED_PROP_NAMES.includes(name)
+const checkPropNameBanned = name => {
+  if (isPropNameBanned(name)) throw new Error(name + " cannot be used as an identifier because it conflicts with the Object prototype")
+}
+
 /**
  * A base class to use for event listeners and the like. Supports things like addEventListener(eventName, callback),
  * triggerEvent(name, ?data), removeEventListener( ... ), removeEventListeners(?name). Listeners are called with
- * data and this as parameters. If the listener returns true, the event does not propagate to any other listeners.
- * If a field "children" is found in this class, it will propagate the event to children. If a field
- * "triggerChildrenFirst" is found, its boolean value will determine whether this class's listeners are called first,
- * or its children's listeners are called. Children which are not instances of Eventful will not have their triggerEvent
- * method called.
+ * data and this as parameters. If a listener returns true, the event does not propagate to any other listeners.
  */
 export class Eventful {
   /**
    * Internal variable containing a map of strings (event names) to arrays of handlers.
-   * @type {Map<string, Array<function>>}
+   * @type {Object}
    */
-  #eventListeners = new Map()
+  #eventListeners = {}
 
   /**
    * Register an event listener to a given event name. It will be given lower priority than the ones that came before.
@@ -22,6 +27,8 @@ export class Eventful {
    * @returns {Eventful} Returns self (for chaining)
    */
   addEventListener (eventName, callback) {
+    checkPropNameBanned(eventName)
+
     if (Array.isArray(callback)) {
       for (const c of callback) this.addEventListener(eventName, c)
 
@@ -29,11 +36,11 @@ export class Eventful {
     } else if (typeof callback === "function") {
       if (typeof eventName !== "string" || !eventName) throw new TypeError("Invalid event name")
 
-      let listeners = this.#eventListeners.get(eventName)
+      let listeners = this.#eventListeners[eventName]
 
       if (!listeners) {
         listeners = []
-        this.#eventListeners.set(eventName, listeners)
+        this.#eventListeners[eventName] = listeners
       }
 
       if (!listeners.includes(callback)) listeners.push(callback)
@@ -47,7 +54,9 @@ export class Eventful {
    * @returns {Array<function>}
    */
   getEventListeners (eventName) {
-    return this.#eventListeners.get(e)?.slice() ?? []
+    const listeners = this.#eventListeners[eventName]
+
+    return Array.isArray(listeners) ? listeners : []
   }
 
   /**
@@ -56,7 +65,7 @@ export class Eventful {
    * @returns {boolean} Whether any listeners are registered for that event
    */
   hasEventListenersFor (eventName) {
-    return this.#eventListeners.has(eventName)
+    return this.#eventListeners[eventName] && !isPropNameBanned(eventName)
   }
 
   /**
@@ -72,15 +81,16 @@ export class Eventful {
       return this
     }
 
-    const listeners = this.#eventListeners.get(eventName)
+    const listeners = this.#eventListeners[eventName]
 
-    if (listeners) {
+    if (Array.isArray(listeners)) {
       const index = listeners.indexOf(callback)
 
       if (index !== -1) listeners.splice(index, 1)
+
+      if (listeners.length === 0) delete this.#eventListeners[eventName]
     }
 
-    if (listeners.length === 0) this.#eventListeners.delete(eventName)
     return this
   }
 
@@ -90,8 +100,20 @@ export class Eventful {
    * @returns {Eventful} Returns self (for chaining)
    */
   removeEventListeners (eventName) {
-    this.#eventListeners.delete(eventName)
+    delete this.#eventListeners[eventName]
     return this
+  }
+
+  _triggerEvent (eventName, data, opts={}) {
+    const listeners = this.#eventListeners[eventName]
+
+    if (Array.isArray(listeners)) {
+      for (let i = 0; i < listeners.length; ++i) {
+        if (listeners[i](data, this, eventName)) return true
+      }
+    }
+
+    return false
   }
 
   /**
@@ -103,55 +125,8 @@ export class Eventful {
    * @returns {boolean} Whether any listener stopped propagation
    */
   triggerEvent (eventName, data, opts={}) {
-    // Trigger only this element's listeners
-    const triggerListeners = () => {
-      const listeners = this.#eventListeners.get(eventName)
+    if (isPropNameBanned(eventName)) return false
 
-      if (listeners) {
-        for (let i = 0; i < listeners.length; ++i) {
-          if (listeners[i](data, this, eventName)) return true
-        }
-      }
-
-      return false
-    }
-
-    // Trigger all the children
-    const triggerChildren = () => {
-      const { children } = this
-
-      if (children.length === 0) return false
-
-      for (let i = 0; i < children.length; ++i) {
-        const child = children[i]
-
-        if (child.triggerEvent) {
-          if (child.triggerEvent(eventName, data))
-            return true
-        }
-      }
-
-      return false
-    }
-
-    // For Eventfuls with children
-    if (this.children) {
-      const triggerChildrenFirst = !!this.triggerChildrenFirst
-
-      if (triggerChildrenFirst) {
-        if (triggerChildren()) return true
-      }
-
-      if (triggerListeners()) return true
-
-      if (!triggerChildrenFirst) {
-        if (triggerChildren()) return true
-      }
-    } else {
-      // Other case
-      if (triggerListeners()) return true
-    }
-
-    return false
+    return this._triggerEvent(eventName, data, opts)
   }
 }

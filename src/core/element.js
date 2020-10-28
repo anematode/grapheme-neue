@@ -1,4 +1,3 @@
-
 import {getID} from "../utils.js"
 import {Eventful} from "./eventful.js"
 
@@ -32,7 +31,8 @@ export class Element extends Eventful {
 
     /**
      * A unique ID associated with this element to disambiguate it from other elements, and to be used in things like
-     * WebGL buffer names. May be defined in params
+     * WebGL buffer names. May be custom defined in params, but then it is the user's responsibility to prevent name
+     * clashes
      * @type {string}
      * @private
      */
@@ -90,6 +90,70 @@ export class Element extends Eventful {
     this.computedProps = {}
   }
 
+  /**
+   * Internal function used to avoid constant parameter packing and unpacking
+   * @private
+   */
+  _forEach(callback, childrenFirst, topmost, recursive, reverse, terminateOnReturn) {
+    const wrap = (value, element) => ({ value, element })
+
+    // At least one child
+    if (topmost && !childrenFirst) {
+      const ret = callback(this)
+      if (terminateOnReturn && ret) return wrap(ret, this)
+    }
+
+    const { children } = this
+
+    if (children.length !== 0) {
+      const iStart = reverse ? (children.length - 1) : 0
+      const iEnd = reverse ? -1 : children.length
+      const iStep = reverse ? -1 : 1
+
+      for (let i = iStart; i !== iEnd; i += iStep) {
+        const child = children[i]
+        const noSubchildren = child.children.length === 0
+
+        if (noSubchildren || !childrenFirst) { // Quicky, can just call callback ourselves
+          const ret = callback(child)
+          if (terminateOnReturn && ret) return wrap(ret, child)
+
+          if (noSubchildren) continue
+        }
+
+        if (recursive) {
+          const ret = child._forEach(callback, childrenFirst, false, true, reverse, terminateOnReturn)
+
+          if (terminateOnReturn && ret) return ret // already wrapped
+        }
+
+        if (childrenFirst) {
+          const ret = callback(child)
+          if (terminateOnReturn && ret) return wrap(ret, child)
+        }
+      }
+    }
+
+    if (topmost && childrenFirst) {
+      const ret = callback(this)
+      if (terminateOnReturn && ret) return wrap(ret, this)
+    }
+  }
+
+  /**
+   * A function to iterate through the tree of an element. It is assumed that the callback does
+   * not modify the element tree; in that case, behavior is undefined
+   * @param callback {Function} The function to call with children, with a single parameter (child).
+   * @param childrenFirst {boolean} Whether to call callback on children before parent nodes
+   * @param topmost {boolean} Whether to call the callback on the element forEach() is being called on
+   * @param recursive {boolean} Whether to recurse deeper into elements
+   * @param reverse {boolean} Whether to call the children in reverse order
+   * @param terminateOnReturn {boolean} Whether to stop propagation if a callback returned a truthy value.
+   * @returns {any} If terminateOnReturn is true and a callback returns a truthy value, then { value, element } is returned
+   */
+  forEach (callback, { childrenFirst = false, topmost = true, recursive = true, reverse = false, terminateOnReturn = false } = {}) {
+    return this._forEach(callback, childrenFirst, topmost, recursive, reverse, terminateOnReturn)
+  }
 
   /**
    * Abbreviated form for identifying elements of this class; subclasses should define this differently
@@ -120,13 +184,20 @@ export class Element extends Eventful {
   }
 
   /**
-   * Returns whether the given element may be added to this element as a child
+   * Throws a descriptive error if element is not a valid child to be added to this element.
    * @param element {Element}
-   * @returns {boolean}
    * @private
    */
-  _isValidChild (element) {
-    return (element instanceof Element) && !element.parent && !element.isPlot()
+  _throwIfInvalidChild (element) {
+    if (!(element instanceof Element)) {
+      throw new TypeError("Given element is not instance of Grapheme.Element")
+    } else if (element.parent) {
+      throw new Error("Given element already has a parent")
+    } else if (element.scene) {
+      throw new Error("Given element already has a scene")
+    } else if (element.isScene()) {
+      throw new Error("Given element is a scene and thus cannot be a child of another element")
+    }
   }
 
   /**
@@ -145,25 +216,35 @@ export class Element extends Eventful {
         this.add(arguments[i])
       }
     } else {
-      if (!this._isValidChild(element)) {
-        throw new TypeError("Invalid element given")
-      }
+      this._throwIfInvalidChild(element)
 
       element.parent = this
+      element._setScene(this.scene)
+
       this.children.push(element)
     }
 
     return this
   }
 
+  /**
+   * Set the scene of this element, as well as all children, to the given scene
+   * @param scene
+   * @private
+   */
   _setScene (scene) {
-    // Set this element's scene, along with all of its children's scenes
-    this.scene = scene
+    // Unless the user does something dumb, we know that all the scenes underneath this elem are the same, so we only
+    // have to set it when it changes
+    if (scene === this.scene) {
+      return
+    }
 
+    // Set this element's scene, along with all of its children's scenes
+    this.forEach(elem => elem.scene = scene)
   }
 
   /**
-   * Whether this element is a top-level scene, needing no parent (it's not)
+   * Whether this element is a top-level scene, thus needing no parent
    */
   isScene () {
     return false
@@ -230,6 +311,7 @@ export class Element extends Eventful {
       this.children.splice(index, 1)
 
       child.parent = null
+      child._setScene(null)
     }
 
     return this
