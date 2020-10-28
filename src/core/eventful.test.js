@@ -1,13 +1,5 @@
 import {Eventful} from "./eventful"
 
-class ChildishEventful extends Eventful {
-  constructor() {
-    super()
-
-    this.children = []
-  }
-}
-
 describe("Eventful", () => {
   test("add, remove and trigger single listener", () => {
     const evt = new Eventful()
