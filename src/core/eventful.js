@@ -49,14 +49,14 @@ export class Eventful {
   }
 
   /**
-   * Get the event listeners under "eventName"
+   * Get the event listeners under "eventName", cloned so that they can be derped around with
    * @param eventName {string} Name of the event whose listeners we want
    * @returns {Array<function>}
    */
   getEventListeners (eventName) {
     const listeners = this.#eventListeners[eventName]
 
-    return Array.isArray(listeners) ? listeners : []
+    return Array.isArray(listeners) ? listeners.slice() : []
   }
 
   /**
@@ -65,7 +65,7 @@ export class Eventful {
    * @returns {boolean} Whether any listeners are registered for that event
    */
   hasEventListenersFor (eventName) {
-    return this.#eventListeners[eventName] && !isPropNameBanned(eventName)
+    return Array.isArray(this.#eventListeners[eventName])
   }
 
   /**

@@ -41,10 +41,15 @@ describe("Eventful", () => {
       callback2, callback4
     ]), "addEventListener accepts array").toBe(evt)
 
+    expect(evt.hasEventListenersFor("choochoo"), "returns false if there are no registered event listeners under the given name").toBe(false)
+    expect(evt.hasEventListenersFor("huzzah"), "returns true if there are registered event listeners under the given name").toBe(true)
+
     evt.triggerEvent("huzzah", data)
 
     ;[callback1, callback3, callback5].forEach(c => expect(c).toBeCalledWith(data, evt, "huzzah"))
     ;[callback2, callback4].forEach(c => expect(c).not.toBeCalled())
+
+    expect(evt.hasEventListenersFor("huzzah"), "returns true if there are registered event listeners under the given name").toBe(true)
 
     ;[callback1, callback2, callback3, callback4, callback5].forEach(c => c.mockClear())
 
@@ -53,12 +58,15 @@ describe("Eventful", () => {
     evt.triggerEvent("huzzah")
 
     ;[callback1, callback2, callback3, callback4, callback5].forEach(c => expect(c).not.toBeCalled())
+
+    expect(evt.hasEventListenersFor("huzzah"), "returns false if there are no registered event listeners under the given name").toBe(false)
+
   })
 
   test("throws on an invalid event name or callback", () => {
     // Event names may be any non-empty string
     const evt = new Eventful()
-    const badEventNames = [0, -Infinity, NaN, '', [NaN], ['hello', '']]
+    const badEventNames = [0, -Infinity, NaN, '', [NaN], ['hello', ''], "constructor", "__defineGetter__", "__defineSetter__", "hasOwnProperty", "__lookupGetter__", "__lookupSetter__", "isPrototypeOf", "propertyIsEnumerable", "toString", "valueOf", "__proto__", "toLocaleString" ]
     const badFunctions = [3, "cow"]
 
     for (const bad of badEventNames) {
@@ -68,5 +76,47 @@ describe("Eventful", () => {
     for (const bad of badFunctions) {
       expect(() => evt.addEventListener("valid event name", bad), "Given bad callback: " + bad).toThrow()
     }
+  })
+
+  test("removing a listener works", () => {
+    const evt = new Eventful()
+    const callback = jest.fn()
+
+    evt.addEventListener("choong", callback)
+    evt.removeEventListener("choong", callback)
+
+    evt.triggerEvent("choong")
+
+    expect(callback, "removed listener not called").not.toBeCalled()
+    expect(evt.hasEventListenersFor("choong"), "reports no listeners").toBe(false)
+  })
+
+  test("adding a listener twice doesn't mean it gets called twice", () => {
+    const evt = new Eventful()
+    const callback = jest.fn()
+
+    evt.addEventListener("choong", callback)
+    evt.addEventListener("choong", callback)
+
+    evt.triggerEvent("choong")
+
+    expect(callback, "listener called exactly once").toHaveBeenCalledTimes(1)
+  })
+
+  test("getEventListeners works as expected", () => {
+    const evt = new Eventful()
+    const listeners = [ jest.fn(), jest.fn(), jest.fn(), jest.fn(), jest.fn() ]
+
+    evt.addEventListener("porpoise", listeners)
+
+    const ret = evt.getEventListeners("porpoise")
+
+    expect(ret, "returned listeners are the same").toEqual(listeners)
+  })
+
+  test("calling a nonexistent event does nothing", () => {
+    const evt = new Eventful()
+
+    expect(() => evt.triggerEvent("nothingness", "payload")).not.toThrow()
   })
 })
