@@ -95,9 +95,11 @@ export class Element extends Eventful {
    * cleared. Props in this.props are stored in the form { value, inheritable: true/false, overridable: true/false,
    * updated: true/false }. Value is the value of the prop, of course. Inheritable determines whether the prop will be
    * cascaded in computedProps to child elements. Overridable determines whether children can override the prop
-   * (usually false). Updated keeps track of whether computedProps 
+   * (usually false). Updated keeps track of whether computedProps needs to be updated with the new value from this
+   * prop.
    * @param propName
    * @param value
+   * @returns {Element} Returns self (for chaining)
    */
   set (propName, value) {
 
