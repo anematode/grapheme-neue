@@ -37,3 +37,7 @@ export function assertRange (num, min, max, variableName = 'Unknown variable') {
     throw new RangeError(`${variableName} must be in the range [${min}, ${max}]`)
   }
 }
+
+export function isPrimitive (obj) {
+  return typeof obj === 'object' && obj !== null
+}

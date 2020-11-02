@@ -1,4 +1,4 @@
-import {getID} from "../utils.js"
+import {getID, isPrimitive} from "../utils.js"
 import {Eventful} from "./eventful.js"
 
 /**
@@ -40,11 +40,16 @@ export class Element extends Eventful {
 
     /**
      * Whether this element needs to be updated. This can be marked using the function markUpdate(). Updating occurs
-     * before rendering.
+     * before rendering, and includes both the recomputation of props and the actual updating.
      * @type {boolean}
      * @public
      */
-    this.needsUpdate = false
+    this.needsUpdate = true
+
+    /**
+     * Whether this element needs its computed props to be updated.
+     */
+    this.needsPropCompute = true
 
     /**
      * The parent of this element (there can be only one)
@@ -85,32 +90,120 @@ export class Element extends Eventful {
 
     /**
      * Computed properties of this object. It contains all the overrideable properties from props, as well as
-     * any inherited properties and any properties from the global styling information.
+     * any inherited properties and (eventually) any properties from the global styling information.
      */
     this.computedProps = {}
+
+    /**
+     * Internal values computed by the update() function for the render() function to use. May also include things like
+     * bounding boxes which are intended to be accessed by others
+     */
+    this.internal = {}
   }
 
   /**
    * Set the value of the prop propName to value. props may not have undefined as a value; such props will instead be
-   * cleared. Props in this.props are stored in the form { value, inheritable: true/false, overridable: true/false,
-   * updated: true/false }. Value is the value of the prop, of course. Inheritable determines whether the prop will be
+   * cleared. Props in this.props are stored in the form { value, cascades: true/false, overridable: true/false,
+   * changed: true/false }. Value is the value of the prop, of course. Cascades determines whether the prop will be
    * cascaded in computedProps to child elements. Overridable determines whether children can override the prop
-   * (usually false). Updated keeps track of whether computedProps needs to be updated with the new value from this
+   * (usually false). Changed keeps track of whether computedProps needs to be updated with the new value from this
    * prop.
    * @param propName
    * @param value
+   * @param config Optionally, cascade and overridable attributes to add to the prop.
    * @returns {Element} Returns self (for chaining)
    */
-  set (propName, value) {
+  set (propName, value, config) {
+    const { props } = this
 
+    // Special case: clearing a prop
+    if (value === undefined) {
+      if (props[propName]) { // This will only happen if a prop compute hasn't happened and removed the prop
+        const prop = props[propName]
+
+        prop.value = undefined
+        prop.changed = true
+      } else {
+        // Otherwise nothing is needed
+        return this
+      }
+    } else {
+      if (props[propName]) { // Updating an already existing prop
+        const prop = props[propName]
+
+        prop.value = value
+        prop.changed = true
+      } else { // New prop!
+        props[propName] = { value, changed: true }
+      }
+    }
+
+    if (config) this.configure(propName, config)
+    this.needsPropCompute = true
+
+    return this
+  }
+
+  markChanged (propName) {
+    const prop = this.props[propName]
+
+    if (prop && prop.value !== undefined) {
+      prop.changed = true
+      this._markPropsChanged()
+    }
+  }
+
+  /**
+   * Delete a prop.
+   * @param propName {string}
+   * @returns {Element} Returns self (for chaining)
+   */
+  clear (propName) {
+    this.set(propName, undefined)
+  }
+
+  /**
+   * Whether this element has a given prop.
+   * @param propName {string}
+   * @returns {boolean}
+   */
+  has (propName) {
+    const prop = this.props[propName]
+
+    return !!prop && prop.value !== undefined
+  }
+
+  /**
+   * Get a prop's value
+   * @param propName {string}
+   * @returns {any} The prop's value, and undefined if that prop is not defined.
+   */
+  get (propName) {
+    const prop = this.props[propName]
+
+    if (!prop || prop.value === undefined) {
+      return undefined
+    }
+
+    return prop.value
+  }
+
+  /**
+   * Get prop information (changed, cascades, overridable) in dict format. Returns null if that prop doesn't exist.
+   * @param propName {string}
+   */
+  getConfig (propName) {
+    const prop = this.props[propName]
+
+    if (!prop || prop.value === undefined) {
+      return null
+    }
+
+    return { changed: prop.changed, cascades: !!prop.cascades, overridable: !!prop.overridable }
   }
 
   configure (propName, config = {}) {
-
-  }
-
-  has (propName) {
-
+    propName
   }
 
   /**
