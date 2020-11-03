@@ -159,6 +159,12 @@ There are four classes of major importance to understand the system.
 
 Grapheme has several disparate coordinate spaces for different contexts. We try to abstract these away as much as possible so that the end user doesn't have as much difficulty. When we set the size of a plot with \texttt{plot.setSize(width, height)}, the displayed canvas will change to have that size in CSS pixels. The canvas itself, however, may have a different number of "true pixels" than the displayed canvas. This occurs if the dpr is not $1$. Indeed, the size of the canvas is internally \texttt{width}$*$\texttt{dpr}.
 
-A font of size $12$ will be twice the size, in true pixels, on a screen with dpr $2$ than one with dpr $1$. Most Grapheme elements, to make their life easier, consider everything in CSS pixels. Some elements, however, care about true pixels. If they have an artifact 
+A font of size $12$ will be twice the size, in true pixels, on a screen with dpr $2$ than one with dpr $1$. Most Grapheme elements, to make their life easier, consider everything in CSS pixels. Some elements, however, care about true pixels. If they have an artifact
+
+\section{Rendering Stages}
+
+At the highest level, there are three stages to rendering an element tree to a plot. They are property computation, updating, and rendering. The user won't normally have to call the first two, and calling any one of these also forces the previous ones to run.
+
+Property computation is the computation of what parameters will be used for each element. Consider a FunctionPlot2D element, for example. This element needs quite a bit of information to draw itself. It needs both information shared with other elements, such as the \texttt{plotting box}, and information particular to itself, such as its \texttt{color} and \texttt{function}. 
 
 \end{document}
