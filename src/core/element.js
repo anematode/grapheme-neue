@@ -85,18 +85,24 @@ export class Element extends Eventful {
     /**
      * Props object containing the properties of this element. Note that some properties can be *inherited*. Instead of
      * being accessed directly, properties are manipulated via setProp, clearProp, et cetera.
+     * @type {Object}
+     * @private
      */
     this.props = {}
 
     /**
      * Computed properties of this object. It contains all the overrideable properties from props, as well as
      * any inherited properties and (eventually) any properties from the global styling information.
+     * @type {Object}
+     * @private
      */
     this.computedProps = {}
 
     /**
      * Internal values computed by the update() function for the render() function to use. May also include things like
      * bounding boxes which are intended to be accessed by others
+     * @type {Object}
+     * @private
      */
     this.internal = {}
   }
@@ -149,7 +155,7 @@ export class Element extends Eventful {
 
     if (prop && prop.value !== undefined) {
       prop.changed = true
-      this._markPropsChanged()
+      this.needsPropCompute = true
     }
   }
 
