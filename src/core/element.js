@@ -48,6 +48,8 @@ export class Element extends Eventful {
 
     /**
      * Whether this element needs its computed props to be updated.
+     * @type {boolean}
+     * @public
      */
     this.needsPropCompute = true
 
@@ -208,8 +210,25 @@ export class Element extends Eventful {
     return { changed: prop.changed, cascades: !!prop.cascades, overridable: !!prop.overridable }
   }
 
-  configure (propName, config = {}) {
-    propName
+  configureInheritance (propName, config = {}) {
+    const prop = this.props[propName]
+
+    if (!prop || prop.value === undefined) return this
+
+    const cascades = !!config.cascades
+    const overridable = !!config.overridable
+
+    prop.cascades = cascades
+  }
+
+  /**
+   * Update computedProps with the correct values.
+   */
+  computeProps () {
+    if (!this.needsPropCompute) return
+    this.needsPropCompute = false
+
+
   }
 
   /**
