@@ -18,7 +18,7 @@ export class Eventful {
    * Internal variable containing a map of strings (event names) to arrays of handlers.
    * @type {Object}
    */
-  #eventListeners = {}
+  eventListeners = {}
 
   /**
    * Register an event listener to a given event name. It will be given lower priority than the ones that came before.
@@ -37,11 +37,11 @@ export class Eventful {
     } else if (typeof callback === "function") {
       if (typeof eventName !== "string" || !eventName) throw new TypeError("Invalid event name")
 
-      let listeners = this.#eventListeners[eventName]
+      let listeners = this.eventListeners[eventName]
 
       if (!listeners) {
         listeners = []
-        this.#eventListeners[eventName] = listeners
+        this.eventListeners[eventName] = listeners
       }
 
       if (!listeners.includes(callback)) listeners.push(callback)
@@ -55,7 +55,7 @@ export class Eventful {
    * @returns {Array<function>}
    */
   getEventListeners (eventName) {
-    const listeners = this.#eventListeners[eventName]
+    const listeners = this.eventListeners[eventName]
 
     return Array.isArray(listeners) ? listeners.slice() : []
   }
@@ -66,7 +66,7 @@ export class Eventful {
    * @returns {boolean} Whether any listeners are registered for that event
    */
   hasEventListenersFor (eventName) {
-    return Array.isArray(this.#eventListeners[eventName])
+    return Array.isArray(this.eventListeners[eventName])
   }
 
   /**
@@ -82,14 +82,14 @@ export class Eventful {
       return this
     }
 
-    const listeners = this.#eventListeners[eventName]
+    const listeners = this.eventListeners[eventName]
 
     if (Array.isArray(listeners)) {
       const index = listeners.indexOf(callback)
 
       if (index !== -1) listeners.splice(index, 1)
 
-      if (listeners.length === 0) delete this.#eventListeners[eventName]
+      if (listeners.length === 0) delete this.eventListeners[eventName]
     }
 
     return this
@@ -101,7 +101,7 @@ export class Eventful {
    * @returns {Eventful} Returns self (for chaining)
    */
   removeEventListeners (eventName) {
-    delete this.#eventListeners[eventName]
+    delete this.eventListeners[eventName]
     return this
   }
 
@@ -113,7 +113,7 @@ export class Eventful {
    * @returns {boolean} Whether any listener stopped propagation
    */
   triggerEvent (eventName, data) {
-    const listeners = this.#eventListeners[eventName]
+    const listeners = this.eventListeners[eventName]
 
     if (Array.isArray(listeners)) {
       for (let i = 0; i < listeners.length; ++i) {

@@ -1,5 +1,5 @@
-import {getID, isPrimitive} from "../utils.js"
-import {Eventful} from "./eventful.js"
+import { getID } from '../utils.js'
+import { Eventful } from './eventful.js'
 
 /**
  * The base class for all elements in a Grapheme canvas. Grapheme uses a similar style to THREE.js: elements exist in a
@@ -19,7 +19,7 @@ export class Element extends Eventful {
    * @param params.precedence {number} The drawing precedence of this object
    * @param params.id {string} The id of this element (will be randomly generated if not provided)
    */
-  constructor({ precedence = 0, id = '' } = {}) {
+  constructor ({ precedence = 0, id = '' } = {}) {
     super()
 
     /**
@@ -36,7 +36,7 @@ export class Element extends Eventful {
      * @type {string}
      * @private
      */
-    this.id = id ? id + '' : this.getTagName() + "-" + getID()
+    this.id = id ? id + '' : this.getTagName() + '-' + getID()
 
     /**
      * Whether this element needs to be updated. This can be marked using the function markUpdate(). Updating occurs
@@ -110,132 +110,10 @@ export class Element extends Eventful {
   }
 
   /**
-   * Set the value of the prop propName to value. props may not have undefined as a value; such props will instead be
-   * cleared. Props in this.props are stored in the form { value, cascades: true/false, overridable: true/false,
-   * changed: true/false }. Value is the value of the prop, of course. Cascades determines whether the prop will be
-   * cascaded in computedProps to child elements. Overridable determines whether children can override the prop
-   * (usually false). Changed keeps track of whether computedProps needs to be updated with the new value from this
-   * prop.
-   * @param propName
-   * @param value
-   * @param config Optionally, cascade and overridable attributes to add to the prop.
-   * @returns {Element} Returns self (for chaining)
-   */
-  set (propName, value, config) {
-    const { props } = this
-
-    // Special case: clearing a prop
-    if (value === undefined) {
-      if (props[propName]) { // This will only happen if a prop compute hasn't happened and removed the prop
-        const prop = props[propName]
-
-        prop.value = undefined
-        prop.changed = true
-      } else {
-        // Otherwise nothing is needed
-        return this
-      }
-    } else {
-      if (props[propName]) { // Updating an already existing prop
-        const prop = props[propName]
-
-        prop.value = value
-        prop.changed = true
-      } else { // New prop!
-        props[propName] = { value, changed: true }
-      }
-    }
-
-    if (config) this.configure(propName, config)
-    this.needsPropCompute = true
-
-    return this
-  }
-
-  markChanged (propName) {
-    const prop = this.props[propName]
-
-    if (prop && prop.value !== undefined) {
-      prop.changed = true
-      this.needsPropCompute = true
-    }
-  }
-
-  /**
-   * Delete a prop.
-   * @param propName {string}
-   * @returns {Element} Returns self (for chaining)
-   */
-  clear (propName) {
-    this.set(propName, undefined)
-  }
-
-  /**
-   * Whether this element has a given prop.
-   * @param propName {string}
-   * @returns {boolean}
-   */
-  has (propName) {
-    const prop = this.props[propName]
-
-    return !!prop && prop.value !== undefined
-  }
-
-  /**
-   * Get a prop's value
-   * @param propName {string}
-   * @returns {any} The prop's value, and undefined if that prop is not defined.
-   */
-  get (propName) {
-    const prop = this.props[propName]
-
-    if (!prop || prop.value === undefined) {
-      return undefined
-    }
-
-    return prop.value
-  }
-
-  /**
-   * Get prop information (changed, cascades, overridable) in dict format. Returns null if that prop doesn't exist.
-   * @param propName {string}
-   */
-  getConfig (propName) {
-    const prop = this.props[propName]
-
-    if (!prop || prop.value === undefined) {
-      return null
-    }
-
-    return { changed: prop.changed, cascades: !!prop.cascades, overridable: !!prop.overridable }
-  }
-
-  configureInheritance (propName, config = {}) {
-    const prop = this.props[propName]
-
-    if (!prop || prop.value === undefined) return this
-
-    const cascades = !!config.cascades
-    const overridable = !!config.overridable
-
-    prop.cascades = cascades
-  }
-
-  /**
-   * Update computedProps with the correct values.
-   */
-  computeProps () {
-    if (!this.needsPropCompute) return
-    this.needsPropCompute = false
-
-
-  }
-
-  /**
    * Internal function used to avoid constant parameter packing and unpacking
    * @private
    */
-  _forEach(callback, childrenFirst, topmost, recursive, reverse, terminateOnReturn) {
+  _forEach (callback, childrenFirst, topmost, recursive, reverse, terminateOnReturn) {
     const wrap = (value, element) => ({ value, element })
 
     // At least one child
@@ -282,46 +160,19 @@ export class Element extends Eventful {
   }
 
   /**
-   * A function to iterate through the tree of an element. It is assumed that the callback does
-   * not modify the element tree; in that case, behavior is undefined
-   * @param callback {Function} The function to call with children, with a single parameter (child).
-   * @param childrenFirst {boolean} Whether to call callback on children before parent nodes
-   * @param topmost {boolean} Whether to call the callback on the element forEach() is being called on
-   * @param recursive {boolean} Whether to recurse deeper into elements
-   * @param reverse {boolean} Whether to call the children in reverse order
-   * @param terminateOnReturn {boolean} Whether to stop propagation if a callback returned a truthy value.
-   * @returns {any} If terminateOnReturn is true and a callback returns a truthy value, then { value, element } is returned
+   * Set the scene of this element, as well as all children, to the given scene
+   * @param scene
+   * @private
    */
-  forEach (callback, { childrenFirst = false, topmost = true, recursive = true, reverse = false, terminateOnReturn = false } = {}) {
-    return this._forEach(callback, childrenFirst, topmost, recursive, reverse, terminateOnReturn)
-  }
+  _setScene (scene) {
+    // Unless the user does something dumb, we know that all the scenes underneath this elem are the same, so we only
+    // have to set it when it changes
+    if (scene === this.scene) {
+      return
+    }
 
-  /**
-   * Abbreviated form for identifying elements of this class; subclasses should define this differently
-   * @returns {string}
-   */
-  getTagName () {
-    return "element"
-  }
-
-  /**
-   * Mark the element as needing to be updated at the next render call.
-   */
-  markUpdate () {
-    this.needsUpdate = true
-  }
-
-  /**
-   * Remove this element from its parent
-   * @returns {Element} Returns itself (for chaining)
-   */
-  removeSelf () {
-    if (this.parent) this.parent.remove(this)
-
-    this.parent = null
-    this.scene = null
-
-    return this
+    // Set this element's scene, along with all of its children's scenes
+    this.forEach(elem => elem.scene = scene)
   }
 
   /**
@@ -331,13 +182,13 @@ export class Element extends Eventful {
    */
   _throwIfInvalidChild (element) {
     if (!(element instanceof Element)) {
-      throw new TypeError("Given element is not instance of Grapheme.Element")
+      throw new TypeError('Given element is not instance of Grapheme.Element')
     } else if (element.parent) {
-      throw new Error("Given element already has a parent")
+      throw new Error('Given element already has a parent')
     } else if (element.scene) {
-      throw new Error("Given element already has a scene")
+      throw new Error('Given element already has a scene')
     } else if (element.isScene()) {
-      throw new Error("Given element is a scene and thus cannot be a child of another element")
+      throw new Error('Given element is a scene and thus cannot be a child of another element')
     }
   }
 
@@ -369,34 +220,43 @@ export class Element extends Eventful {
   }
 
   /**
-   * Set the scene of this element, as well as all children, to the given scene
-   * @param scene
-   * @private
-   */
-  _setScene (scene) {
-    // Unless the user does something dumb, we know that all the scenes underneath this elem are the same, so we only
-    // have to set it when it changes
-    if (scene === this.scene) {
-      return
-    }
-
-    // Set this element's scene, along with all of its children's scenes
-    this.forEach(elem => elem.scene = scene)
-  }
-
-  /**
-   * Whether this element is a top-level scene, thus needing no parent
-   */
-  isScene () {
-    return false
-  }
-
-  /**
    * How many children this element has.
    * @returns {number}
    */
   childCount () {
     return this.children.length
+  }
+
+  /**
+   * Delete a prop.
+   * @param propName {string}
+   * @returns {Element} Returns self (for chaining)
+   */
+  clear (propName) {
+    this.set(propName, undefined)
+  }
+
+  /**
+   * Update computedProps with the correct values.
+   */
+  computeProps () {
+    if (!this.needsPropCompute) return
+
+    this.needsPropCompute = false
+
+
+  }
+
+  configureInheritance (propName, config = {}) {
+    const prop = this.props[propName]
+
+    if (!prop || prop.value === undefined) return this
+
+    const cascades = !!config.cascades
+    const overridable = !!config.overridable
+
+    prop.cascades = cascades
+    prop.overridable = overridable
   }
 
   destroy () {
@@ -413,11 +273,83 @@ export class Element extends Eventful {
   }
 
   /**
+   * A function to iterate through the tree of an element. It is assumed that the callback does
+   * not modify the element tree; in that case, behavior is undefined
+   * @param callback {Function} The function to call with children, with a single parameter (child).
+   * @param childrenFirst {boolean} Whether to call callback on children before parent nodes
+   * @param topmost {boolean} Whether to call the callback on the element forEach() is being called on
+   * @param recursive {boolean} Whether to recurse deeper into elements
+   * @param reverse {boolean} Whether to call the children in reverse order
+   * @param terminateOnReturn {boolean} Whether to stop propagation if a callback returned a truthy value.
+   * @returns {{value, element}} If terminateOnReturn is true and a callback returns a truthy value, then { value, element } is returned
+   */
+  forEach (callback, { childrenFirst = false, topmost = true, recursive = true, reverse = false, terminateOnReturn = false } = {}) {
+    return this._forEach(callback, childrenFirst, topmost, recursive, reverse, terminateOnReturn)
+  }
+
+  /**
+   * Get a prop's value
+   * @param propName {string}
+   * @returns {any} The prop's value, and undefined if that prop is not defined.
+   */
+  get (propName) {
+    const prop = this.props[propName]
+
+    if (!prop || prop.value === undefined) {
+      return undefined
+    }
+
+    return prop.value
+  }
+
+  /**
+   * Abbreviated form for identifying elements of this class; subclasses should define this differently
+   * @returns {string}
+   */
+  getTagName () {
+    return 'element'
+  }
+
+  /**
+   * Whether this element has a given prop.
+   * @param propName {string}
+   * @returns {boolean}
+   */
+  has (propName) {
+    const prop = this.props[propName]
+
+    return !!prop && prop.value !== undefined
+  }
+
+  /**
    * Whether this has any children.
    * @returns {boolean}
    */
   hasChildren () {
     return this.children.length !== 0
+  }
+
+  /**
+   * Whether this element is a top-level scene, thus needing no parent
+   */
+  isScene () {
+    return false
+  }
+
+  markChanged (propName) {
+    const prop = this.props[propName]
+
+    if (prop && prop.value !== undefined) {
+      prop.changed = true
+      this.needsPropCompute = true
+    }
+  }
+
+  /**
+   * Mark the element as needing to be updated at the next render call.
+   */
+  markUpdate () {
+    this.needsUpdate = true
   }
 
   /**
@@ -430,7 +362,7 @@ export class Element extends Eventful {
 
     if (child instanceof Element) {
       index = this.children.indexOf(child)
-    } else if (typeof child === "string") {
+    } else if (typeof child === 'string') {
       index = this.children.findIndex(c => c.id === child)
     } else if (child instanceof Array) {
       // If the provided array is literally the children, call removeAll() instead
@@ -444,7 +376,7 @@ export class Element extends Eventful {
         this.remove(arguments[i])
       }
     } else {
-      throw new TypeError("Given parameter is not an array of elements or an element")
+      throw new TypeError('Given parameter is not an array of elements or an element')
     }
 
     if (index !== -1) {
@@ -459,27 +391,77 @@ export class Element extends Eventful {
   }
 
   /**
-   * Trigger event, but only if this element is fully updated
-   * @param eventName
-   * @param data
-   * @param opts
-   */
-  triggerEvent (eventName, data, opts={}) {
-    if (!this.needsUpdate) {
-      super.triggerEvent(eventName, data, opts)
-    }
-  }
-
-  /**
    * Remove all the children from this element; faster than calling remove( ... ) individually.
    * @returns {Element} Returns itself (for chaining)
    */
   removeAll () {
     this.children.forEach(child => {
       child.parent = null
+      child._setScene(null)
     })
 
     this.children = []
     return this
+  }
+
+  /**
+   * Remove this element from its parent
+   * @returns {Element} Returns itself (for chaining)
+   */
+  removeSelf () {
+    if (this.parent) this.parent.remove(this)
+
+    this.parent = null
+    this.scene = null
+
+    return this
+  }
+
+  /**
+   * Set the value of the prop propName to value. props may not have undefined as a value; such props will instead be
+   * cleared. Props in this.props are stored in the form { value, cascades: true/false, overridable: true/false,
+   * changed: true/false }. Value is the value of the prop, of course. Cascades determines whether the prop will be
+   * cascaded in computedProps to child elements. Overridable determines whether children can override the prop
+   * (usually false). Changed keeps track of whether computedProps needs to be updated with the new value from this
+   * prop.
+   * @param propName
+   * @param value
+   * @param config Optionally, cascade and overridable attributes to add to the prop.
+   * @returns {Element} Returns self (for chaining)
+   */
+  _set (propName, value, config) {
+    const { props } = this
+
+    // Special case: clearing a prop
+    if (value === undefined) {
+      if (props[propName]) { // This will only happen if a prop compute hasn't happened and removed the prop
+        const prop = props[propName]
+
+        prop.value = undefined
+        prop.changed = true
+      } else {
+        // Otherwise nothing is needed
+        return this
+      }
+    } else {
+      if (props[propName]) { // Updating an already existing prop
+        const prop = props[propName]
+
+        prop.value = value
+        prop.changed = true
+      } else { // New prop!
+        props[propName] = { value, changed: true }
+      }
+    }
+
+    if (config) this.configure(propName, config)
+    this.needsPropCompute = true
+
+
+    return this
+  }
+
+  sortChildren () {
+    if (this.hasChildren()) this.children.sort((c1, c2) => {})
   }
 }

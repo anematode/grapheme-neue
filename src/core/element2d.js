@@ -1,10 +1,10 @@
-import { Element } from "./element.js"
+import { Element } from './element.js'
 
 /**
  * Element living in a Plot2D, as opposed to a hypothetical Element3D.
  */
 export class Element2D extends Element {
-  constructor (params={}) {
+  constructor (params = {}) {
     super(params)
   }
 

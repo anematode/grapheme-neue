@@ -2,7 +2,7 @@
 const renderers = []
 
 class Renderer {
-  constructor() {
+  constructor () {
     renderers.push(this)
 
     this.width = 1000
@@ -18,7 +18,7 @@ class Renderer {
 
   }
 
-  destroy() {
+  destroy () {
     const index = renderers.indexOf(this)
 
     renderers.splice(index, 1)

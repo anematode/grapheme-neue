@@ -20,12 +20,12 @@ export function benchmark (callback, iterations = 100, output = console.log) {
 
 export function time (callback, output = console.log) {
   const start = performance.now()
-  let result = "finished"
+  let result = 'finished'
 
   try {
     callback()
   } catch (e) {
-    result = "threw"
+    result = 'threw'
     throw e
   } finally {
     output(`Function ${callback.name} ${result} in ${performance.now() - start} ms.`)
