@@ -15,8 +15,5 @@ export { utils }
 
 export * from './math/real/real_functions.js'
 export * from './math/real/rational.js'
-export * from './core/element.js'
-export * from './core/group.js'
 export * from './core/eventful.js'
 export * from './core/bolus.js'
-export * from './core/scene.js'

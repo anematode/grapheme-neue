@@ -1,11 +1,8 @@
+const emptyObj = {}
 
-// The things that would get messed up when using objects as dictionaries, things like __proto__, prototype
-const BANNED_PROP_NAMES = Object.getOwnPropertyNames(Object.getPrototypeOf({}))
-BANNED_PROP_NAMES.push("")
-
-export const isPropNameBanned = name => BANNED_PROP_NAMES.includes(name)
+export const isPropNameBanned = name => emptyObj[name] || !name
 export const checkPropNameBanned = name => {
-  if (isPropNameBanned(name)) throw new Error(name + " cannot be used as an identifier because it conflicts with the Object prototype")
+  if (isPropNameBanned(name)) throw new Error(name + " cannot be used as an identifier because it conflicts with Object.prototype")
 }
 
 /**
