@@ -41,3 +41,17 @@ export function assertRange (num, min, max, variableName = 'Unknown variable') {
 export function isPrimitive (obj) {
   return typeof obj === 'object' && obj !== null
 }
+
+// Generate an id of the form xxxx-xxxx
+// TODO: guarantee no collisions via LFSR or something similar
+export function getStringID () {
+  function randLetter() {
+    return String.fromCharCode(Math.round(Math.random() * 25 + 96))
+  }
+
+  function randFourLetter() {
+    return randLetter() + randLetter() + randLetter() + randLetter()
+  }
+
+  return randFourLetter + '-' + randFourLetter()
+}

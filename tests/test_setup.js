@@ -18,11 +18,11 @@ document.body.appendChild(newScript)
 `
 
 moduleLoader.setAttribute("type", "module")
-
 document.body.appendChild(moduleLoader)
 
+// Anger the script so that it can only run later
 const deferLoad = () => {
-  throw new Error("Normal error, loading Grapheme.")
+  throw new Error("You should expect this error. Loading Grapheme.")
 }
 
 

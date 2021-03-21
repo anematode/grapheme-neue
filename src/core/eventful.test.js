@@ -57,7 +57,7 @@ describe('Eventful', () => {
   test('throws on an invalid event name or callback', () => {
     // Event names may be any non-empty string
     const evt = new Eventful()
-    const badEventNames = [ 0, -Infinity, NaN, '', [ NaN ], [ 'hello', '' ], 'constructor', '__defineGetter__', '__defineSetter__', 'hasOwnProperty', '__lookupGetter__', '__lookupSetter__', 'isPrototypeOf', 'propertyIsEnumerable', 'toString', 'valueOf', '__proto__', 'toLocaleString' ]
+    const badEventNames = [ 0, -Infinity, '', [] ]
     const badFunctions = [ 3, 'cow' ]
 
     for (const bad of badEventNames) {

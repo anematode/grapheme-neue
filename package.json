@@ -5,7 +5,7 @@
   "main": "build/grapheme.js",
   "scripts": {
     "test": "jest",
-    "start": "http-server -a localhost -p 8000",
+    "start": "http-server -a localhost -p 8000 --ext js",
     "lint": "eslint . --fix",
     "build": "rollup -c",
     "gendoc": "jsdoc src -r -d docs"

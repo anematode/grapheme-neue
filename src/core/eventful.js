@@ -1,10 +1,5 @@
 const emptyObj = {}
 
-export const isPropNameBanned = name => emptyObj[name] || !name
-export const checkPropNameBanned = name => {
-  if (isPropNameBanned(name)) throw new Error(name + " cannot be used as an identifier because it conflicts with Object.prototype")
-}
-
 /**
  * A base class to use for event listeners and the like. Supports things like addEventListener(eventName, callback),
  * triggerEvent(name, ?data), removeEventListener( ... ), removeEventListeners(?name). Listeners are called with
@@ -13,9 +8,9 @@ export const checkPropNameBanned = name => {
 export class Eventful {
   /**
    * Internal variable containing a map of strings (event names) to arrays of handlers.
-   * @type {Object}
+   * @type {Map}
    */
-  eventListeners = {}
+  eventListeners = new Map()
 
   /**
    * Register an event listener to a given event name. It will be given lower priority than the ones that came before.
@@ -25,8 +20,6 @@ export class Eventful {
    * @returns {Eventful} Returns self (for chaining)
    */
   addEventListener (eventName, callback) {
-    checkPropNameBanned(eventName)
-
     if (Array.isArray(callback)) {
       for (const c of callback) this.addEventListener(eventName, c)
 
@@ -34,11 +27,11 @@ export class Eventful {
     } else if (typeof callback === "function") {
       if (typeof eventName !== "string" || !eventName) throw new TypeError("Invalid event name")
 
-      let listeners = this.eventListeners[eventName]
+      let listeners = this.eventListeners.get(eventName)
 
       if (!listeners) {
         listeners = []
-        this.eventListeners[eventName] = listeners
+        this.eventListeners.set(eventName, listeners)
       }
 
       if (!listeners.includes(callback)) listeners.push(callback)
@@ -52,7 +45,7 @@ export class Eventful {
    * @returns {Array<function>}
    */
   getEventListeners (eventName) {
-    const listeners = this.eventListeners[eventName]
+    const listeners = this.eventListeners.get(eventName)
 
     return Array.isArray(listeners) ? listeners.slice() : []
   }
@@ -63,7 +56,7 @@ export class Eventful {
    * @returns {boolean} Whether any listeners are registered for that event
    */
   hasEventListenersFor (eventName) {
-    return Array.isArray(this.eventListeners[eventName])
+    return Array.isArray(this.eventListeners.get(eventName))
   }
 
   /**
@@ -79,14 +72,14 @@ export class Eventful {
       return this
     }
 
-    const listeners = this.eventListeners[eventName]
+    const listeners = this.eventListeners.get(eventName)
 
     if (Array.isArray(listeners)) {
       const index = listeners.indexOf(callback)
 
       if (index !== -1) listeners.splice(index, 1)
 
-      if (listeners.length === 0) delete this.eventListeners[eventName]
+      if (listeners.length === 0) this.eventListeners.delete(eventName)
     }
 
     return this
@@ -98,7 +91,7 @@ export class Eventful {
    * @returns {Eventful} Returns self (for chaining)
    */
   removeEventListeners (eventName) {
-    delete this.eventListeners[eventName]
+    this.eventListeners.delete(eventName)
     return this
   }
 
@@ -110,7 +103,7 @@ export class Eventful {
    * @returns {boolean} Whether any listener stopped propagation
    */
   triggerEvent (eventName, data) {
-    const listeners = this.eventListeners[eventName]
+    const listeners = this.eventListeners.get(eventName)
 
     if (Array.isArray(listeners)) {
       for (let i = 0; i < listeners.length; ++i) {

@@ -3,7 +3,7 @@
  * customizable error rate.
  */
 import { getExponent, pow2, rationalExp } from './fp_manip.js'
-import { assertRange } from '../../utils.js'
+import { assertRange } from '../../core/utils.js'
 
 /**
  * Return the closest rational number p/q to x where 1 <= q <= maxDenominator and |p| <= maxNumerator. The algorithm is
