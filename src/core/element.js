@@ -40,7 +40,7 @@ export class Element extends Eventful {
     this.ordering = params.ordering ?? 0
 
     /**
-     * Which update stage
+     * Which update stage. Most operations set the update stage back to 0, including adding or removing a child.
      * @type {number}
      * @property
      */
@@ -57,6 +57,7 @@ export class Element extends Eventful {
      * Inherit 0 means no inheritance. Inherit 1 means total inheritance. Inherit 2 means total inheritance, and child
      * elements cannot override the value. Changed true means the property has changed since this Element finished the
      * last update stage.
+     *
      * @type {Map<string, {}>}
      * @property
      */
@@ -64,7 +65,7 @@ export class Element extends Eventful {
 
     /**
      * These are the properties as computed after inheritance, updating, et cetera. They can be grabbed at any time, but
-     * are only final after updating has finished.
+     * are only final after updating has finished. Their definitions can be rather complicated.
      * @type {Map<string, {}>}
      * @property
      */
@@ -72,16 +73,16 @@ export class Element extends Eventful {
   }
 
   /**
-   * Get the storage object of a property, CREATING IT if the property doesn't exist.
+   * Get the storage object of a property, *creating it* if the property doesn't exist.
    * @param propName {string}
    * @private
    */
   _getPropStorageObject (propName) {
-    const storageObject = this.props.get(propName)
+    let storageObject = this.props.get(propName)
 
     if (!storageObject) {
-      this.set(propName, undefined)
-      return this.props.get(propName)
+      storageObject = {value: undefined, changed: true, inherit: false }
+      this.props.set(propName, storageObject)
     }
 
     return storageObject
@@ -101,7 +102,7 @@ export class Element extends Eventful {
    * - If there is no parent, start from scratch and simply copy over the local props.
    * - If there is a parent, iterate through its computed props
    */
-  computeProps (treatAllAsChanged=true) {
+  updateInheritedProps (treatAllAsChanged=true) {
 
   }
 
@@ -128,22 +129,23 @@ export class Element extends Eventful {
   }
 
   /**
+   * Get the value, changed status, and inheritance setting of a property
+   * @param propName {string}
+   * @returns {{}} Info with the keys "value", "changed", and "inherit"
+   */
+  getPropInfo (propName) {
+    const props = this.props
+    const storageObject = this.props.get(propName)
+
+    return storageObject ? { ...storageObject } : { value: undefined, changed: false, inherit: 0 }
+  }
+
+  /**
    * Get the value of a computed prop. Its validity depends on the update stage.
    * @param propName
    */
   getComputedProp (propName) {
     return this.computedProps.get(propName)?.value
-  }
-
-  /**
-   * Get the inheritance level of a property.
-   * @param propName
-   * @param inheritanceLevel
-   * @returns {number}
-   */
-  getInheritLevel (propName, inheritanceLevel=0) {
-    // Returns 0 if the property is undefined
-    return +this.props.get(propName)?.inherit
   }
 
   /**
@@ -172,7 +174,7 @@ export class Element extends Eventful {
   }
 
   /**
-   * Set a prop on this element. Elements are deleted by setting their value to undefined. Note that we do this
+   * Set a prop on this element. Properties are deleted by setting their value to undefined. Note that we do this
    * because setting their value to undefined allows us to mark it as changed, and then we can delete it once it no
    * longer means anything.
    *
@@ -186,34 +188,9 @@ export class Element extends Eventful {
    */
   set (propName, value, config={}) {
     if (typeof propName !== "string") {
-      //
       this.setMultiple(propName, value)
     } else {
-      let { inherit, forceMark } = config
-
-      const inheritExplicitlyGiven = inherit !== undefined
-
-      // Funnily enough, all the default values are fine for this conversion
-      inherit = +inherit
-      forceMark = !!forceMark
-
-      const props = this.props
-
-      let storageObject = props.get(propName)
-      if (storageObject) {
-        if (Object.is(storageObject.value, value)) return this
-
-        storageObject.value = value
-        storageObject.changed = true
-
-        if (inheritExplicitlyGiven)
-          storageObject.inherit = inherit
-      } else {
-        // If the prop doesn't already exist, we look up its inheritance information
-        // TODO
-
-        storageObject = {value, changed: value !== undefined, inherit }
-        props.set(propName, storageObject)
+      if (value === undefined) {
       }
     }
 

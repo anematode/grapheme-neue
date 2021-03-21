@@ -116,7 +116,7 @@ I guess computedProps is kind of the place where the ultimate props are put. But
 
 Okay, let's figure out computedProps and inheritance first. Maybe the updating logic will include all the "special" things, like label occlusion and legends and all that.
 
-### Inheritance
+### Properties and inheritance
 
 See this code.
 ```js
@@ -137,4 +137,43 @@ elem.get("cow") // -> undefined
 elem.getComputedProp("cow") // -> 0 ?
 ```
 
-What about things like auto-placing plots and legends and stuff? That stuff needs to go into computedProps, since props should be untouched. So the computed prop... isn't guaranteed to be valid until after the updating? I think that's the cleanest solution. And props/computedProps aren't marked as unchanged until updating is finished. The annoying thing is that there's no way to really encapsulate the needed data to update something from scratch, which makes consistent beasting difficult. But I think that's okay; we'll just create specialized jobs.
+What about things like auto-placing plots and legends and stuff? That stuff needs to go into computedProps, since props should be untouched. So the computed prop... isn't guaranteed to be valid until after the updating? I think that's the cleanest solution. And props/computedProps aren't marked as unchanged until updating is finished. The annoying thing is that there's no way to really encapsulate the needed data to update something from scratch, which makes consistent beasting difficult. But I think that's okay; we'll just create specialized jobs. Cool.
+
+Okay so this is how the properties work. There is a Map with keys of the property names and values of {value, inherit: 0/1/2, changed: true/false}. The value is the current value of the property; easy enough. Inherit is the method in which that property cascades to children. The default of 0 means no inheritance. 1 means it inherits, and 2 means it inherits and cannot be overridden.
+
+Here's how this might work in practice:
+
+Scene: { sceneWidth: 1280, sceneHeight: 760, screenDPI: 2, canvasWidth: 2560, canvasHeight: 1520 } (all inherit 2); { boundingBox: [0, 0, 2560, 1520], interactive: true } (all inherit 0)
+child of Scene, Plot: { plotTransform: PlotTransformLogLog2D( ... ), plotBoundingBox: [ 0, 0, 2560, 1520 ] } (all inherit 1), { boundingBox: [ ... same as plotBoundingBox, unless some labels escape ... ], interactive: true,  } (all inherit 0)
+
+What are the benefits of this pure prop system, and inheritance? There is a degree of encapsulation, where the computedProps are all that's necessary to know exactly how an object is going to be rendered. It also helps us keep track of what has changed so that we can update much more quickly. If FunctionPlot2D sees that color has changed, but nothing else, it doesn't have to recompute anything. It also lends itself to a CSS-like style sheet, where you can specify the various styling of objects beforehand. It also lets us use elements out of their "natural habitat": we can freely plop a function plot in a place without a plot by giving it a suitable plotTransform, rather than "faking" a plot or something. Indeed, all the FunctionPlot2D cares about—apart from its own styling information—is the plotTransform. What are some drawbacks? It's pretty inefficient. They say no premature optimization, but I worry the complexity is just too high. Grapheme is supposed to be very fast. Plus, only a few types of properties actually NEED to be inherited. Plot transforms, canvas sizes... and what else? And only some need to be specially tracked when they change for optimization.
+
+But why not give it a try. Let's see, step by step, how a Grapheme scene's properties will be rendered.
+
+Stage 0: It begins. We first sort every group's children by their ordering.
+Stage 1: We now arrange the things like Plot2D, PieChart, et cetera, in two stages. Their positions can be partially or completely specified, but the arranging happens at a higher level. This stage only applies to certain elements; those which take up a definite box position like a <div> or something. As an example, it's conceivable that scene.get("display") === "flex", plot1.get("minWidth") === plot2.get("minWidth") === 50, plot1.get("flex-grow") === 2, plot2.get("flex-grow") === 1. Perhaps Plot2D, PieChart etc. will have some tag on their constructors indicating they need to be arranged this way. In the first stage they'll be asked via some function getPositionStance() which will be used by the arranger. It might return something like { maxWidth: 1000, minWidth: 100, aspectRatioMin: 0.5, aspectRatioMax: 2, margins: [10, 10, 10, 10] }. I dunno. That's for future consideration.
+Stage 2: We change the corresponding plotBoundingBox for these arranged things, telling each where they will continue to graph.
+Stage 3: We calculate all the props according to inheritance, etc, marking what has changed in the meantime.
+Stage 4: We update all the elements according to these changed props, saving appropriate data for rendering into an internal storage. Elements like FunctionPlot2D can add information about themselves to a legend registry, which can be inherited from a scene or from a plot or something.
+Stage 5: We calculate the positions of all the smartly positioned things (labels, legends) using a label registry thing... oof. Complex.
+Stage 6: We update all smartly positioned things.
+Stage 7: We compute all bounding boxes; we are done.
+
+Element creation is going to be annoyingly expensive, because it's going to inherit a bunch of properties it doesn't really need. That's annoying as hell. In that earlier example, adding a label and legend registry, a label would inherit eight properties, only one of which it would use. In this case I think the best option is to create a LabelSet or something like that... still annoying. But premature optimization, premature optimization... maybe it's fine. Or... an element without children can have the optimization that it only inherits/looks for properties it can actually use. I think that works.
+
+This is still so annoying. I can't believe how complicated this problem is. Maybe I need to back up and be more restrictive, be simpler.
+
+One of the main benefits of inheritance is that we can keep track of what has changed since the last completed update computation. Consider an EquationPlot2D for instance, that may be using a rather expensive plot. If we keep track of the change in plotTransform since the last one, we can just compute the surrounding data. If we have a simple color change, we don't have to recompute anything; if we change the dash pattern, we just have to recompute the triangulation vertices. Hm... would this be amenable to an in-progress thing? Maybe... if we throw away correctness. Even still... I fear this is too complicated. I'm having a deja vu moment here for some reason.
+
+Maybe the answer is a combination of inheritance and explicitness? I think the question depends on what people (or me) actually WANT out of Grapheme. Velar, sure, but the primary focus is making nice graphs of functions and complex data for my projects. There is already d3.js; that's done and dusted. But d3 can't do mathematical things, and definitely can't do very complex graphs without slowing down massively due to SVG. Let me write out some recent tasks I've wanted:
+
+* Plot a given sample on a graph which can be horizontally zoomed on, with a title "Sample" and axis labels "Time (s)" and "Amplitude"
+* Plot the real and complex parts of the FFT spectrum of a given sample, using blue and orange polylines on a graph with a title "FFT of Given Signal", x-axis label "Frequency (Hz)", and a two-part legend
+* Plot an FFT spectrum as a heat map, a la FL Studio (I've done that before)
+* Plot a Reuleaux triangle and rotate it between two stationary lines
+* Plot a general curve of constant width and rotate it in an animation, tracing its center
+* Plot a point cloud and be able to drag points around
+* Automatically label the two extrema of x^3-x with points, which can be clicked on for their values (Desmos does this)
+* Custom label the eight extreme points on a supercircle of radius 1
+
+This gives some motivation, and some clues. Inheritance is probably helpful... but it also causes some confusion. Perhaps the most confusing is the case of automatic labels. How should they be styled? Through inheritance? Through the class system? Or through a bunch of annoying extra props on the parent element, like "labelColor", ... ? This was already a point of confusion in the first Grapheme, so the problem has cropped up again. The class system is probably most sensible here. So I guess we'll get to that later!
