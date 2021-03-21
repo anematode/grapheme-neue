@@ -67,4 +67,53 @@ lineThing.set({ color: "orange", dashPattern: "pattern" })
 
 In the first case, lineStyle could be directly inherited, whereas in the second, you'd have to inherit color and dashPattern, which is annoying and the first would affect things like text. But maybe this is where classes and CSS-style styling would come to the rescue. Like what if you could add ".graph { color: 'orange' }" in some way. That seems far more elegant. And the keys could be complex values, like arrays and stuff. Okay, that's cool. We should use flat properties. We'll use `elem.set(propName, value)` for setting properties. For each property we also store whether it's changed, whether it's inheritable and whether it's overrideable. Should this be stored with three booleans? Or would a little bit flag thing be nice. Hm... it depends how much metadata we're storing. We could store quite a bit with a bit flag. Haha. 31, in fact. Eh, smells like premature optimization. We could also store the previous value... I think that sounds nice too, but it's only useful in a few cases. I think that stuff can be manually stored for certain classes.
 
-There will be several rendering stages. updateStage = 0 means that nothing is updated. In Stage 1, plots are asked where they'd like to be positioned, using the getPositioningStance() function. In Stage 2, this positioning is calculated based on various heuristics and what probably looks good. In Stage 3, all properties are computed
+There will be several rendering stages, because this is complicated as hell. We want to be able to dynamically place plots in a scene. Take this code:
+
+```js
+const scene = new Grapheme.InteractiveScene()
+const plot1 = new Grapheme.InteractivePlot()
+const plot2 = new Grapheme.InteractivePlot()
+
+plot1.centerOn(0, 0).requireAspectRatio(1).setWidth(5) // Changes the properties of the plot transformation. If it was previously updated, set updateStage to 0
+plot2.centerOn(0, 0).requireAspectRatio(1).setWidth(0.0001)
+
+const pointCloud = new Grapheme.PointCloud()
+pointCloud.set({
+  points: [4, 5, 1, 4, 8, 9],
+  pointGlyph: Grapheme.Glyphs.Cross,
+  color: "#005012"
+})
+
+const fplot = new Grapheme.FunctionPlot()
+fplot.set({
+  function: "x^3",
+  thickness: 2,
+  endcap: "dynamic"
+})
+
+const gridlines = new Grapheme.Gridlines()
+plot2.add(gridlines)
+
+plot1.setPadding(20)
+
+const plotLabels = new Grapheme.PlotLabels()
+plot1.add(plotLabels)
+
+plotLabels.set({
+  xaxis: "Real",
+  yaxis: "Imag",
+  color: "gray",
+  font: "Helvetica"
+})
+
+plot1.add(pointCloud)
+plot2.add(fplot)
+
+scene.add(plot1, plot2) // Plot 1 and Plot 2 are both, say, positioned at (0,0) and have a size of 640x480 pixels, whatever the defaults are.
+```
+
+I guess computedProps is kind of the place where the ultimate props are put. But at the inheritance stage, we have to inherit from the computedProps. This is confusing as hell. How are the positions of labels going to be calculated? Ugh, this is so confusing. And how can there be continuity of labels on certain plots? Probably label objects should be kept as constant as possible.
+
+Okay, let's figure out computedProps and inheritance first. Maybe the updating logic will include all the "special" things, like label occlusion and legends and all that.
+
+
