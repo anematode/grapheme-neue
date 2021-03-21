@@ -53,7 +53,7 @@ export function getStringID () {
     return randLetter() + randLetter() + randLetter() + randLetter()
   }
 
-  return randFourLetter + '-' + randFourLetter()
+  return randFourLetter() + '-' + randFourLetter()
 }
 
 // Simple deep equals. Uses Object.is-type equality, though. Doesn't handle circularity or any of the fancy new containers

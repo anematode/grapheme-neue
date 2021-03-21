@@ -116,4 +116,25 @@ I guess computedProps is kind of the place where the ultimate props are put. But
 
 Okay, let's figure out computedProps and inheritance first. Maybe the updating logic will include all the "special" things, like label occlusion and legends and all that.
 
+### Inheritance
 
+See this code.
+```js
+const group = new Grapheme.Group()
+const subgroup = new Grapheme.Group()
+const elem = new Grapheme.Element()
+
+group.set({ cow: 0, chicken: 1}, { inherit: 1 }) // 1 means inherit properties
+subgroup.set({ chicken: "chicken", sheep: "sheep" })
+elem.set({ goat: "goat" })
+
+group.add(subgroup.add(elem))
+
+elem.get("goat")  // -> "goat"
+elem.get("sheep") // -> undefined
+elem.get("cow") // -> undefined
+
+elem.getComputedProp("cow") // -> 0 ?
+```
+
+What about things like auto-placing plots and legends and stuff? That stuff needs to go into computedProps, since props should be untouched. So the computed prop... isn't guaranteed to be valid until after the updating? I think that's the cleanest solution. And props/computedProps aren't marked as unchanged until updating is finished. The annoying thing is that there's no way to really encapsulate the needed data to update something from scratch, which makes consistent beasting difficult. But I think that's okay; we'll just create specialized jobs.
