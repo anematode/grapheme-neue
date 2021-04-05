@@ -14,6 +14,7 @@ const scriptText = script.innerHTML
 script.parentNode.removeChild(script)
 const newScript = document.createElement("script")
 newScript.setAttribute("id", "setup")
+newScript.innerHTML = scriptText
 document.body.appendChild(newScript)
 `
 

@@ -8,11 +8,15 @@
 
 <script src="test_setup.js"></script>
 
-<script id="setup">
-    deferLoad()
+<noscript id="setup">
+    const group = new Grapheme.Group({ id: "mole" })
+    const elem2 = new Grapheme.Element({ id: "rat" })
 
-    console.log(Grapheme)
-</script>
+    group.add(elem2)
+
+
+</noscript>
+
 
 </body>
 </html>

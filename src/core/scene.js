@@ -1,15 +1,10 @@
-import { Group } from './group.js'
+import { Group } from "./group"
 
-export class Scene extends Group {
-  constructor (params = {}) {
+// The top level element
+
+class Scene extends Group {
+  constructor (params={}) {
     super(params)
-
-    // A scene is its own scene
-    this.scene = this
-  }
-
-  getTagName () {
-    return 'scene'
   }
 
   isScene () {

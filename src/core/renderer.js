@@ -1,26 +1,19 @@
 
-const renderers = []
 
-class Renderer {
-  constructor () {
-    renderers.push(this)
+class WebGLRenderer {
+  constructor (params={}) {
 
-    this.width = 1000
+    const glCanvas = document.createElement("canvas")
+    const glContext = glCanvas.getContext("webgl2")
+
+    this.canvas = glCanvas
+    this.gl = glContext
   }
 
-  /**
-   * Set the height of the renderer in pixels, not CSS pixels.
-   * @param pxWidth
-   * @param pxHeight
-   * @private
-   */
-  _setSize (pxWidth, pxHeight) {
-
+  resizeTo (width, height) {
+    this.canvas.width = width
+    this.canvas.height = height
   }
 
-  destroy () {
-    const index = renderers.indexOf(this)
 
-    renderers.splice(index, 1)
-  }
 }

@@ -1,5 +1,3 @@
-const emptyObj = {}
-
 /**
  * A base class to use for event listeners and the like. Supports things like addEventListener(eventName, callback),
  * triggerEvent(name, ?data), removeEventListener( ... ), removeEventListeners(?name). Listeners are called with

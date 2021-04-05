@@ -1,5 +1,5 @@
-import * as FP from './math/real/fp_manip.js'
-import * as utils from './core/utils.js'
+import * as FP from './math/real/fp_manip'
+import * as utils from './core/utils'
 
 /**
  * Functions for bit-level manipulation of floating-point numbers.
@@ -13,8 +13,9 @@ export { FP }
  */
 export { utils }
 
-export * from './math/real/real_functions.js'
-export * from './math/real/rational.js'
-export * from './core/eventful.js'
-export * from './core/bolus.js'
-export * from './core/element.js'
+export * from './math/real/real_functions'
+export * from './math/real/rational'
+export * from './core/eventful'
+export * from './core/bolus'
+export * from './core/element'
+export * from './core/group'

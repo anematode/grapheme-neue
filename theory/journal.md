@@ -177,3 +177,7 @@ Maybe the answer is a combination of inheritance and explicitness? I think the q
 * Custom label the eight extreme points on a supercircle of radius 1
 
 This gives some motivation, and some clues. Inheritance is probably helpful... but it also causes some confusion. Perhaps the most confusing is the case of automatic labels. How should they be styled? Through inheritance? Through the class system? Or through a bunch of annoying extra props on the parent element, like "labelColor", ... ? This was already a point of confusion in the first Grapheme, so the problem has cropped up again. The class system is probably most sensible here. So I guess we'll get to that later!
+
+# April 4
+
+Okay, so we have coordinate spaces. We should give them names! How about graph space, clip space, pixel space, and CSS/canvas space. Graph space is, well, the points in a given plot. 
