@@ -7,6 +7,7 @@
 
 import {Eventful} from "./eventful"
 import {getStringID} from "./utils"
+import {ElementProps} from "./props"
 
 /**
  * The element class.
@@ -33,6 +34,13 @@ export class Element extends Eventful {
     this.parent = null
 
     /**
+     * The scene this element is a part of; Adam or Eve.
+     * @type {Scene|null}
+     * @property
+     */
+    this.scene = null
+
+    /**
      * The index in which this element will be rendered (sorted within its group).
      * @type {number}
      * @property
@@ -40,37 +48,27 @@ export class Element extends Eventful {
     this.ordering = params.ordering ?? 0
 
     /**
-     * @type {Map<string, {}>}
+     * @type {ElementProps}
      * @property
      */
-    this.props = new Map()
+    this.props = new ElementProps()
 
     /**
      * These are the properties as computed after inheritance, updating, et cetera. They can be grabbed at any time, but
      * are only final after updating has finished. Their definitions can be rather complicated.
-     * @type {Map<string, {}>}
+     * @type {ElementProps}
      * @property
      */
-    this.computedProps = new Map()
+    this.computedProps = new ElementProps()
   }
 
   set (propName, value) {
-    const { props } = this
-
-    if (props.has(propName)) { // We already have a registered property for that
-
-    }
-
-    props.set(propName, { value, changed: true, inherit: 0 })
+    this.props.set(propName, value)
+    return this
   }
 
   get (propName) {
-    if (this.props.has(propName))
-      return this.props.get(propName).value
-  }
-
-  delete (propName) {
-    this.set(propName, undefined)
+    return this.props.get(propName)
   }
 
   /**
@@ -83,6 +81,23 @@ export class Element extends Eventful {
 
   isScene() {
     return false
+  }
+
+  isChild (child, recursive=true) {
+    return false
+  }
+
+  setScene (scene) {
+    this.scene = scene
+  }
+
+  // In this simplest case, we just forward each element of this.props to this.computedProps and inherit it.
+  computeProps () {
+    const thisProps = this.props
+    const thisComputedProps = this.computedProps
+    const parentProps = this.parent?.computedProps
+
+
   }
 
   update () {

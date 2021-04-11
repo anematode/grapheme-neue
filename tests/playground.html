@@ -9,11 +9,11 @@
 <script src="test_setup.js"></script>
 
 <noscript id="setup">
-    const group = new Grapheme.Group({ id: "mole" })
-    const elem2 = new Grapheme.Element({ id: "rat" })
+    const scene = new Grapheme.Scene({ id: "main" })
+    const group = new Grapheme.Group({ id: "group" })
+    const child = new Grapheme.Element({ id: "child" })
 
-    group.add(elem2)
-
+    scene.add(group.add(child))
 
 </noscript>
 

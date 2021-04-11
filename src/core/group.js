@@ -1,7 +1,7 @@
 import {Element} from "./element"
 
 // Approximate memory pressure: 330 bytes / group when empty. Most of that space comes from the Maps. This is rather
-// unfortunate, but we might be able to fix the prop system at some point.
+// unfortunate, but we might be able to compress the prop system at some point.
 
 export class Group extends Element {
   constructor (params={}) {
@@ -10,7 +10,7 @@ export class Group extends Element {
     this.children = []
   }
 
-  add (elem) {
+  add (elem, checkCyclic=true) {
     if (elem.isScene())
       throw new Error("Scene cannot be a child")
     if (elem.parent)
@@ -19,9 +19,12 @@ export class Group extends Element {
       throw new TypeError("Element not element")
     if (elem === this)
       throw new Error("Can't add self")
+    if (checkCyclic && elem.isChild(this))
+      throw new Error("Can't make cycle")
 
     this.children.push(elem)
     elem.parent = this
+    elem.setScene(this.scene)
 
     return this
   }
@@ -32,6 +35,7 @@ export class Group extends Element {
     if (index !== -1) {
       this.children.splice(index, 1)
       elem.parent = null
+      elem.setScene(null)
 
       return this
     }
@@ -41,6 +45,24 @@ export class Group extends Element {
 
   isGroup () {
     return true
+  }
+
+  setScene (scene) {
+    this.scene = scene
+    this.children.forEach(child => child.setScene(scene))
+  }
+
+  isChild (elem, recursive=true) {
+    for (const child of this.children) {
+      if (child === elem) return true
+      if (recursive && child.isChild(elem, true)) return true
+    }
+
+    return false
+  }
+
+  isDirectChild (elem) {
+    return this.isChild(elem, false)
   }
 
   // todo

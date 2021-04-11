@@ -2,7 +2,6 @@
 
 class WebGLRenderer {
   constructor (params={}) {
-
     const glCanvas = document.createElement("canvas")
     const glContext = glCanvas.getContext("webgl2")
 
