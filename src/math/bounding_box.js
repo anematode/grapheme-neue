@@ -1,0 +1,135 @@
+import {Vec2} from "./vec/vec2"
+import * as utils from "../core/utils"
+
+export class BoundingBox {
+  constructor(x=0, y=0, width=0, height=0) {
+    this.x = x
+    this.y = y
+    this.width = width
+    this.height = height
+  }
+
+  get x1 () {
+    return this.x
+  }
+
+  get y1 () {
+    return this.y
+  }
+
+  get x2 () {
+    return this.x + this.width
+  }
+
+  get y2 () {
+    return this.y + this.height
+  }
+}
+
+const boundingBoxTransform = {
+  X: (x, box1, box2, flipX) => {
+    if (Array.isArray(x) || utils.isTypedArray(x)) {
+      for (let i = 0; i < x.length; ++i) {
+        let fractionAlong = (x[i] - box1.x) / box1.width
+
+        if (flipX)
+          fractionAlong = 1 - fractionAlong
+
+        x[i] = fractionAlong * box2.width + box2.x
+      }
+      return x
+    } else {
+      return boundingBoxTransform.X([x], box1, box2, flipX)[0]
+    }
+  },
+  Y: (y, box1, box2, flipY) => {
+    if (Array.isArray(y) || utils.isTypedArray(y)) {
+      for (let i = 0; i < y.length; ++i) {
+        let fractionAlong = (y[i] - box1.y) / box1.height
+
+        if (flipY)
+          fractionAlong = 1 - fractionAlong
+
+        y[i] = fractionAlong * box2.height + box2.y
+      }
+      return y
+    } else {
+      return boundingBoxTransform.Y([y], box1, box2, flipY)[0]
+    }
+  },
+  XY: (xy, box1, box2, flipX, flipY) => {
+    if (Array.isArray(xy) || utils.isTypedArray(x)) {
+      for (let i = 0; i < xy.length; i += 2) {
+        let fractionAlong = (xy[i] - box1.x) / box1.width
+
+        if (flipX)
+          fractionAlong = 1 - fractionAlong
+
+        xy[i] = fractionAlong * box2.width + box2.x
+
+        fractionAlong = (xy[i+1] - box1.y) / box1.height
+
+        if (flipY)
+          fractionAlong = 1 - fractionAlong
+
+        xy[i+1] = fractionAlong * box2.height + box2.y
+      }
+      return xy
+    } else {
+      throw new Error("No")
+    }
+  },
+  getReducedTransform(box1, box2, flipX, flipY) {
+    let x_m = 1 / box1.width
+    let x_b = - box1.x / box1.width
+
+    if (flipX) {
+      x_m *= -1
+      x_b = 1 - x_b
+    }
+
+    x_m *= box2.width
+    x_b *= box2.width
+    x_b += box2.x
+
+    let y_m = 1 / box1.height
+    let y_b = - box1.y / box1.height
+
+    if (flipY) {
+      y_m *= -1
+      y_b = 1 - y_b
+    }
+
+    y_m *= box2.height
+    y_b *= box2.height
+    y_b += box2.y
+
+    return {x_m, x_b, y_m, y_b}
+  }
+}
+
+export {boundingBoxTransform}
+
+const EMPTY = new BoundingBox(new Vec2(0,0), 0, 0)
+
+function intersectBoundingBoxes(box1, box2) {
+  let x1 = Math.max(box1.x, box2.x)
+  let y1 = Math.max(box1.y, box2.y)
+  let x2 = Math.min(box1.x2, box2.x2)
+  let y2 = Math.min(box1.y2, box2.y2)
+
+  if (x2 < x1) {
+    return EMPTY.clone()
+  }
+
+  if (y2 < y1) {
+    return EMPTY.clone()
+  }
+
+  let width = x2 - x1
+  let height = y2 - y1
+
+  return new BoundingBox(new Vec2(x1, y1), width, height)
+}
+
+export {intersectBoundingBoxes}

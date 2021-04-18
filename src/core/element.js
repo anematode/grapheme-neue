@@ -41,7 +41,14 @@ export class Element extends Eventful {
     this.scene = null
 
     /**
-     * The index in which this element will be rendered (sorted within its group).
+     * Which stage of updating the element is on, relative to its neighbors
+     * @type {number}
+     */
+    this.updateStage = 0
+
+    /**
+     * The index in which this element will be rendered (sorted within its group). This doesn't mean the actual index
+     * in the array of children, just the drawing order
      * @type {number}
      * @property
      */
@@ -60,15 +67,30 @@ export class Element extends Eventful {
      * @property
      */
     this.computedProps = new ElementProps()
+
+    /**
+     * Used for storing potentially useful intermediate results, etc.
+     * @type {Object}
+     * @property
+     */
+    this.internal = {}
   }
 
-  set (propName, value) {
-    this.props.set(propName, value)
-    return this
+  // In this simplest case, we just forward each element of this.props to this.computedProps and inherit it.
+  computeProps () {
+
+  }
+
+  applyRecursively (func) {
+    func(this)
   }
 
   get (propName) {
     return this.props.get(propName)
+  }
+
+  isChild (child, recursive=true) {
+    return false
   }
 
   /**
@@ -83,24 +105,20 @@ export class Element extends Eventful {
     return false
   }
 
-  isChild (child, recursive=true) {
-    return false
+  set (propName, value) {
+    this.props.set(propName, value)
+    return this
   }
 
   setScene (scene) {
     this.scene = scene
   }
 
-  // In this simplest case, we just forward each element of this.props to this.computedProps and inherit it.
-  computeProps () {
-    const thisProps = this.props
-    const thisComputedProps = this.computedProps
-    const parentProps = this.parent?.computedProps
-
+  update () {
 
   }
 
-  update () {
+  getRenderingInstructions () { // Generate instructions to render, given a gl, glManager,
 
   }
 }

@@ -105,3 +105,7 @@ export function deepEquals (x, y) {
 
   return true
 }
+
+export function mod (n, m) {
+  return ((n % m) + m) % m
+}

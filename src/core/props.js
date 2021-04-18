@@ -32,8 +32,16 @@ export class ElementProps {
   }
 
   set (propName, value) {
-    const store = this.store
+    if (typeof propName === "object") { // Overloaded function; can be called as set  ( key, value ) or set (dict)
 
+      for (const [key, val] of Object.entries(propName))
+        this.set(key, val)
+
+      return this
+    } else if (typeof propName !== "string")
+      throw new TypeError("Element property name must be a string.")
+
+    const store = this.store
     const propStore = store.get(propName)
 
     // Deleting a value
@@ -49,11 +57,16 @@ export class ElementProps {
         propStore.value = value
         propStore.changed = true
       } else {
-        store.set(propName, { value, changed: true })
+        store.set(propName, { value, changed: true, inherit: 0 })
       }
     }
 
     this.needsUpdate = true
+    return this
+  }
+
+  setInheritanceLevel (propName, level=0) {
+
   }
 
   // Gets the prop store of an element, CREATING IT IF UNDEFINED.
@@ -124,5 +137,15 @@ export class ElementProps {
     for (const [propName, propStore] of this.store.entries()) {
       if (propStore.value === undefined && propStore.changed) this.store.delete(propName)
     }
+  }
+
+  toJSON () {
+    const output = {}
+
+    this.forEach((propName, propStore) => {
+      output[propName] = propStore
+    })
+
+    return output
   }
 }

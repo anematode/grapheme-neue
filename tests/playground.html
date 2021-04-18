@@ -9,12 +9,31 @@
 <script src="test_setup.js"></script>
 
 <noscript id="setup">
+    const renderer = new Grapheme.WebGLRenderer()
+
     const scene = new Grapheme.Scene({ id: "main" })
     const group = new Grapheme.Group({ id: "group" })
-    const child = new Grapheme.Element({ id: "child" })
+    const child1 = new Grapheme.PolylineElement({ id: "child1" })
+    const child2 = new Grapheme.PolylineElement({ id: "child2" })
 
-    scene.add(group.add(child))
+    scene.add(group.add(child1))
+    group.add(child2)
 
+    child1.vertices = [-1, -1, -1, 1, 1, 1, 1, -1]
+
+    document.body.appendChild(renderer.canvas)
+    renderer.renderScene(scene)
+
+    gl = renderer.gl
+
+    console.time("cow")
+    renderer.renderScene(scene)
+    console.timeEnd("cow")
+
+
+    setTimeout (() => {
+      console.log(gl.getQueryParameter(query, gl.QUERY_RESULT) / 1e6)
+    }, 500)
 </noscript>
 
 

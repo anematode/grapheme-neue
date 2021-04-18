@@ -181,3 +181,7 @@ This gives some motivation, and some clues. Inheritance is probably helpful... b
 # April 4
 
 Okay, so we have coordinate spaces. We should give them names! How about graph space, clip space, pixel space, and CSS/canvas space. Graph space is, well, the points in a given plot. 
+
+# April 16
+
+The prop storing is starting to make sense, although inheritance seems complicated. One long-term advantage of these fancy prop stores, storing prop metadata, is that animations could be done.

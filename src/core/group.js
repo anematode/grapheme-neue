@@ -1,7 +1,5 @@
 import {Element} from "./element"
 
-// Approximate memory pressure: 330 bytes / group when empty. Most of that space comes from the Maps. This is rather
-// unfortunate, but we might be able to compress the prop system at some point.
 
 export class Group extends Element {
   constructor (params={}) {
@@ -43,6 +41,12 @@ export class Group extends Element {
     throw new Error("Not a child")
   }
 
+  applyRecursively (func) {
+    func(this)
+
+    this.children.forEach(child => child.applyRecursively(func))
+  }
+
   isGroup () {
     return true
   }
@@ -61,6 +65,10 @@ export class Group extends Element {
     return false
   }
 
+  sortChildren () {
+    this.children.sort((c1, c2) => c1.ordering - c2.ordering)
+  }
+
   isDirectChild (elem) {
     return this.isChild(elem, false)
   }
@@ -72,6 +80,6 @@ export class Group extends Element {
 
   // Recursively update. This won't be a trivial system.
   update () {
-
+    this.children.forEach(child => child.update())
   }
 }
