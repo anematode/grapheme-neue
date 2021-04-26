@@ -249,7 +249,8 @@ export function* convertTriangleStrip(vertices, pen, chunkSize=256000) {
       v1l = v2l
       v2l = fastHypot(v2x, v2y)
 
-      b1_x = v2l * v1x + v1l * v2x, b1_y = v2l * v1y + v1l * v2y
+      b1_x = v2l * v1x + v1l * v2x
+      b1_y = v2l * v1y + v1l * v2y
       scale = 1 / fastHypot(b1_x, b1_y)
 
       if (scale === Infinity || scale === -Infinity) {

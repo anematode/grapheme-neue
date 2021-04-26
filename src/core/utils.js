@@ -106,6 +106,10 @@ export function deepEquals (x, y) {
   return true
 }
 
+export function isTypedArray (arr) {
+  return (ArrayBuffer.isView(arr)) && !(arr instanceof DataView)
+}
+
 export function mod (n, m) {
   return ((n % m) + m) % m
 }

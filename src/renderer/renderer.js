@@ -6,14 +6,7 @@ export class WebGLRenderer {
     const glCanvas = document.createElement("canvas")
     const glContext = glCanvas.getContext("webgl2")
 
-    /**
-     * @type {HTMLCanvasElement}
-     */
     this.canvas = glCanvas
-
-    /**
-     * @type { WebGLRenderingContext}
-     */
     this.gl = glContext
     this.glManager = new GLResourceManager(this.gl)
 
@@ -22,12 +15,10 @@ export class WebGLRenderer {
     }
   }
 
-  clearCanvas (color = Colors.TRANSPARENT) {
-    const clearColor = new Color(color).glColor()
-
+  clearCanvas () {
     const gl = this.gl
 
-    gl.clearColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a)
+    gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
   }
 
@@ -46,22 +37,23 @@ export class WebGLRenderer {
   // We render a fully updated scene by clearing the rendering canvas, recursing into the scene, getting render
   // instructions for each element, then rendering them in order.
   renderScene (scene) {
-    scene.update()
+    //console.time("update")
+    scene.apply(child => {
+      if (child.updateStage !== -1) child.update()
+    })
+    //console.timeEnd("update")
 
+    // If the renderer and scene have the same size, clear the canvas; if not, we resize the canvas which clears it
     if (this.canvas.width === scene.width && this.canvas.height === scene.height)
       this.clearCanvas()
     else
       // Fit scene
       this.resizeTo(scene.width, scene.height)
 
-    scene.applyRecursively(child => {
-      child.update()
-    })
-
     const renderingInstructions = []
 
     // This function is applied to every element in the scene
-    scene.applyRecursively(child => {
+    scene.apply(child => {
       const instructions = child.getRenderingInstructions(this)
 
       renderingInstructions.push(instructions)

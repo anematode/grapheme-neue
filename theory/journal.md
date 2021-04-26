@@ -185,3 +185,11 @@ Okay, so we have coordinate spaces. We should give them names! How about graph s
 # April 16
 
 The prop storing is starting to make sense, although inheritance seems complicated. One long-term advantage of these fancy prop stores, storing prop metadata, is that animations could be done.
+
+# April 25
+
+Man. Gnuplot is scary. Grapheme would therefore be scarier, since it does caching and all kinds of weird stuff. I see why Desmos doesn't expose much of their API at all. Horrifying. There's no clean way to abstractify all this shit.
+
+I want Grapheme to be powerful enough for my personal projects and such, but I'm not sure if it can be. Simplicity is needed, but complexity is needed. My head is in such a state of abstract horror. For updating to occur, for rendering to occur, a complex dance must occur between the plots and their children, deciding how exactly things are to be drawn, creating primitives of various types. Certain interfaces must be defined abstracting the information necessary to draw things. I am genuinely horrified.
+
+Let's implement props and inheritance, then keep talking. 

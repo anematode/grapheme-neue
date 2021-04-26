@@ -46,6 +46,25 @@ class Pen {
       visible: this.visible
     }
   }
+
+  static fromObj (strOrObj) {
+    if (typeof strOrObj === "string") return _interpretStringAsPen(strOrObj)
+
+    return new Pen(strOrObj)
+  }
 }
+
+// Fun Asymptote Vector Graphics–like thing :) We break up str into tokens which each have some meaning TODO
+function _interpretStringAsPen (str) {
+  try {
+    let color = Color.fromCss(str)
+
+    return new Pen({ color })
+  } catch {
+    return new Pen()
+  }
+}
+
+
 
 export { Pen }

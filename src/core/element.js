@@ -7,7 +7,7 @@
 
 import {Eventful} from "./eventful"
 import {getStringID} from "./utils"
-import {ElementProps} from "./props"
+import {_inheritAllInheritablePropsFromBase, _inheritChangedInheritablePropsFromBase, ElementProps} from "./props"
 
 /**
  * The element class.
@@ -41,24 +41,20 @@ export class Element extends Eventful {
     this.scene = null
 
     /**
-     * Which stage of updating the element is on, relative to its neighbors
+     * Which stage of updating the element is on, relative to its neighbors.
+     *
+     * updateStage: -2 means just added to a parent
+     * updateStage: -1 means finished updating
+     * updateStage: 0 means needs to update
      * @type {number}
      */
     this.updateStage = 0
 
     /**
-     * The index in which this element will be rendered (sorted within its group). This doesn't mean the actual index
-     * in the array of children, just the drawing order
-     * @type {number}
-     * @property
-     */
-    this.ordering = params.ordering ?? 0
-
-    /**
      * @type {ElementProps}
      * @property
      */
-    this.props = new ElementProps()
+    this.props = new ElementProps(this)
 
     /**
      * These are the properties as computed after inheritance, updating, et cetera. They can be grabbed at any time, but
@@ -69,24 +65,31 @@ export class Element extends Eventful {
     this.computedProps = new ElementProps()
 
     /**
-     * Used for storing potentially useful intermediate results, etc.
+     * Used for storing intermediate results, a cache of sorts
      * @type {Object}
      * @property
      */
     this.internal = {}
   }
 
-  // In this simplest case, we just forward each element of this.props to this.computedProps and inherit it.
-  computeProps () {
-
-  }
-
-  applyRecursively (func) {
-    func(this)
+  /**
+   * Apply a function to each element of a group
+   * @param callback
+   */
+  apply (callback) {
+    callback(this)
   }
 
   get (propName) {
     return this.props.get(propName)
+  }
+
+  getComputed (propName) {
+    return this.computedProps.get(propName)
+  }
+
+  getRenderingInstructions () {
+
   }
 
   isChild (child, recursive=true) {
@@ -107,6 +110,10 @@ export class Element extends Eventful {
 
   set (propName, value) {
     this.props.set(propName, value)
+
+    if (this.props.needsUpdate)
+      this.updateStage = 0
+
     return this
   }
 
@@ -118,7 +125,17 @@ export class Element extends Eventful {
 
   }
 
-  getRenderingInstructions () { // Generate instructions to render, given a gl, glManager,
+  _defaultInheritProps () {
+    const parentProps = this.parent.computedProps
+    const thisProps = this.computedProps
 
+    if (this.updateStage === -2) {
+      _inheritAllInheritablePropsFromBase(thisProps, parentProps)
+    } else {
+      _inheritChangedInheritablePropsFromBase(thisProps, parentProps)
+    }
+
+    if (this.computedProps.needsUpdate)
+      this.updateStage = 0
   }
 }
