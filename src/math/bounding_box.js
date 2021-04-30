@@ -2,29 +2,32 @@ import {Vec2} from "./vec/vec2"
 import * as utils from "../core/utils"
 
 export class BoundingBox {
-  constructor(x=0, y=0, width=0, height=0) {
+  constructor (x=0, y=0, width=0, height=0) {
     this.x = x
     this.y = y
-    this.width = width
-    this.height = height
+    this.w = width
+    this.h = height
   }
 
-  get x1 () {
-    return this.x
+  clone () {
+    return new BoundingBox(this.x, this.y, this.w, this.h)
   }
 
-  get y1 () {
-    return this.y
-  }
+  /**
+   * Push in (or pull out) all the sides of the box by a given amount. Returns null if too far. So squishing
+   * { x: 0, y: 0, w: 2, h: 2} by 1/2 will give { x: 0.5, y: 0.5, w: 1, h: 1 }
+   * @param margin {number}
+   */
+  squish (margin=0) {
+    const { x, y, w, h } = this
 
-  get x2 () {
-    return this.x + this.width
-  }
+    if (2 * margin > w || 2 * margin > h)
+      return null
 
-  get y2 () {
-    return this.y + this.height
+    return new BoundingBox(x - margin, y - margin, w + 2 * margin, h + 2 * margin)
   }
 }
+
 
 const boundingBoxTransform = {
   X: (x, box1, box2, flipX) => {

@@ -192,10 +192,10 @@ export class ElementProps {
     return this
   }
 
-  toJSON () {
+  toJSON (byValue=true) {
     const ret = {}
 
-    this.forEach((name, propStore) => ret[name] = propStore, true)
+    this.forEach((name, propStore) => ret[name] = byValue ? propStore.value : propStore, true)
 
     return ret
   }

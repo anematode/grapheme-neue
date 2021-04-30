@@ -1,5 +1,5 @@
 
-if (document.location.origin.search("localhost") < -1) {
+if (document.location.origin.search("localhost") > -1) {
 // An idiotic hack to allow Grapheme to load as an ES6 module while I can pretend it loaded as a bundle
   const moduleLoader = document.createElement("script")
 

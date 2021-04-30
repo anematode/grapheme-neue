@@ -34,34 +34,47 @@ export class WebGLRenderer {
     this.gl.viewport(0, 0, width, height)
   }
 
+  clearAndResizeTo (width, height) {
+    // Changing the size of the canvas implicitly clears it, so only clear it if the width and height are unchanged.
+    if (this.canvas.width === width && this.canvas.height === height)
+      this.clearCanvas()
+    else
+      this.resizeTo(width, height)
+  }
+
+  /**
+   * Get the parameters object that will be passed to the render functions returned by each object. Eventually this
+   * object will have more information, but for now we're just including some basic info.
+   */
+  getRenderingParameters () {
+    return {
+      renderer: this,
+      timeStart: Date.now()
+    }
+  }
+
   // We render a fully updated scene by clearing the rendering canvas, recursing into the scene, getting render
   // instructions for each element, then rendering them in order.
   renderScene (scene) {
-    //console.time("update")
-    scene.apply(child => {
-      if (child.updateStage !== -1) child.update()
-    })
-    //console.timeEnd("update")
+    // For a scene to be rendered, it needs to be updated
+    scene.updateAll()
 
-    // If the renderer and scene have the same size, clear the canvas; if not, we resize the canvas which clears it
-    if (this.canvas.width === scene.width && this.canvas.height === scene.height)
-      this.clearCanvas()
-    else
-      // Fit scene
-      this.resizeTo(scene.width, scene.height)
+    this.clearAndResizeTo(scene.width, scene.height) // TODO: dpi
+
+    // These are passed to the render functions
+    const renderingParameters = this.getRenderingParameters()
 
     const renderingInstructions = []
 
-    // This function is applied to every element in the scene
     scene.apply(child => {
-      const instructions = child.getRenderingInstructions(this)
+      const instructions = child.getRenderingInstructions()
 
       renderingInstructions.push(instructions)
     })
 
     for (const instruction of renderingInstructions) {
       if (typeof instruction === "function") {
-        instruction(this)
+        instruction(renderingParameters)
       }
     }
   }

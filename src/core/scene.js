@@ -5,24 +5,6 @@ import {BoundingBox} from "../math/bounding_box"
 
 // The top level element
 
-const MIN_SCENE_SIZE = [100, 100]
-const DEFAULT_SCENE_SIZE = [640, 480]
-
-class SceneDimensions {
-  constructor (width, height, dpr) {
-    this.width = width
-    this.height = height
-    this.dpr = dpr
-
-    this.canvasWidth = this.dpr * this.width
-    this.canvasHeight = this.dpr * this.height
-  }
-
-  getBBox () {
-    return new BoundingBox(0, 0, this.width, this.height)
-  }
-}
-
 const sceneParameters = {
   "dpr" : {
     description: "The device pixel ratio.",
@@ -41,6 +23,24 @@ const sceneParameters = {
   }
 }
 
+const MIN_SCENE_SIZE = [100, 100]
+const DEFAULT_SCENE_SIZE = [640, 480]
+
+class SceneDimensions {
+  constructor (width, height, dpr) {
+    this.width = width
+    this.height = height
+    this.dpr = dpr
+
+    this.canvasWidth = this.dpr * this.width
+    this.canvasHeight = this.dpr * this.height
+  }
+
+  getBoundingBox () {
+    return new BoundingBox(0, 0, this.width, this.height)
+  }
+}
+
 export class Scene extends Group {
   constructor (params={}) {
     super(params)
@@ -48,11 +48,7 @@ export class Scene extends Group {
     // Scene is its own scene
     this.scene = this
 
-    this.setSize(...DEFAULT_SCENE_SIZE)
-  }
-
-  setSize (width, height) {
-    this.set({ width, height })
+    this.set({ width: 640, height: 480 })
   }
 
   isScene () {
@@ -66,13 +62,11 @@ export class Scene extends Group {
 
     // A bit overcomplicated, just to get the ideas down
 
-    // "Dependencies" of a sort
-    if (props.hasChanged(["width", "height", "dpr"])) {
-      let width = props.get("width"), height = props.get("height"), dpr = props.get("dpr")
-
-      if (!width || width < MIN_SCENE_SIZE[0]) width = Math.round(DEFAULT_SCENE_SIZE[0])
-      if (!height || height < MIN_SCENE_SIZE[1]) height = Math.round(DEFAULT_SCENE_SIZE[1])
-      if (!dpr) dpr = 1
+    // "Dependencies" of a sort. -2 is basically a version of "recalculate everything", in which case we compute it too
+    if (this.updateStage === -2 || props.hasChanged(["width", "height", "dpr"])) {
+      let width = props.get("width") ?? 640
+      let height = props.get("height") ?? 480
+      let dpr = props.get("dpr") ?? 1
 
       computedProps.set("sceneDimensions", new SceneDimensions(width, height, dpr), { inherit: 1 })
 
@@ -81,6 +75,13 @@ export class Scene extends Group {
     }
 
     this.updateStage = -1
+  }
+
+  updateAll () {
+    this.apply(child => {
+      if (child.updateStage !== -1)
+        child.update()
+    })
   }
 
   getInheritableProps () {

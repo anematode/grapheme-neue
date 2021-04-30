@@ -192,4 +192,80 @@ Man. Gnuplot is scary. Grapheme would therefore be scarier, since it does cachin
 
 I want Grapheme to be powerful enough for my personal projects and such, but I'm not sure if it can be. Simplicity is needed, but complexity is needed. My head is in such a state of abstract horror. For updating to occur, for rendering to occur, a complex dance must occur between the plots and their children, deciding how exactly things are to be drawn, creating primitives of various types. Certain interfaces must be defined abstracting the information necessary to draw things. I am genuinely horrified.
 
-Let's implement props and inheritance, then keep talking. 
+Let's implement props and inheritance, then keep talking.
+
+Well, that's done and dusted. What's next? Well, we need to understand state at some point.
+
+Currently we have this very abstract setup where  (computedProps) -> render() for any given element. It's a nice symbol of purity, but... it's not truly pure. It is deflowered by the addition of children and in general, other elements outside of computedProps. Looking back, it's not even clear why such an abstraction is so desirable. I mean, I guess it could be used for Beast type rendering, but I'd presume most of those tasks be done asynchronously in more fundamental calls.
+
+Consider something like this:
+
+```
+scene.add(plot)
+
+dataset1 = ...
+dataset2 = ...
+
+dataset1Elem = new DatasetLjeofwij(dataset1)
+dataset2Elem = ...
+
+plot.add(dataset1Elem, dataset2Elem)
+
+plot.fit(dataset1, dataset2)
+```
+
+I guess you could pass it the data instead of the element. Hm, didn't think of that one. So maybe that's a bad example. But basically the problem is things are entirely asynchronous here. To know the value of a computed prop you have to do the whole update sequence, which is just not a vibe. And yet the computed prop is what determines everything's behavior. I mean if we give a FunctionPlot2D some property function: "x^2", and internally it stores some mathFunction: GraphemeFunctionHorrrificBeast(), then we don't have access to mathFunction until the whole thing updates. So these elements either become opaque, or we have to update them every time we request some information from them. And because update isn't even local, we have to do the top-level update every time.
+
+That just sucks. I mean... it just sucks. The problem is: while the computed props system is good at providing some sort of uniform interface, AND being performant, it doesn't provide a way of synchronously querying the elements of that interface.
+
+You could imagine doing some sort of reduced interface which is only dependent on the props. But even that... I don't know. Suppose we have some element  DraggablePoint, where we give it some props x and y. Then, on event drag, we are given in the event the start x and y and end x and y. We set the element's x and y props to these new values. But then, suppose we want the element's boundingBox. You'd have to call update, and then get the bounding box, because it's probably cached. And even if it's not cached it would have to be specially recomputed.
+
+I guess these elements are just not intended for handling state. So do we handle state with local variables, and then forward these local variables to computed props? That's definitely a possibility. I don't know. I designed this element system with the goals of performance and purity, but it proves to be somewhat limiting, in that all of its operations are fundamentally asynchronous and then resolved at the end in a single monolithic update() call, so that the computed results cannot technically be known until the whole update sequence has been done. To be fair, it might not take that long, but it's still frustrating, and it's kind of a nightmare to think that an element's update() function might be being called while we're handling a synchronous event listener for the element, AND it might be updating all kinds of other things in the background.
+
+It's hard to design a good element system, because there's no way to really satisfy all three concerns. We don't want unnecessary computations, we don't want it to be hard to use, and we don't want it to be limiting. The three constantly opposing features of any complex system. I mean, looking at tikz, yeah it's pretty cool, but it fails the unnecessary computations part hands down.
+
+Hm... how can we operate on elements statically in a consistent way? We can't really operate on the computed props... unless the computed props are made simple enough where they are never modified directly by external forces. Then we can define a specific function called computeProps() which will compute the props of the element, if needed, and do so in a locally consistent way: inheritance + personal transformations. That way it can be accessed somewhat statically?
+
+The other thing to consider is how exactly this is a problem. It's a problem in that when we do something like  cow.setFunction("function", "x^2") and it used to be "x^3", we can't do something like cow.evaluateFunction(2) and expect to get 4; we might get 8. And we can't exactly do cow.update() either.
+
+This is where abstraction has gotten you, Tim. It is like flattening a Mobius strip, solving a Rubik's cube with a flipped edge, building a perpetual motion machine. There is no end. The three cycles repeat, and repeat, and repeat, and as you make advances in each, the others fall flat. You are trying to stretch a rubber band around three axles, a rubber band that simply is too small, and as you stretch it further—as your ambitions for Grapheme grow higher and higher—it breaks. You don't think someone has tried to make an online graphing calculator before? They did. It's called Desmos. Yeah, it's not customizable. Yeah, it cost more than a million dollars. You want customizability, performance, and ease of use, and you have peanuts in your savings account.
+
+There simply is no simple, consistent way of storing all the information in a plot or other system in some basic abstract form of "parents", "children who know select things about their parents". It simply will not work, even if it has excellent purity. Yes, it allows you to draw a random whatever in isolation. So what? Why is that property useful?
+
+Children know things about their parents and they should know it synchronously. Is that not common sense? Yes, you can have some form of update stages, but... what? What is this inheritance bullshit?
+
+Hm. You could also have computed properties update synchronously. That's a bit cursed though, and probably inefficient. Probably the best way of holding state IS local variables or props—which are basically equivalent—and then just rolling with it. Calling update() or maybe some updateLite() when you need it. I think that's... okay? The abstraction becomes a bit more gnarly when we try to actually use these elements as not just *elements*, but *mathematical or statistical tools*. That's... where it breaks down, because I don't want to have to do a whole update() sequence to calculate some stddev on this data. Again, maybe updateLite() solves that conundrum, but ideally such things would be represented in a way that is not AN ELEMENT. Yeah. Querying the element should be done for graphical stuff, mainly. This is all rather abstract though.
+
+I'm pretty happy with most of the ideas, though. Inheritance and a few other things are annoying but it makes sense; even the update stages might have some future significance. This system is not fundamentally broken, or even that limited. It's just not that static, or pure. Purity needs to be conjured, to be annotated. (I feel like that statement is going to prove prescient.)
+
+
+## PRINCIPLES
+
+0. Grapheme will live some day.
+    * I readily admit that this project has existed for over two years, and some of the project's basic ideas were conjured up in the sixth grade. But I am slowly learning—if only by brute force trial and error.
+    * The definition of her being "alive" is vague, like asking whether a virus is alive, or an iPhone is alive. But I have specific, achievable goals in mind, which I believe will steer the project towards long-term success.
+1. A Grapheme scene is an abstract object, not *necessarily* tied to a specific on- or off-screen canvas.
+    * Apart from permitting rendering to an SVG, mostly operating on this simplification reflects how things are actually graphed.
+    * Scenes *can* render to a specific DOM element and receive interactive inputs from it, but this abstraction happens externally to the scene.
+2. A Grapheme scene is not static, not pure, and not simple.
+    * What makes Grapheme so difficult is the intersection of three interests that are often orthogonal: performance, simplicity and usability, and capability.
+    * Balancing these three interests is often a game of whack-a-mole. Generally, the simplicity mole is less harassed—we are okay with *some* complexity.
+    * Consider some other graphing libraries.
+        * The Desmos API is relatively performant and is very simple to use, but has little customizability and capability beyond the default 2D plot, line graphs and inequalities.
+        * The tikz LaTeX library is exceedingly versatile, but does not render dynamically and is often hard to use.
+        * D3.js is an incredible feat of balancing these three interests, and is probably the best substitute graphing calculator. I couldn't create 10% of it in my lifetime. Nonetheless, SVG is not well-suited to more intense geometries and animations, and lacks support for shaders and textures. Many of D3's ideas translate well to Grapheme, though.
+        * Matplotlib is ... a counterexample. It does pretty much everything, besides the accurate graphing algorithms that I'm after. I'm jelly. Eh, whatever. Programming's fun anyways!
+    * Really, I just want an open-source version of Desmos. Is that too much to ask for?
+2. Defining a scene are its width in CSS pixels, height in CSS pixels, and the device pixel ratio. 
+    * The inclusion of the dpr seems arbitrary, but it's definitely important from a rendering perspective. Basically, how accurately do I have to calculate this, so that it looks right on a high DPI monitor.
+    * Of course, the DPR could be set to 1 for consistency; it'll just look somewhat pixelated.
+3. A scene is a special kind of element, which is a thing that has properties, can be rendered, and can be a child of another element.
+    * In general, I'm following a three.js-like structure. Elements can be grouped and rendered in various ways.
+    * By default they are not especially stateful, except that they store an internal object which 1. provides the necessary information for that element to be rendered, and 2. if desired, a cache of previously calculated information to be used for optimization.
+    * The main issue of state is the element's updateStage, which is simply a number representing how far along it is on the rendering cycle.
+    * An updateStage of 0 means the element needs to be updated. An updateStage of -1 means the element is finished updating.
+    * Elements also store their parent, their scene, and a randomly generated id of the form abcd-abcd.
+4. Elements have properties and computed properties.
+    * Explain...
+5. Elements are not tied to a specific renderer.
+    * yada yada.

@@ -41,12 +41,11 @@ function flattenVec2Array (arr) {
  */
 export class PolylineElement extends Element {
   constructor (params={}) {
+    // Parameters: vertices in pixels, pen is Pen, sceneDimensions
     super(params)
-
-    this.set({ vertices: [-1, 0.5, 1, 0.2], pen: new Pen() })
   }
 
-  update () {
+  update (updateParams) {
     if (this.updateStage === -1) return
 
     /**
@@ -79,14 +78,17 @@ export class PolylineElement extends Element {
 
     // We need to update the internal rendering data if the relevant computed properties have changed. Note that "pen"
     // may not have changed by reference, but changed by value; same with vertices, actually.
-    if (computedProps.needsUpdate) {
+    update: if (computedProps.needsUpdate) {
       const { internal } = this
 
       const pen = computedProps.get("pen")
       const vertices = computedProps.get("vertices")
       const sceneDimensions = computedProps.get("sceneDimensions")
 
-      if (!vertices || vertices.length < 4 || !sceneDimensions) internal.glVertices = null
+      if (!vertices || !pen || vertices.length < 4 || !sceneDimensions) {
+        internal.geometry = null
+        break update // Feeling like a C programmer
+      }
 
       // Consists of { glVertices: Float32Array( ... ), vertexCount: n }.
       internal.geometry = calculatePolylineVertices(vertices, pen, sceneDimensions.getBBox())
@@ -101,11 +103,16 @@ export class PolylineElement extends Element {
   }
 
   getRenderingInstructions () {
-    return (renderer) => {
+    // For now we keep the code in here; later it will just return an abstract geometry and the renderer and do its
+    // fancy optimizations
+    return (renderingParams) => {
+      const renderer = renderingParams.renderer
       const { gl, glManager } = renderer
       const { internal } = this
 
-      const tileLayerProgram = glManager.getProgram("Polyline") ?? glManager.createProgram("Polyline",
+      if (!internal.geometry) return
+
+      const polylineProgram = glManager.getProgram("Polyline") ?? glManager.createProgram("Polyline",
         `attribute vec2 v_position;
         
         uniform vec2 xy_scale;
@@ -125,20 +132,20 @@ export class PolylineElement extends Element {
 
       const { glVertices, vertexCount } = internal.geometry
 
-      gl.useProgram(tileLayerProgram.program)
+      gl.useProgram(polylineProgram.program)
 
       gl.bindBuffer(gl.ARRAY_BUFFER, buf)
       gl.bufferData(gl.ARRAY_BUFFER, glVertices, gl.STATIC_DRAW)
 
-      const vPosition = tileLayerProgram.attribs.vPosition
+      const vPosition = polylineProgram.attribs.v_position
 
       gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0)
       gl.enableVertexAttribArray(vPosition)
 
       const color = this.internal.color
 
-      gl.uniform4f(tileLayerProgram.uniforms.color, color.r / 255, color.g / 255, color.b / 255, color.a / 255)
-      gl.uniform2fv(tileLayerProgram.uniforms.xy_scale, internal.xy_scale)
+      gl.uniform4f(polylineProgram.uniforms.color, color.r / 255, color.g / 255, color.b / 255, color.a / 255)
+      gl.uniform2fv(polylineProgram.uniforms.xy_scale, internal.xy_scale)
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertexCount)
     }

@@ -43,18 +43,18 @@ export class Element extends Eventful {
     /**
      * Which stage of updating the element is on, relative to its neighbors.
      *
-     * updateStage: -2 means just added to a parent
+     * updateStage: -2 means needs total recalculation, either just created, added to a parent or removed from a parent
      * updateStage: -1 means finished updating
      * updateStage: 0 means needs to update
      * @type {number}
      */
-    this.updateStage = 0
+    this.updateStage = -2
 
     /**
      * @type {ElementProps}
      * @property
      */
-    this.props = new ElementProps(this)
+    this.props = new ElementProps()
 
     /**
      * These are the properties as computed after inheritance, updating, et cetera. They can be grabbed at any time, but
@@ -65,7 +65,7 @@ export class Element extends Eventful {
     this.computedProps = new ElementProps()
 
     /**
-     * Used for storing intermediate results, a cache of sorts
+     * Used for storing intermediate results required for rendering and other things
      * @type {Object}
      * @property
      */
