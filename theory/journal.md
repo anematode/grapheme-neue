@@ -269,3 +269,27 @@ I'm pretty happy with most of the ideas, though. Inheritance and a few other thi
     * Explain...
 5. Elements are not tied to a specific renderer.
     * yada yada.
+
+# April 30
+
+In a static sense, all these props and computed props techniques make sense. I wrote about it in my physical journal yesterday. Yet, there remain key challenges to the model. Consider a scene and a figure with some 2D transformation. Supposedly, we'd know the actual plot transformation AFTER the update() function is called, because the figure doesn't know its position until after the "resolve positions" stage of rendering.
+
+It honestly makes sense. If we change the scene size, or something within the figure that affects its margins, we will only know the figure transform after the update has completed. Yet that seems preposterous and wildly inefficient. Is there no way to, for example, directly set the plot transform? We can't operate on it, which makes it rather opaque. You *could* update it and then work on it... but ugh. It's a really difficult problem because there is no real answer. After all, the plot transform is not entirely up to you; the aspect ratio requirement will enforce it, and the change is important in case something else in the figure changes.
+
+What it really shows is the fragility of the old system, in the sense that it makes lots of assumptions which need not hold. That being said, there may be some event-based method of handling these things which is more elegant. Consider the following propositions:
+
+* The graph transform can only truly be known after the figure has updated, either entirely or partially
+* The transform thus cannot be manipulated directly, unless the figure has updated
+
+It would be really cool to do something like   figure.setCenter(0, 0).setWidth(5). Yet there are two barriers to doing that. One is, we don't even know the to-be plot transform. Two is, we have no way of storing state. Props is a very static system. It's good at being static, but bad at being dynamic.
+
+The asynchronous part of updating is more or less nonnegotiable. But perhaps updating could be designed in a way so that a given element can be updated in place, without much controversy? I don't know. I don't know. I'm kinda pissed at this point. Ah, whatever. Might as well get the basics down first. Let's get to programming.  
+
+# May 2
+
+I've been dreaming about state longer than Karl Marx. Some things just aren't computable until after an element has finished updating. That's just the reality of it. You could add some sort of event listener like "after finished updating this time, do these extra steps," but that's just gross! The problem is fundamentally intractable because by definition you can't have synchronous access to an asynchronously computed property. You *can* have synchronous access to a property that has already been computed. But then, of course, treating a given property as just a variable requires recomputation of the property in question every single time it is to be queried (and its dependencies have changed).
+
+Let's be extremely concrete about a specific, but relatively simple, problem. We have a scene, which the user has specified to have dimensions 640 x 480 pixels. For now, let's say this is specified through properties. We have a figure as a child of this scene.
+
+
+

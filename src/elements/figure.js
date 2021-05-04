@@ -39,7 +39,9 @@ class Plot2DTransform {
   }
 }
 
-function createTransform (plotBox, graphBox)
+function createTransform (plotBox, graphBox) {
+
+}
 
 /**
  * HIGHLY WIP
@@ -95,7 +97,7 @@ class Figure extends Group {
       if (!innerBox) // postpissedchil
         throw "not sure what to do here. throwing an error seems dumb, maybe some sort of 'abandon' functionality"
 
-      const plotTransform
+      const plotTransform = 0
 
       computedProps.set("figureBoundingBox", bbox)
     }

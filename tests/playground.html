@@ -12,10 +12,14 @@
     const renderer = new Grapheme.WebGLRenderer()
 
     const scene = new Grapheme.Scene({ id: "main" })
+    const figure = new Grapheme.Figure({ id: "figure" })
+
+    scene.add(figure)
+
 
     function render () {
-    renderer.renderScene(scene)
-    requestAnimationFrame(render)
+        renderer.renderScene(scene)
+        requestAnimationFrame(render)
     }
 
     //requestAnimationFrame(render)
