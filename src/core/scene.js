@@ -41,40 +41,26 @@ class SceneDimensions {
   }
 }
 
+/**
+ * Top level element in a Grapheme context. The scene has a width, height, and device pixel ratio as its defining
+ * geometric patterns.
+ */
 export class Scene extends Group {
   constructor (params={}) {
     super(params)
 
     // Scene is its own scene
     this.scene = this
-
-    this.set({ width: 640, height: 480 })
   }
 
   isScene () {
     return true
   }
 
-  update (updateParams) {
-    if (this.updateStage === -1) return
+  set (propName, value) {
+    switch (propName) {
 
-    const { props, computedProps } = this
-
-    // A bit overcomplicated, just to get the ideas down
-
-    // "Dependencies" of a sort. -2 is basically a version of "recalculate everything", in which case we compute it too
-    if (this.updateStage === -2 || props.hasChanged(["width", "height", "dpr"])) {
-      let width = props.get("width") ?? 640
-      let height = props.get("height") ?? 480
-      let dpr = props.get("dpr") ?? 1
-
-      computedProps.set("sceneDimensions", new SceneDimensions(width, height, dpr), { inherit: 1 })
-
-      // If an inherited prop has changed, all children need to be recomputed. This will recurse downwards
-      this.children.forEach(child => child.updateStage = 0)
     }
-
-    this.updateStage = -1
   }
 
   updateAll () {

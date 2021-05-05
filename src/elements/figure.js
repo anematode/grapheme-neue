@@ -63,7 +63,7 @@ function createTransform (plotBox, graphBox) {
  * Props:
  *
  */
-class Figure extends Group {
+export class Figure extends Group {
   constructor (params) {
     super(params)
   }

@@ -291,5 +291,15 @@ I've been dreaming about state longer than Karl Marx. Some things just aren't co
 
 Let's be extremely concrete about a specific, but relatively simple, problem. We have a scene, which the user has specified to have dimensions 640 x 480 pixels. For now, let's say this is specified through properties. We have a figure as a child of this scene.
 
+# May 4
 
+Notes from today's thinking session: Props will store *some* user related data and some *setters* which actually manipulate things instead of setting a particular value. What is manipulated is basically the computedProps. In the case of a plot and zoom setup, centerOn and zoomOn will directly affect the internal computedProps, which is really the "state" of the whole system. This frees up a lot of annoying abstraction and stuff.
 
+props: {
+    "width": { value: 560, changed: true, lastUserValue: undefined, isUserValue: true },
+    "height": { value: ... },
+    "dpr": { ... }
+}
+
+inherit: {
+    

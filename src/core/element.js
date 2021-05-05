@@ -50,22 +50,11 @@ export class Element extends Eventful {
      */
     this.updateStage = -2
 
-    /**
-     * @type {ElementProps}
-     * @property
-     */
-    this.props = new ElementProps()
 
-    /**
-     * These are the properties as computed after inheritance, updating, et cetera. They can be grabbed at any time, but
-     * are only final after updating has finished. Their definitions can be rather complicated.
-     * @type {ElementProps}
-     * @property
-     */
     this.computedProps = new ElementProps()
 
     /**
-     * Used for storing intermediate results required for rendering and other things
+     * Used for storing intermediate results required for rendering, interactivity and other things
      * @type {Object}
      * @property
      */
@@ -84,10 +73,6 @@ export class Element extends Eventful {
     return this.props.get(propName)
   }
 
-  getComputed (propName) {
-    return this.computedProps.get(propName)
-  }
-
   getRenderingInstructions () {
 
   }
@@ -96,25 +81,9 @@ export class Element extends Eventful {
     return false
   }
 
-  /**
-   * Whether this element can have children.
-   * @returns {boolean}
-   */
-  isGroup () {
-    return false
-  }
 
   isScene() {
     return false
-  }
-
-  set (propName, value) {
-    this.props.set(propName, value)
-
-    if (this.props.needsUpdate)
-      this.updateStage = 0
-
-    return this
   }
 
   setScene (scene) {
@@ -123,19 +92,5 @@ export class Element extends Eventful {
 
   update () {
 
-  }
-
-  _defaultInheritProps () {
-    const parentProps = this.parent.computedProps
-    const thisProps = this.computedProps
-
-    if (this.updateStage === -2) {
-      _inheritAllInheritablePropsFromBase(thisProps, parentProps)
-    } else {
-      _inheritChangedInheritablePropsFromBase(thisProps, parentProps)
-    }
-
-    if (this.computedProps.needsUpdate)
-      this.updateStage = 0
   }
 }
