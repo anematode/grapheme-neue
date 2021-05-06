@@ -8,7 +8,7 @@ describe("Props class", () => {
     const store2 = props.createPropertyStore("name2")
 
     test("Creating two property stores", () => {
-      expect(props.getPropertyList()).toEqual(["name1", "name2"])
+      expect(props.listProperties()).toEqual(["name1", "name2"])
     })
 
     test("Creating an already existing property store returns the original store", () => {
@@ -18,7 +18,7 @@ describe("Props class", () => {
     props.deletePropertyStore("name1")
 
     test("Delete one property store", () => {
-      expect(props.getPropertyList()).toEqual(["name2"])
+      expect(props.listProperties()).toEqual(["name2"])
     })
   })
 
@@ -29,7 +29,7 @@ describe("Props class", () => {
     props.setPropertyValue("name2", 2)
 
     test("Property stores are created", () => {
-      expect(props.getPropertyList()).toEqual(["name1", "name2"])
+      expect(props.listProperties()).toEqual(["name1", "name2"])
     })
 
     test("Property accesses are correct", () => {

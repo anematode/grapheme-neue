@@ -1,5 +1,16 @@
 import {GLResourceManager} from "./gl_manager"
 import {Color, Colors} from "../other/color"
+import {glTriangleStripMonochrome} from "./render_calls"
+
+/**
+ * RENDERER
+ *
+ * the renderer does not only provide WebGL functionality. Elements can provide certain primitives which the renderer
+ * knows how to draw. Perhaps the most basic is a simple raw geometry draw, which draws a given gl.POINTS, gl.TRIANGLES,
+ * gl.TRIANGLE_STRIP, etc. geometry of a given color (and potentially with a linear transformation).
+ */
+
+//
 
 export class WebGLRenderer {
   constructor (params={}) {
@@ -75,6 +86,17 @@ export class WebGLRenderer {
     for (const instruction of renderingInstructions) {
       if (typeof instruction === "function") {
         instruction(renderingParameters)
+      } else {
+        // Eventually, the renderer will have an optimizer that will allow it to combine consecutive calls that use the
+        // same drawing parameters. For example, 100 little black ticks could be combined into a single call, instead of
+        // 100 drawArrays calls. For now, though, we just render each instruction in turn.
+        switch (instruction.type) {
+          case "gl_tri_strip_mono":
+            glTriangleStripMonochrome(renderingParameters, instruction)
+            break
+          default:
+            break
+        }
       }
     }
   }

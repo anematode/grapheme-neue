@@ -1,9 +1,4 @@
 import {Element} from "./element"
-import {
-  _inheritAllChangedPropsFromBase,
-  _inheritAllInheritablePropsFromBase,
-  _inheritChangedInheritablePropsFromBase
-} from "./props"
 
 
 export class Group extends Element {

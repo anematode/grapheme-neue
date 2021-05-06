@@ -7,7 +7,7 @@
 
 import {Eventful} from "./eventful"
 import {getStringID} from "./utils"
-import {_inheritAllInheritablePropsFromBase, _inheritChangedInheritablePropsFromBase, ElementProps} from "./props"
+import {Props} from "./new_props"
 
 /**
  * The element class.
@@ -41,24 +41,35 @@ export class Element extends Eventful {
     this.scene = null
 
     /**
-     * Which stage of updating the element is on, relative to its neighbors.
-     *
-     * updateStage: -2 means needs total recalculation, either just created, added to a parent or removed from a parent
-     * updateStage: -1 means finished updating
-     * updateStage: 0 means needs to update
-     * @type {number}
+     * Stores most of the state of the element. Similar to internal. Generally, should not be accessed directly.
+     * @type {Props}
      */
-    this.updateStage = -2
+    this.props = new Props()
 
 
-    this.computedProps = new ElementProps()
+    // Updated = 100, needs complete init = -1, needs update = 0
+    this.updateStage = -1
 
     /**
      * Used for storing intermediate results required for rendering, interactivity and other things
      * @type {Object}
      * @property
      */
-    this.internal = {}
+    this.internal = {
+
+    }
+  }
+
+  /**
+   * Default prop inheriting behavior where all inheritable props are copied over
+   */
+  defaultInheritProps () {
+    if (this.parent)
+      this.props.inheritPropertiesFrom(this.parent.props, this.updateStage !== -1)
+  }
+
+  stringify () {
+    this.props.stringify()
   }
 
   /**
@@ -69,10 +80,6 @@ export class Element extends Eventful {
     callback(this)
   }
 
-  get (propName) {
-    return this.props.get(propName)
-  }
-
   getRenderingInstructions () {
 
   }
@@ -81,13 +88,32 @@ export class Element extends Eventful {
     return false
   }
 
-
   isScene() {
     return false
   }
 
   setScene (scene) {
     this.scene = scene
+  }
+
+  set (propName, value) {
+    if (typeof propName === "object") {
+      for (const [propNameKey, propValue] of Object.entries(propName)) {
+        this.set(propNameKey, propValue)
+      }
+
+    } else {
+      this._set(propName, value)
+
+      if (this.props.hasChangedProperties)
+        this.updateStage = 0
+    }
+
+    return this
+  }
+
+  _set (propName, value) {
+
   }
 
   update () {

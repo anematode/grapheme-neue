@@ -66,6 +66,93 @@ function createTransform (plotBox, graphBox) {
 export class Figure extends Group {
   constructor (params) {
     super(params)
+
+    this.props.setMultipleProperties({
+      boundingBox: new BoundingBox(0, 0, 100, 100),
+      plottingBox: new BoundingBox(0, 0, 640, 480),
+      marginLeft: 0,
+      marginRight: 0,
+      marginBottom: 0,
+      marginTop: 0
+    }).configureProperties(["boundingBox", "plottingBox"], {
+      inherit: true
+    })
+  }
+
+  _set (propName, value) {
+    switch (propName) {
+      case "marginLeft":
+      case "marginRight":
+      case "marginBottom":
+      case "marginTop":
+        this.props.setPropertyValue(propName, value)
+        break
+      case "margin":
+        this.setMargins({ left: value, right: value, bottom: value, top: value })
+        break
+      case "margins":
+        this.setMargins(value)
+    }
+  }
+
+  get (propName) {
+    switch (propName) {
+      case "boundingBox":
+      case "plottingBox":
+      case "marginLeft":
+      case "marginRight":
+      case "marginBottom":
+      case "marginTop":
+        return this.props.getPropertyValue(propName)
+
+      case "margin":
+        return this.props.getPropertyValue("marginLeft")
+
+      case "margins":
+        // Virtual property
+        return this.getMargins()
+    }
+  }
+
+  getMargins () {
+    const [ left, right, bottom, top ] = this.props.getPropertyValues(["marginLeft", "marginRight", "marginBottom", "marginTop"])
+
+    return { left, right, bottom, top }
+  }
+
+  setMargins (margins={}) {
+    if ("top" in margins)
+      this.set("marginTop", margins.top)
+    if ("bottom" in margins)
+      this.set("marginBottom", margins.bottom)
+    if ("left" in margins)
+      this.set("marginLeft", margins.left)
+    if ("right" in margins)
+      this.set("marginRight", margins.right)
+  }
+
+  // We assume that the bounding box and margins are god, for now. In the future there might be some more clever technique here.
+  updateBoxes () {
+
+  }
+
+  computeProps () {
+    const { props } = this
+
+    this.defaultInheritProps()
+
+    // For now, we set the bounding box to the scene dimensions
+    const boundingBox = props.setPropertyValue("boundingBox",
+      props.getPropertyValue("sceneDimensions").getBoundingBox(), 2)
+
+    // Calculate the plotting box from the margins, if changed
+    if (props.havePropertiesChanged(["marginLeft", "marginRight", "marginTop", "marginBottom"])) {
+      const margins = this.getMargins()
+
+      let plottingBox = boundingBox.squishAsymmetrically(margins.left, margins.right, margins.bottom, margins.top) ?? boundingBox.clone()
+
+      props.setPropertyValue("plottingBox", plottingBox, 2)
+    }
   }
 
   /**
@@ -76,31 +163,10 @@ export class Figure extends Group {
     // For now, we will have the overall bounding box of the figure be the size of the plot, unless it is otherwise
     // specified.
 
-    if (this.updateStage === -1) return
+    if (this.updateStage === 100) return
 
-    this._defaultInheritProps()
+    this.computeProps()
 
-    /**
-     * COMPUTE THE COMPUTED PROPS
-     */
-    const { props, computedProps } = this
-
-    // For now, we'll set the outer bounding box to the scene, and the inner bounding box to some amount of margin in.
-    // In the future there will be some better method of determining this — a dynamic one, of course.
-
-    if (computedProps.hasChanged("sceneDimensions")) {
-      const sceneDims = computedProps.get("sceneDimensions")
-
-      const outerBox = sceneDims.getBoundingBox()
-      const innerBox = outerBox.squish(50)
-
-      if (!innerBox) // postpissedchil
-        throw "not sure what to do here. throwing an error seems dumb, maybe some sort of 'abandon' functionality"
-
-      const plotTransform = 0
-
-      computedProps.set("figureBoundingBox", bbox)
-    }
-
+    this.updateStage = 100
   }
 }

@@ -1,6 +1,10 @@
 import {Vec2} from "./vec/vec2"
 import * as utils from "../core/utils"
 
+/**
+ * A bounding box. In general, we consider the bounding box to be in canvas coordinates, so that the "top" is -y and
+ * the "bottom" is +y.
+ */
 export class BoundingBox {
   constructor (x=0, y=0, width=0, height=0) {
     this.x = x
@@ -24,7 +28,23 @@ export class BoundingBox {
     if (2 * margin > w || 2 * margin > h)
       return null
 
-    return new BoundingBox(x - margin, y - margin, w + 2 * margin, h + 2 * margin)
+    return new BoundingBox(x + margin, y + margin, w - 2 * margin, h - 2 * margin)
+  }
+
+  squishAsymmetrically (left=0, right=0, bottom=0, top=0, flipY=false) {
+    const { x, y, w, h } = this
+
+    if (2 * (left + right) > w || 2 * (bottom + top) > h) {
+      return null
+    }
+
+    if (flipY) {
+      let tmp = bottom
+      bottom = top
+      top = tmp
+    }
+
+    return new BoundingBox(x + left, y + top, w - (left + right), h - (top + bottom))
   }
 }
 
