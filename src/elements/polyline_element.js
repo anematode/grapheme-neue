@@ -101,12 +101,13 @@ export class PolylineElement extends Element {
       if (!vertices || vertices.length < 4 || !sceneDimensions) {
         internal.geometry = null
       } else {
-        internal.geometry = calculatePolylineVertices(vertices, pen ?? new Pen(), sceneDimensions.getBoundingBox())
+        let geometry = internal.geometry = calculatePolylineVertices(vertices, pen ?? new Pen(), sceneDimensions.getBoundingBox())
+
         internal.color = pen.color
 
         // Scaling vector to transform CSS pixels into clip space. We use width and height instead of canvasWidth and
         // canvasHeight.
-        internal.xy_scale = [ 2 / sceneDimensions.width, -2 / sceneDimensions.height ]
+        internal.xyScale = [ 2 / sceneDimensions.width, -2 / sceneDimensions.height ]
       }
     }
 
@@ -114,12 +115,16 @@ export class PolylineElement extends Element {
   }
 
   getRenderingInstructions () {
+    const {vertexCount, geometry, color, xyScale} = this.internal
+
     // For now we keep the code in here; later it will just return an abstract geometry and the renderer and do its
     // fancy optimizations
-    return (renderingParams) => {
-
-
-      console.log(internal)
+    return {
+      type: "gl_tri_strip_mono", // needed for all instructions
+      elemID: this.id, // needed for all instructions
+      geometry,
+      color,
+      xyScale
     }
   }
 }

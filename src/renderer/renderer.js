@@ -10,7 +10,9 @@ import {glTriangleStripMonochrome} from "./render_calls"
  * gl.TRIANGLE_STRIP, etc. geometry of a given color (and potentially with a linear transformation).
  */
 
-//
+// Example render call: { type: "gl_tri_strip_mono", elemID: "abcd-efgh", geometry: Float32Array([ ... ]), color: {r: 0, ...} }.
+// the elemID is important because we want to be able to destroy unused buffers belonging to a given element and not thrash
+// a single buffer.
 
 export class WebGLRenderer {
   constructor (params={}) {
@@ -90,7 +92,7 @@ export class WebGLRenderer {
         // Eventually, the renderer will have an optimizer that will allow it to combine consecutive calls that use the
         // same drawing parameters. For example, 100 little black ticks could be combined into a single call, instead of
         // 100 drawArrays calls. For now, though, we just render each instruction in turn.
-        switch (instruction.type) {
+        switch (instruction?.type) {
           case "gl_tri_strip_mono":
             glTriangleStripMonochrome(renderingParameters, instruction)
             break
