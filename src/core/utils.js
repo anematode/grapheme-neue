@@ -1,9 +1,13 @@
 
-let id = 0
+let version = 0
 
-/** Returns a single unique positive integer */
-export function getID () {
-  return ++id
+/**
+ * This function returns a number starting from 1 that never decreases. It is used to store "when" an operation has
+ * occurred, and thus whether to consider it a change.
+ * @returns {number}
+ */
+export function getVersionID () {
+  return ++version
 }
 
 export function benchmark (callback, iterations = 100, output = console.log) {
@@ -46,7 +50,7 @@ export function isPrimitive (obj) {
 // TODO: guarantee no collisions via LFSR or something similar
 export function getStringID () {
   function randLetter() {
-    return String.fromCharCode(Math.round(Math.random() * 25 + 96))
+    return String.fromCharCode(Math.round(Math.random() * 25 + 97))
   }
 
   function randFourLetter() {

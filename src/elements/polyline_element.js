@@ -37,49 +37,48 @@ function flattenVec2Array (arr) {
 
 /**
  * A good test element: we give it a pen of some sort and it should draw a polyline with the given vertices. The vertices
- * should be in CSS pixels. So we can extensively comment this to understand how this will work.
+ * should be in CSS pixels. Let's extensively comment this to understand how this will work.
  */
 export class PolylineElement extends Element {
   constructor (params={}) {
     // Parameters: vertices in pixels, pen is Pen, sceneDimensions
     super(params)
+
+    this.set({ pen: "black" })
   }
 
   _set (propName, value) {
+    // In this case, the values of "vertices" and "pen" may be modified after, during preprocessing
     switch (propName) {
-      case "vertices":
-        // In this case, the value of "vertices" may be modified after, during preprocessing
-        this.props.setPropertyValue("vertices", value)
-        break
-      case "pen":
-        // May also be processed
-        this.props.setPropertyValue("pen", value)
+      case "vertices": case "pen":
+        this.props.setPropertyValue(propName, value)
     }
   }
 
-  computeProps () {
-    // Do preprocessing of vertices, etc.
-    const {props} = this
+  /**
+   * Preprocess the vertices attribute, turning it into a flat array
+   * @private
+   */
+  #_flattenVertices () {
+    const { props } = this
 
-    // Inherit needed computed props, in this case sceneDimensions, which will be given to the polyline program. Of
-    // course in the future this information could just be passed through the renderer, but also note that giving
-    // the bounding rectangle of the screen allows us to cull vertices/parts of the line that are offscreen.
+    const vertices = props.getPropertyValue("vertices")
+    props.setPropertyValue("vertices", flattenVec2Array(vertices))
+  }
+
+  /**
+   * Compute the props, including preprocessing of "vertices" and "pen" as appropriate
+   */
+  computeProps () {
+    const { props } = this
 
     this.defaultInheritProps()
 
-    // Calculate the other computed properties, specific to this element, namely vertices and pen. They are just
-    // forwarded from the given properties, except they are preprocessed into a uniform format. For example, the
-    // vertices may be given as [Vec2(3, 4), Vec2(1, 5), ..., Vec2(150, 302)], while the internal function that
-    // actually calculates the geometries of the polyline (namely, calculatePolylineVertices) needs a flattened array
-    // of floats. There is indeed a small overhead to checking over all the points, but this overhead is small in
-    // comparison to other computations.
+    // Process vertices if changed
+    if (props.hasPropertyChanged("vertices"))
+      this.#_flattenVertices()
 
-    if (props.hasPropertyChanged("vertices")) {
-      const vertices = props.getPropertyValue("vertices")
-
-      props.setPropertyValue("vertices", flattenVec2Array(vertices))
-    }
-
+    // Convert pen to pen object
     if (props.hasPropertyChanged("pen")) {
       const pen = props.getPropertyValue("pen")
 
@@ -87,9 +86,7 @@ export class PolylineElement extends Element {
     }
   }
 
-  update () {
-    if (this.updateStage === 100) return
-
+  _update () {
     this.computeProps()
 
     const { props, internal } = this
@@ -101,30 +98,25 @@ export class PolylineElement extends Element {
       if (!vertices || vertices.length < 4 || !sceneDimensions) {
         internal.geometry = null
       } else {
-        let geometry = internal.geometry = calculatePolylineVertices(vertices, pen ?? new Pen(), sceneDimensions.getBoundingBox())
-
+        internal.geometry = calculatePolylineVertices(vertices, pen, sceneDimensions.getBoundingBox())
         internal.color = pen.color
-
-        // Scaling vector to transform CSS pixels into clip space. We use width and height instead of canvasWidth and
-        // canvasHeight.
-        internal.xyScale = [ 2 / sceneDimensions.width, -2 / sceneDimensions.height ]
       }
     }
-
-    this.updateStage = 100
   }
 
   getRenderingInstructions () {
-    const {vertexCount, geometry, color, xyScale} = this.internal
+    const { geometry, color, xyScale } = this.internal
+    console.log(geometry)
 
-    // For now we keep the code in here; later it will just return an abstract geometry and the renderer and do its
-    // fancy optimizations
     return {
-      type: "gl_tri_strip_mono", // needed for all instructions
-      elemID: this.id, // needed for all instructions
+      // The type of instruction
+      type: "gl_tri_strip_mono",
+      // The id of the element
+      elemID: this.id,
+      // An object { glVertices, vertexCount }
       geometry,
-      color,
-      xyScale
+      // RGBA
+      color
     }
   }
 }

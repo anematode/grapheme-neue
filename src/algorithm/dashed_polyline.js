@@ -30,6 +30,10 @@ const MAX_DASHED_POLYLINE_VERTICES = 1e7
  * @returns {Array}
  */
 export function* getDashedPolyline(vertices, pen, box, chunkSize=256000) {
+  if (!box) {
+    box = new BoundingBox(-Infinity, -Infinity, Infinity, Infinity)
+  }
+
   // dashPattern is the pattern of dashes, given as the length (in pixels) of consecutive dashes and gaps.
   // dashOffset is the pixel offset at which to start the dash pattern, beginning at the start of every sub polyline.
   let { dashPattern, dashOffset } = pen
@@ -59,7 +63,7 @@ export function* getDashedPolyline(vertices, pen, box, chunkSize=256000) {
   const result = []
 
   // The plotting box
-  const boxX1 = box.x1, boxX2 = box.x2, boxY1 = box.y1, boxY2 = box.y2
+  const boxX1 = box.x, boxX2 = box.x + box.w, boxY1 = box.y, boxY2 = box.y + box.h
 
   // Calculate the value of currentLesserOffset, given the length of the pattern that we have just traversed.
   function recalculateOffset(length) {

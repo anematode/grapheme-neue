@@ -29,7 +29,7 @@ export class Group extends Element {
     elem.parent = this
     elem.setScene(this.scene)
 
-    elem.updateStage = -2
+    elem.updateStage = -1
 
     return this
   }
@@ -89,11 +89,7 @@ export class Group extends Element {
 
   }
 
-  update (updateParams) {
-    if (this.updateStage === -1) return
-
-    this._defaultInheritProps()
-
-    this.updateStage = -1
+  _update () {
+    this.defaultInheritProps()
   }
 }

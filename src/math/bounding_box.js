@@ -46,6 +46,14 @@ export class BoundingBox {
 
     return new BoundingBox(x + left, y + top, w - (left + right), h - (top + bottom))
   }
+
+  getX2 () {
+    return this.x + this.w
+  }
+
+  getY2 () {
+    return this.y + this.h
+  }
 }
 
 

@@ -6,7 +6,7 @@
  */
 
 import {Eventful} from "./eventful"
-import {getStringID} from "./utils"
+import {getStringID, getVersionID} from "./utils"
 import {Props} from "./new_props"
 
 /**
@@ -46,6 +46,11 @@ export class Element extends Eventful {
      */
     this.props = new Props()
 
+    /**
+     * Whether the element should be rendered. Generally, its update function is not called either.
+     * @type {boolean}
+     */
+    this.visible = true
 
     // Updated = 100, needs complete init = -1, needs update = 0
     this.updateStage = -1
@@ -56,12 +61,12 @@ export class Element extends Eventful {
      * @property
      */
     this.internal = {
-
+      version: getVersionID()
     }
   }
 
   /**
-   * Default prop inheriting behavior where all inheritable props are copied over
+   * In this default behavior, all the properties from a parent are inherited.
    */
   defaultInheritProps () {
     if (this.parent)
@@ -80,6 +85,18 @@ export class Element extends Eventful {
     callback(this)
   }
 
+  /**
+   * This function is called when a renderer wants to know how a particular element should be rendered. It may return
+   * a primitive drawing call, such as a call to triangle strip, or a function, which accepts a renderer as an argument.
+   * It may also return a list of such calls, in which case the calls will be executed in that order.
+   * This function is not necessarily called every time a render is done. Its result can be (but is not always) cached,
+   * which may seem a bit pointless in and of itself, but it helps with optimization. Instead, the function is only
+   * called when a given element's "version" value is greater than that of the renderer's last stored version value.
+   * The version value is simply a number which increments sequentially, starting from 0 at the beginning of the page's
+   * lifetime and adding one every time a value is requested. The element can thus force a renderer update by setting
+   * its version to the latest getVersionID() value, in which case the renderer will see that something has changed and
+   * ask for new instructions.
+   */
   getRenderingInstructions () {
 
   }
@@ -88,7 +105,7 @@ export class Element extends Eventful {
     return false
   }
 
-  isScene() {
+  isScene () {
     return false
   }
 
@@ -96,27 +113,53 @@ export class Element extends Eventful {
     this.scene = scene
   }
 
+  /**
+   * Set the value of a property, as an external user.
+   * @param propName {string|{}} The property name, or a dictionary of properties and values
+   * @param [value] {*} The value to set the property to
+   * @returns {Element}
+   */
   set (propName, value) {
     if (typeof propName === "object") {
       for (const [propNameKey, propValue] of Object.entries(propName)) {
-        this.set(propNameKey, propValue)
+        this._set(propNameKey, propValue)
       }
-
     } else {
       this._set(propName, value)
-
-      if (this.props.hasChangedProperties)
-        this.updateStage = 0
     }
+
+    // If some properties have changed, set the update stage accordingly. We use .min in case the update stage is -1
+    if (this.props.hasChangedProperties)
+      this.updateStage = Math.min(this.updateStage, 0)
 
     return this
   }
 
+  /**
+   * Internal function that elements define to actually describe the behavior of setting a property.
+   * @param propName {string}
+   * @param value {any}
+   * @private
+   */
   _set (propName, value) {
 
   }
 
+  /**
+   * Function which updates the element, but which should generally be called during an "updateAll" operation from the
+   * scene. When called on its own, it will thus be allowed to mark its own properties as not changed, if appropriate,
+   * as long as it is (almost) functionally identical to if they were marked as changed during a full updateAll
+   * operation.
+   */
   update () {
+    if (this.updateStage === 100) return
+
+    this._update()
+
+    this.updateStage = 100
+  }
+
+  _update () {
 
   }
 }

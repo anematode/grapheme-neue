@@ -30,7 +30,7 @@ export function glTriangleStripMonochrome (renderingParams, instruction) {
   const renderer = renderingParams.renderer
 
   const { gl, glManager } = renderer
-  let { geometry, color, elemID, xyScale } = instruction
+  let { geometry, color, elemID } = instruction
 
   if (!geometry || !color) return
 
@@ -38,8 +38,6 @@ export function glTriangleStripMonochrome (renderingParams, instruction) {
 
   const programInfo = getMonochromeGeometryProgram(renderer)
   const buf = glManager.createBuffer("__gl_tri_strip_mono", elemID)
-
-  console.log(buf)
 
   gl.useProgram(programInfo.glProgram)
 
@@ -52,7 +50,7 @@ export function glTriangleStripMonochrome (renderingParams, instruction) {
   gl.enableVertexAttribArray(vPosition)
 
   gl.uniform4f(programInfo.uniforms.color, color.r / 255, color.g / 255, color.b / 255, color.a / 255)
-  gl.uniform2fv(programInfo.uniforms.xy_scale, xyScale)
+  gl.uniform2f(programInfo.uniforms.xy_scale, 2 / renderer.canvas.width, -2 / renderer.canvas.height)
 
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, geometry.vertexCount)
 }

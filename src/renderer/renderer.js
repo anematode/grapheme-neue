@@ -77,7 +77,7 @@ export class WebGLRenderer {
     // These are passed to the render functions
     const renderingParameters = this.getRenderingParameters()
 
-    const renderingInstructions = []
+    let renderingInstructions = []
 
     scene.apply(child => {
       const instructions = child.getRenderingInstructions()
@@ -85,10 +85,15 @@ export class WebGLRenderer {
       renderingInstructions.push(instructions)
     })
 
+    renderingInstructions = renderingInstructions.flat()
+
+    console.log("Total number of instructions: ", renderingInstructions.length)
+
     for (const instruction of renderingInstructions) {
       if (typeof instruction === "function") {
         instruction(renderingParameters)
       } else {
+
         // Eventually, the renderer will have an optimizer that will allow it to combine consecutive calls that use the
         // same drawing parameters. For example, 100 little black ticks could be combined into a single call, instead of
         // 100 drawArrays calls. For now, though, we just render each instruction in turn.

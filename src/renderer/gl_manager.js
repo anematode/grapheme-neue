@@ -228,8 +228,6 @@ export class GLResourceManager {
       buffer = owner.buffers[bufferName] = this.gl.createBuffer()
     }
 
-    console.log(ownerName, owner, bufferName)
-
     return buffer
   }
 

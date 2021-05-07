@@ -31,8 +31,15 @@
 
     polyline.set({ vertices: [ 0, 0, 500, 500 ], pen: "green" })
     document.body.appendChild(renderer.canvas)
+    const gl = renderer.gl
 
+    const baubles = new Grapheme.PlotBaubles({ id: "baubles" })
 
+    figure.add(baubles)
+
+    console.log(baubles.updateStage)
+
+    render()
 </noscript>
 
 

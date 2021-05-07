@@ -14,3 +14,6 @@ export function _attachConvenienceGettersToElement (elementPrototype, elementPar
     })
   }
 }
+
+
+// Easy way of defining interacting with props TODO
