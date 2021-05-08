@@ -93,7 +93,7 @@ export class Scene extends Group {
   /**
    * This function operates on the properties and updates (or creates) a new, inheritable property called sceneDimensions,
    * which contains the canvas size and the device pixel ratio. All elements will receive this information, if they
-   * want it. Note that the function is pretty verbose.
+   * want it. Note that the function is pretty verbose... we should figure out how to make these types of things simpler.
    */
   calculateSceneDimensions () {
     const { props } = this

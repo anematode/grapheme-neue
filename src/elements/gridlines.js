@@ -81,8 +81,6 @@ export class GridlinesElement extends Element {
     const addLine = (vertices, pen) => {
       let geometry = calculatePolylineVertices(vertices, pen, null)
 
-      console.log(vertices)
-
       instructions.push({
         type: "gl_tri_strip_mono",
         geometry,

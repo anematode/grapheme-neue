@@ -301,5 +301,21 @@ props: {
     "dpr": { ... }
 }
 
-inherit: {
-    
+# May 7
+
+Progress continues! The properties and update system may be so far considered as follows.
+
+1. Elements follow a tree structure, with the scene at the top.
+2. Each element has an updateStage, with -1 indicating the element has just been created, added or removed as a child, or needs deep recomputation for some reason. 0 indicates an update is needed. 100 (for now) indicates that an update is complete.
+3. Each element has a props object, which is mostly meant for internal use. It generally stores the internal properties of an object, as a key-value dict.
+4. A props object's main purpose is rather simple: it maps property names to their values. A scene may have, for example, a "width" property with the value 1280. We can say `props.getPropertyValue("width")` to obtain the value.
+5. Props can be any value, except undefined. A prop that does not exist has the value undefined; `props.getPropertyValue("nonexistent")` returns undefined.
+6. Deleting a property is equivalent to setting its value to undefined. `props.setPropertyValue("width", undefined)` is equivalent to saying `props.deleteProperty("width")`.
+7. Each property tracks whether it has changed since the last time the element either processed the property, so that its behavior is equivalent, or the last time the element fully updated.
+8. Properties can also be inheritable, which means their value is copied into the property stores of all the elements below it. The actual copying is done by the element, because the element may not even want some of the inheritable properties.
+9. Inheritable properties cascade down all the way, unless some obstinate group decides otherwise and doesn't copy the properties to itself. In other words, groups should generally inherit props no matter what, while elements with no children can just inherit what they want.
+10. Internally, a property has an inherit value of 2 if the property is defined in the element in question. It has an inherit value of 1 if the property is inherited from an element above. If the property is not inheritable, inherit is 0.
+11. Therefore, an element can interrupt the default inheriting of a property from above by setting the inheritance value in the current element to 0 or 2, which would indicate that the element is not to be inherited.
+12. 
+
+# May 8
