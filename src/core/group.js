@@ -90,15 +90,18 @@ export class Group extends Element {
   }
 
   update () {
-    if (this.updateStage === 100) return
-
     this._update()
 
-    if (this.props.hasChangedInheritableProperties && this.children) {
-      this.children.forEach(child => child.updateStage = 0)
-    }
-
+    this.informChildrenOfInheritance()
     this.updateStage = 100
+  }
+
+  informChildrenOfInheritance () {
+    if (this.props.hasChangedInheritableProperties && this.children) {
+      this.children.forEach(child => {
+        child.updateStage = Math.min(child.updateStage, 0) // math.min so that update stage -1 still works
+      })
+    }
   }
 
   _update () {

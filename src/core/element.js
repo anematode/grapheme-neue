@@ -7,7 +7,7 @@
 
 import {Eventful} from "./eventful"
 import {getStringID, getVersionID} from "./utils"
-import {Props} from "./new_props"
+import {Props} from "./props"
 
 /**
  * The element class.
@@ -70,7 +70,7 @@ export class Element extends Eventful {
    */
   defaultInheritProps () {
     if (this.parent)
-      this.props.inheritPropertiesFrom(this.parent.props, this.updateStage !== -1)
+      this.props.inheritPropertiesFrom(this.parent.props, this.updateStage === -1)
   }
 
   stringify () {
@@ -152,8 +152,6 @@ export class Element extends Eventful {
    * operation.
    */
   update () {
-    if (this.updateStage === 100) return
-
     this._update()
 
     this.updateStage = 100

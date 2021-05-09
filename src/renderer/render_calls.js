@@ -24,6 +24,8 @@ function getMonochromeGeometryProgram (renderer) {
 
 // Example call: { type: "gl_tri_strip_mono", geometry: Float32Array, vertexCount: 32, color: Color, elemID: "...", xyScale: [ 0.002, -0.003] }
 
+let cow = 0
+
 export function glTriangleStripMonochrome (renderingParams, instruction) {
   // instruction.type = "gl_tri_strip_mono"
 
@@ -41,16 +43,21 @@ export function glTriangleStripMonochrome (renderingParams, instruction) {
 
   gl.useProgram(programInfo.glProgram)
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf)
-  gl.bufferData(gl.ARRAY_BUFFER, geometry.glVertices, gl.STATIC_DRAW)
+  if (!cow) {
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+    gl.bufferData(gl.ARRAY_BUFFER, geometry.glVertices, gl.DYNAMIC_DRAW)
 
-  const vPosition = programInfo.attribs.v_position
+    const vPosition = programInfo.attribs.v_position
 
-  gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0)
-  gl.enableVertexAttribArray(vPosition)
+    gl.vertexAttribPointer(vPosition, 2, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(vPosition)
 
-  gl.uniform4f(programInfo.uniforms.color, color.r / 255, color.g / 255, color.b / 255, color.a / 255)
-  gl.uniform2f(programInfo.uniforms.xy_scale, 2 / renderer.canvas.width, -2 / renderer.canvas.height)
+    gl.uniform4f(programInfo.uniforms.color, color.r / 255, color.g / 255, color.b / 255, color.a / 255)
+    gl.uniform2f(programInfo.uniforms.xy_scale, 2 / renderer.canvas.width, -2 / renderer.canvas.height)
+
+    cow=1
+  }
+
 
   gl.drawArrays(gl.TRIANGLE_STRIP, 0, geometry.vertexCount)
 }

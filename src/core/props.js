@@ -1,7 +1,7 @@
 
 // The general form of a prop store is { value: , changed: , userValue: , }
 
-import {deepEquals} from "./utils"
+import {deepEquals, getVersionID} from "./utils"
 
 const proxyHandlers = {
   get: (target, propName) => {
@@ -135,19 +135,50 @@ export class Props {
   constructor (init) {
     /**
      * A key-object dictionary containing the values. The keys are the property names and the objects are of the form
-     * { value, changed, ... some other metadata for the given property ... }. A map could have been used, but an object
-     * provides some benefits, such as shape optimization.
+     * { value, changed, ... some other metadata for the given property ... }.
      * @type {any}
      */
-    this.store = Object.create(null)
+    this.store = new Map()
 
     // Just for fun... not sure if I'll keep this. Makes programming a bit less painful
     this.proxy = new Proxy(this, proxyHandlers)
 
-    // Stores whether any property has changed, and whether any inheritable property has changed. The latter is used
-    // when a child element asks whether it needs to grab props.
+    // Stores whether any property has changed
     this.hasChangedProperties = false
-    this.hasChangedInheritableProperties = false
+
+    // 0 when no inheritable properties have changed, 1 when an inheritable property has changed since the last time
+    // the scene was fully updated, and 2 when the actual list of inheritable properties has changed (different
+    // signature of inheritance, if you will).
+    this.hasChangedInheritableProperties = 0
+  }
+
+  // Access functions, in case we want to switch to Object.create(null)
+  getPropertyStore (propName) {
+    return this.store.get(propName)
+  }
+
+  setPropertyStore (propName, value) {
+    this.store.set(propName, value)
+  }
+
+  /**
+   * Deletes a property store wholesale, not trying to account for changed values and the like.
+   * @param propName
+   */
+  deletePropertyStore (propName) {
+    this.store.delete(propName)
+  }
+
+  forEachStore (callback) {
+    for (let value of this.store.values()) {
+      callback(value)
+    }
+  }
+
+  forEachProperty (callback) {
+    for (let [ key, value ] of this.store.entries()) {
+      callback(key, value)
+    }
   }
 
   /**
@@ -156,63 +187,133 @@ export class Props {
    * @returns {{}} Property store associated with the given property name
    */
   createPropertyStore (propName) {
-    // Maybe this is too clever for my own good
-    return this.store[propName] ?? (this.store[propName] = { value: undefined, changed: false })
+    let existing = this.getPropertyStore(propName)
+
+    if (!existing) {
+      existing = { value: undefined, changed: false }
+      this.setPropertyStore(propName, existing)
+    }
+
+    return existing
   }
 
   /**
-   * Deletes a property store wholesale, not trying to account for changed values and the like.
-   * @param propName
+   * Get a list of all properties, including ones which are undefined but have a store
+   * @returns {string[]}
    */
-  deletePropertyStore (propName) {
-    delete this.store[propName]
+  listProperties () {
+    return Array.from(this.store.keys())
   }
 
+  /**
+   * Returns whether a property has changed, locally speaking.
+   * @param propName {string}
+   * @returns {boolean}
+   */
   hasPropertyChanged (propName) {
-    return !!(this.store[propName]?.changed)
+    return !!(this.getPropertyStore(propName)?.changed)
   }
 
+  /**
+   * Returns whether any property of a list of properties has changed, locally speaking.
+   * @param propList {string[]}
+   * @returns {boolean}
+   */
   havePropertiesChanged (propList) {
     return this.hasChangedProperties && propList.some(prop => this.hasPropertyChanged(prop))
   }
 
+  /**
+   * Returns whether a given property is inheritable (i.e., an inherit of 1 or 2).
+   * @param propName {string}
+   * @returns {boolean}
+   */
   isPropertyInheritable (propName) {
-    return !!(this.store[propName]?.inherit)
+    return !!(this.getPropertyStore(propName)?.inherit)
   }
 
-  listProperties () {
-    return Object.keys(this.store)
-  }
-
+  /**
+   * Returns a list of properties which have changed, locally speaking.
+   * @returns {string[]}
+   */
   listChangedProperties () {
     return this.listProperties().filter(prop => this.hasPropertyChanged(prop))
   }
 
+  /**
+   * Returns a list of properties which can be inherited (i.e., an inherit of 1 or 2).
+   * @returns {string[]}
+   */
   listInheritableProperties () {
     return this.listProperties().filter(prop => this.isPropertyInheritable(prop))
   }
 
-  getPropertyStore (propName) {
-    return this.store[propName]
-  }
-
   /**
-   * Inherit all inheritable properties from props
-   * @param props
-   * @param onlyChanged {boolean} Whether to only inherit those properties which have changed: true. This is usually set to false when elements are first added and all elements need to be inherited
+   * Inherit all inheritable properties from a given props. The function does this by comparing the local inherited
+   * prop's version to the given props's version. If the local version is lower, the property and version are copied,
+   * and the changed status is set to true. If updateAll is set to true, the function makes sure to check that the
+   * actual list of inherited properties is synchronized, because it normally only checks the local inheritable
+   * properties and compares them. In fact, it only checks the local inheritable properties with inherit: 1, since that
+   * indicates it came from a parent rather than being defined in the current element.
+   * @param props {Props}
+   * @param updateAll {boolean} Whether to force a complete update, in which the inheritable properties are verifiably
+   * synced with the top element's properties. This usually happens after an element is added to a group, or after a
+   * group's inheritance signature has changed.
    */
-  inheritPropertiesFrom (props, onlyChanged=true) {
+  inheritPropertiesFrom (props, updateAll=false) {
     // Early exit condition, where if no inheritable properties have changed, we need not do anything
-    if (onlyChanged && !props.hasChangedInheritableProperties) return
+    if (!(updateAll || props.hasChangedInheritableProperties)) return
 
-    const otherStore = props.store
+    updateAll = updateAll || (props.hasChangedInheritableProperties === 2)
 
-    // Iterate through the elements of the store and copy over the values. Note that the only inherited attributes
-    // are the property's value and its inheritability.
-    for (const [propName, propStore] of Object.entries(otherStore)) {
-      if (propStore.inherit && (!onlyChanged || propStore.changed)) {
-        this.setPropertyValue(propName, propStore.value)
-        this.setPropertyInheritance(propName, 1)
+    // We recalculate all local properties whose inheritance is 1, indicating they were inherited from above. Properties
+    // not found above are deleted, properties found above are copied if their version is greater than or equal to the
+    // version of the current property. This ensures that this props does not have any extraneous properties or any
+    // incorrect/nonupdated values.
+    for (const [ propName, propStore ] of this.store.entries()) {
+      if (propStore.inherit !== 1) continue
+
+      const otherPropsStore = props.getPropertyStore(propName)
+
+      // if no such inheritable property, delete the local property
+      if (!otherPropsStore || otherPropsStore.inherit < 1) this.setPropertyValue(propName, undefined)
+
+      // Value has been changed!
+      if (otherPropsStore.version > propStore.version) {
+        propStore.version = otherPropsStore.version
+        propStore.value = otherPropsStore.value
+        propStore.changed = true
+
+        this.markHasChangedProperties()
+        this.markHasChangedInheritableProperties()
+      }
+    }
+
+    // If updateAll is true, we run through all the given properties and inherit all 1s and 2s.
+    if (updateAll) {
+      for (const [ propName, propStore ] of props.store.entries()) {
+        if (!propStore.inherit) continue
+
+        let ourPropStore = this.getPropertyStore(propName)
+
+        // Where things are actually inherited!!
+        if (!ourPropStore || (ourPropStore.inherit === 1 && propStore.version > ourPropStore.version)) {
+          if (!ourPropStore) {
+            ourPropStore = this.createPropertyStore(propName)
+
+            // Goes around setPropertyValue
+            ourPropStore.inherit = 1
+            ourPropStore.value = propStore.value
+
+            this.markHasChangedInheritanceSignature()
+          }
+
+          ourPropStore.version = propStore.version
+          ourPropStore.value = propStore.value
+          ourPropStore.changed = true
+
+          this.markHasChangedProperties()
+        }
       }
     }
   }
@@ -223,27 +324,83 @@ export class Props {
    * as changed. By default, this check is turned off, meaning all value assignments are marked as "changed".
    * @param propName {string} The name of the property
    * @param value {any} The value of the property
-   * @param equalityCheck {number} What type of equality check to perform against the current value, if any, to assess the changed value. 0 - no check, 1 - strict equals, 2 - deep equals
-   * @param markChanged {boolean} Whether to actually mark the value as changed. In turn, if the property is a changed inheritable property, that will be noted
+   * @param equalityCheck {number} What type of equality check to perform against the current value, if any, to assess
+   * the changed value. 0 - no check, 1 - strict equals, 2 - deep equals
+   * @param markChanged {boolean} Whether to actually mark the value as changed. In turn, if the property is a changed
+   * inheritable property, that will be noted
    * @returns {any}
    */
   setPropertyValue (propName, value, equalityCheck=0, markChanged=true) {
+    if (value === undefined) {
+      // Special case of deletion. If the property exists, we set its value to undefined, and if that property is
+      // defined to be inheritable, we set its inherit to 0, and this.hasChangedInheritableProperties to 2. Note that
+      // an inheritED property cannot be deleted, as that would be inconsistent. It can only be overridden.
+      let store = this.getPropertyStore(propName)
+
+      // trivial case, don't do anything
+      if (!store || store.value === undefined) return undefined
+
+      if (store.inherit === 1) {
+        // If the store has an inheritance value of 1, we don't do anything
+        return undefined
+      } else if (store.inherit === 2) {
+        // If the property has inheritance 2, we delete it and notify that the signature of inheritable properties has
+        // changed.
+        store.inherit = 0
+        store.value = undefined
+
+        if (markChanged) this.markHasChangedInheritanceSignature()
+      } else {
+        // Typical case of deleting a property. We just set its value to undefined
+        store.value = undefined
+      }
+
+      if (markChanged) {
+        store.changed = true
+        this.hasChangedProperties = true
+      }
+
+      return undefined
+    }
+
+    // Otherwise, we need to get a property store
     const store = this.createPropertyStore(propName)
+
+    // We reject assignments to an inherited property. This can be overridden by setting the property's inheritance
+    // status.
+    if (store.inherit === 1) return value
 
     // Perform various equality checks
     if (equalityCheck === 1 && store.value === value) return value
-    if (equalityCheck === 2 && deepEquals(store.value, value)) return value
+    else if (equalityCheck === 2 && deepEquals(store.value, value)) return value
 
+    // Set the value and changed values
     store.value = value
     store.changed = store.changed || markChanged
 
     if (markChanged) {
-      this.hasChangedProperties = true
-      if (store.inherit)
-        this.hasChangedInheritableProperties = true
+      this.markHasChangedProperties()
+
+      // For values to be inherited, store the version of this value. We leave our hands off of inherit: 1 properties
+      if (store.inherit === 2) {
+        store.version = getVersionID()
+        this.markHasChangedInheritableProperties()
+      }
     }
 
     return value
+  }
+
+  markHasChangedProperties () {
+    this.hasChangedProperties = true
+  }
+
+  markHasChangedInheritableProperties() {
+    this.hasChangedInheritableProperties = Math.max(this.hasChangedInheritableProperties, 1)
+  }
+
+  markHasChangedInheritanceSignature() {
+    this.hasChangedInheritableProperties = 2
   }
 
   setMultipleProperties (dictionary={}) {
@@ -258,7 +415,7 @@ export class Props {
     const store = this.getPropertyStore(propName)
 
     if (opts.inherit !== undefined) {
-      store.inherit = opts.inherit ? 2 : 0
+      this.setPropertyInheritance(propName, opts.inherit)
     }
   }
 
@@ -267,60 +424,102 @@ export class Props {
       this.configureProperty(propName, opts)
   }
 
-  setPropertyInheritance (propName, inheritance=0) {
-    const store = this.createPropertyStore(propName)
+  /**
+   * Set a property's inheritance to 2 (if inherit is true) or 0
+   * @param propName {string}
+   * @param inherit {boolean}
+   * @return {Props}
+   */
+  setPropertyInheritance (propName, inherit=false) {
+    const store = this.getPropertyStore(propName)
 
-    store.inherit = inheritance
+    if (!store) return this
 
-    if (store.changed && inheritance)
-      this.hasChangedInheritableProperties = true
+    let currentInheritance = !!store.inherit
+    if (currentInheritance === !!inherit) return this
+
+    if (inherit) {
+      store.version = getVersionID()
+      store.inherit = 2
+    } else {
+      delete store.version
+      delete store.inherit
+    }
+
+    this.hasChangedInheritableProperties = 2
+
+    return this
   }
 
+  /**
+   * Get the value of a property.
+   * @param propName {string}
+   * @returns {*}
+   */
   getPropertyValue (propName) {
     return this.getPropertyStore(propName)?.value
   }
 
+  /**
+   * Get the values of a list of properties.
+   * @param propNameList {string[]}
+   * @returns {*}
+   */
   getPropertyValues (propNameList) {
     return propNameList.map(propName => this.getPropertyValue(propName))
   }
 
-  forEachStore (callback) {
-    for (let key in this.store) {
-      callback(this.store[key])
-    }
-  }
-
-  forEachProperty (callback) {
-    for (let key in this.store) {
-      callback(key, this.store[key])
-    }
-  }
-
-  markUpdated () {
+  /**
+   * Mark all properties as locally updated (changed = false).
+   */
+  markAllUpdated () {
     this.hasChangedProperties = false
-    this.hasChangedInheritableProperties = false
 
-    this.forEachStore(store => {
-      store.changed = false
-    })
+    this.forEachStore(store => { store.changed = false })
   }
 
+  /**
+   * Mark a specific property as locally updated (changed = false).
+   * @param propName {string}
+   */
+  markPropertyUpdated (propName) {
+    const store = this.getPropertyStore(propName)
+
+    if (store) store.changed = false
+  }
+
+  /**
+   * Mark a given property as changed.
+   * @param propName {string}
+   */
   markChanged (propName) {
     let store = this.getPropertyStore(propName)
 
     store.changed = true
     this.hasChangedProperties = true
-    if (store.inherit) this.hasChangedInheritableProperties = true
+
+    // If the store is inheritable, we need to generate a version ID
+    if (store.inherit) {
+      this.hasChangedInheritableProperties = 1
+      store.version = getVersionID()
+    }
   }
 
-  markAllAsChanged () {
-    this.hasChangedProperties = false
-    this.hasChangedInheritableProperties = false
-
-    this.forEachStore(store => this.markChanged(store))
+  /**
+   * Mark that no more inheritance is necessary. This function should only be called by the scene
+   */
+  markGlobalUpdateComplete () {
+    if (this.hasChangedProperties) this.markAllUpdated()
+    this.hasChangedInheritableProperties = 0
   }
 
   stringify () {
-    console.log(JSON.stringify(this, null, 4))
+    const obj = {}
+
+    for (const [propName, propStore] of this.store) {
+      obj[propName] = propStore
+    }
+
+    console.log(JSON.stringify(obj, null, 4))
   }
 }

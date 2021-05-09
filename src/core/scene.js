@@ -104,7 +104,7 @@ export class Scene extends Group {
 
     // Calculate scene dimensions and perform a deep equality check so that recomputations are not necessary
     props.setPropertyValue("sceneDimensions", sceneDimensions, 2)
-    props.setPropertyInheritance("sceneDimensions", 1)
+    props.setPropertyInheritance("sceneDimensions", true)
   }
 
   /**
@@ -147,9 +147,14 @@ export class Scene extends Group {
    * inheritable properties, as unchanged.
    */
   updateAll () {
-    this.apply(child => child.update())
+    // Update all children whose update stage is not 100.
+    this.apply(child => {
+      if (child.updateStage !== 100)
+        child.update()
+    })
 
-    this.apply(child => child.props.markUpdated())
+    // Mark all inherited props as done.
+    this.apply(child => child.props.markGlobalUpdateComplete())
   }
 }
 

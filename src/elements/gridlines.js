@@ -77,15 +77,13 @@ export class GridlinesElement extends Element {
     const { gridlineStyles, gridlinePositions, plotTransform } = this.props.proxy
     const plottingBox = plotTransform.pixelCoordinatesBox()
 
+    const geometries = []
+
     const instructions = []
     const addLine = (vertices, pen) => {
       let geometry = calculatePolylineVertices(vertices, pen, null)
 
-      instructions.push({
-        type: "gl_tri_strip_mono",
-        geometry,
-        color: pen.color
-      })
+      geometries.push(geometry)
     }
 
     // This is purposely painful to stress test the renderer. Normally we could just have two geometries, one for major
@@ -113,7 +111,23 @@ export class GridlinesElement extends Element {
       }
     }
 
-    this.internal.instructions = instructions
+    const geos = geometries.map(geo => geo.glVertices).join()
+
+    const len = geos.reduce((a, b) => a + b.glVertices.length, 0)
+    const arr = new Float32Array(len)
+
+    let i = 0
+    for (const geo of geos) {
+
+    }
+
+
+
+    this.internal.instructions = [{
+      type: "gl_tri_strip_mono",
+      geometry,
+      color: pen.color
+    }]
   }
 
   getRenderingInstructions() {

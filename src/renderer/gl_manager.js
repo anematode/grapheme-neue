@@ -207,7 +207,7 @@ export class GLResourceManager {
       attribs: vertexAttribs
     }
 
-    owner[programName] = programInfo
+    owner.programs[programName] = programInfo
 
     return programInfo
   }
