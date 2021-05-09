@@ -237,6 +237,7 @@ export class Figure extends Group {
   _update (updateParams) {
     // For now, we will have the overall bounding box of the figure be the size of the plot, unless it is otherwise
     // specified.
+    super._update()
 
     this.computeProps()
   }

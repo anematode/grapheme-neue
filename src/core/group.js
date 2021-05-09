@@ -89,6 +89,18 @@ export class Group extends Element {
 
   }
 
+  update () {
+    if (this.updateStage === 100) return
+
+    this._update()
+
+    if (this.props.hasChangedInheritableProperties && this.children) {
+      this.children.forEach(child => child.updateStage = 0)
+    }
+
+    this.updateStage = 100
+  }
+
   _update () {
     this.defaultInheritProps()
   }

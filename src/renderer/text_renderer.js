@@ -1,4 +1,4 @@
-import { packRectangles } from "../algorithm/rectangle_packing"
+import {packRectangles, potpack} from "../algorithm/rectangle_packing"
 
 // There will eventually be multiple ways to draw text in Grapheme. For now, we will use a 2D canvas that essentially
 // draws text to be copied into a WebGL texture which is then rendered.
@@ -36,9 +36,16 @@ export class TextRenderer {
     this.textLocations = new Map()
 
     this.drawQueue = []
+
+    this.startSession()
+  }
+
+  getFontStore (font) {
+
   }
 
   startSession () {
+    this.ctx.textAlign = "left"
     this.clearText()
   }
 
@@ -50,9 +57,43 @@ export class TextRenderer {
     this.drawQueue.push(textInfo)
   }
 
-  runQueue () {
-    // Get the bounding boxes of each element in the queue
+  getMetrics (textInfo) {
+    const { ctx } = this
 
+    ctx.font = textInfo.font
+
+    return ctx.measureText(textInfo.text)
+  }
+
+  runQueue () {
+    // Get the bounding boxes of each element in the queue. Eventually we'll use a dynamic allocator. Oh well. We sort
+    // by font
+
+    const { drawQueue } = this
+
+    drawQueue.sort((c1, c2) => (c1.font < c2.font))
+
+    const rects = []
+
+    for (const draw of drawQueue) {
+      const metrics = this.getMetrics(draw)
+
+      const width = metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight
+      const height = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent
+
+      draw.metrics = metrics
+      draw.rect = { w: Math.ceil(width), h: Math.ceil(height) }
+
+      rects.push(draw.rect)
+    }
+
+    potpack(rects)
+
+    for (const draw of drawQueue) {
+      this.textLocations.set(draw.text, draw)
+    }
+
+    this.drawQueue = []
   }
 
   get (textInfo) {

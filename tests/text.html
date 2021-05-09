@@ -10,8 +10,35 @@
 
 <noscript id="setup">
     let renderer = new Grapheme.TextRenderer()
-    let packer = new Grapheme.DynamicRectanglePacker()
 
+    // temp stupidity
+    const ctx = renderer.ctx
+
+    document.body.appendChild(renderer.canvas)
+    const canvas = ctx.canvas
+
+    renderer.draw({ text: "test", font: "12px Verdana" })
+    renderer.draw({ text: "test2", font: "12px Verdana" })
+    renderer.draw({ text: "test3", font: "12px Verdana" })
+
+    /*let packer = new Grapheme.DynamicRectanglePacker()
+
+    packer.queueRectangle("red", 100, 120)
+    packer.queueRectangle("blue", 100, 120)
+    packer.queueRectangle("green", 100, 120)
+
+    packer.pack()
+
+
+    function drawRectangles () { ctx.clearRect(0, 0, canvas.width, canvas.height)
+      for (const [ color, rect ] of packer.rects) {
+        ctx.fillStyle = color;
+        ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+        console.log(rect)
+      }
+    }
+
+    drawRectangles()*/
 </noscript>
 
 

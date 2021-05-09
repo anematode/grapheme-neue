@@ -15,21 +15,15 @@
     const figure = new Grapheme.Figure({ id: "figure" })
 
     scene.add(figure)
-    const polyline = new Grapheme.PolylineElement({ id: "polyline" })
-
-    scene.add(polyline)
-
 
     function render () {
         renderer.renderScene(scene)
-        //requestAnimationFrame(render)
     }
 
     scene.updateAll()
 
     figure.set("marginTop", 50)
 
-    polyline.set({ vertices: [ 0, 0, 500, 500 ], pen: "green" })
     document.body.appendChild(renderer.canvas)
     const gl = renderer.gl
 
@@ -39,7 +33,22 @@
 
     console.log(baubles.updateStage)
 
-    // render()
+    render()
+
+    scene.setSize(1000, 1000)
+
+    //render()
+
+
+
+
+
+
+
+
+
+
+
 
     /*let test = Grapheme.getTextSDFInformation()
     function monochromeToRGBA(arr) {

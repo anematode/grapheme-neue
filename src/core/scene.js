@@ -117,6 +117,10 @@ export class Scene extends Group {
     return this.props.getPropertyValue(propName)
   }
 
+  /**
+   * Only scenes (and derived scenes) return true
+   * @returns {boolean}
+   */
   isScene () {
     return true
   }
@@ -130,10 +134,18 @@ export class Scene extends Group {
     this.set({ width, height })
   }
 
+  /**
+   * The _update function is called by the surrounding update() function, which takes care of other things
+   * @private
+   */
   _update () {
     this.calculateSceneDimensions()
   }
 
+  /**
+   * This function updates all the elements and is the only one with the authority to mark all properties, including
+   * inheritable properties, as unchanged.
+   */
   updateAll () {
     this.apply(child => child.update())
 
