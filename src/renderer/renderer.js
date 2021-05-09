@@ -18,7 +18,7 @@ import {TextRenderer} from "./text_renderer"
 export class WebGLRenderer {
   constructor (params={}) {
     const glCanvas = document.createElement("canvas")
-    const glContext = glCanvas.getContext("webgl2")
+    const glContext = glCanvas.getContext("webgl2", { preMultipliedAlpha: false })
 
     this.canvas = glCanvas
     this.gl = glContext
@@ -67,6 +67,7 @@ export class WebGLRenderer {
 
     // For a scene to be rendered, it needs to be updated
     scene.updateAll()
+
 
     let renderingInstructions = []
 

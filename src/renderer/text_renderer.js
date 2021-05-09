@@ -73,7 +73,7 @@ export class TextRenderer {
     const { ctx } = this
 
     ctx.textAlign = "left"
-    ctx.textBaseline = "top"
+    ctx.textBaseline = "alphabetic"
 
     ctx.font = textInfo.font
 
@@ -87,7 +87,7 @@ export class TextRenderer {
     const { ctx } = this
 
     ctx.textAlign = "left"
-    ctx.textBaseline = "top"
+    ctx.textBaseline = "alphabetic"
   }
 
   runQueue () {
@@ -103,11 +103,11 @@ export class TextRenderer {
     for (const draw of drawQueue) {
       const metrics = this.getMetrics(draw)
 
-      const width = - metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight
-      const height = - metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent
+      const width = metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight
+      const height = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent
 
       draw.metrics = metrics
-      draw.rect = { w: Math.ceil(width), h: Math.ceil(height) }
+      draw.rect = { w: Math.ceil(width) + 2, h: Math.ceil(height) + 2 }
 
       rects.push(draw.rect)
     }
@@ -124,7 +124,7 @@ export class TextRenderer {
     for (const draw of drawQueue) {
       ctx.font = draw.font
 
-      ctx.fillText(draw.text, draw.rect.x, draw.rect.y)
+      ctx.fillText(draw.text, draw.rect.x + draw.metrics.actualBoundingBoxLeft, draw.rect.y + draw.metrics.actualBoundingBoxAscent)
     }
 
     let store

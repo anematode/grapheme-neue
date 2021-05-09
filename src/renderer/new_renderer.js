@@ -33,7 +33,45 @@
  * Even more annoying is that the WebGL context may suddenly crash and all its buffers and programs lost in the ether.
  * The renderer thus has to be able to handle such data loss without indefinitely screwing up the rendering process. So
  * I have my work cut out, but that's exciting.
+ *
+ * The current thinking is a z-index based system with heuristic reallocation of changing and unchanging buffers. Given
+ * a list of elements and each element's instructions, we are allowed to rearrange the instructions under certain
+ * conditions: 1. instructions are drawn in order of z-index and 2. specific instructions within a given z-index may
+ * specify that they must be rendered in the order in which they appear in the instruction list. The latter condition
+ * allows deterministic ordering of certain instructions on the same z-index, which is useful when that suborder does
+ * matter (like when two instructions for a given element are intended to be one on top of the other). Otherwise, the
+ * instructions may be freely rearranged and (importantly) combined into larger operations that look the same.
+ *
+ * Already, such a sorting system is very helpful. Text elements generally specify a z-index of Infinity, while
+ * gridlines might specify a z-index of 0 to be behind most things, and a draggable point might have an index of 20. A
+ * simple algorithm to render a static image is to sort by z-index, then within each z-index group triangle draw calls
+ * with the same color together, and group text draw calls together. We then proceed to render each z-index's grouped
+ * calls in order.
+ *
+ * For a static scene, such a rendering system would work great. But in a dynamic scene, constantly reoptimizing the
+ * entire scene as a result of changing some inconsequential little geometry would be stupid. Ideally, changing a little
+ * geometry would merely update a single buffer or subsection of a buffer. Yet some changes do require a complete re-
+ * distribution of instructions; if the scene's size doubled, for example, and all the elements changed substantially.
+ * We can certainly cache information from the previous rendering process of a scene, but what do we cache? How do we
+ * ensure stability and few edge cases? How do we deal with context loss?
+ *
+ * The first step is to understand exactly what instructions are. *Anonymous* instructions have a type, some data, and
+ * an element id (which element it originated from). *Normal* instructions have a type, some data, an element id, an
+ * instruction id, and a version. The point of normal instructions is to represent a sort of "draw concept", where after
+ * an update, that instruction may have changed slightly, but will still have the same id. The instruction associated
+ * with a function plot, for example, will have some numerical ID, and when the plot changes somehow, the version will
+ * increase, but the numerical ID will remain the same. Conceptually, this means that the instruction to draw the
+ * function plot has been rewritten, and the old data is basically irrelevant -- and buffers associated with that
+ * data can and should be reused or reallocated.
+ *
+ * Anonymous instructions, on the other hand, have no identical concept of "versioning". Anonymous instructions are
+ * entirely reallocated or deleted every time their element updates. These instructions are generally used to indicate
+ * instructions which are very prone to change and where its values should be tied solely to the element updating.
  */
+
+import {getVersionID} from "../core/utils"
+import {TextRenderer} from "./text_renderer"
+import {generateRectangleTriangleStrip} from "../algorithm/misc_geometry"
 
 // Functions taken from Mozilla docs
 function createShaderFromSource (gl, shaderType, shaderSource) {
@@ -88,6 +126,42 @@ void main() {
   ["vertexPosition"], ["color", "xyScale"]
 ]
 
+const TextProgram = [`
+precision highp float;
+attribute vec2 vertexPosition;
+attribute vec2 texCoords;
+        
+uniform vec2 xyScale;
+uniform vec2 textureSize;
+        
+varying vec2 texCoord;
+vec2 displace = vec2(-1, 1);
+         
+void main() {
+  gl_Position = vec4(vertexPosition * xyScale + displace, 0, 1);
+  texCoord = texCoords / textureSize;
+}`, `
+precision highp float;
+        
+uniform vec4 color;
+uniform sampler2D textAtlas;
+        
+varying vec2 texCoord;
+        
+void main() {
+  gl_FragColor = texture2D(textAtlas, texCoord);
+}`,
+  ["vertexPosition", "texCoords"], ["textureSize", "xyScale", "textAtlas"]
+]
+
+/**
+ * Currently accepted draw calls:
+ *
+ * Triangle strip: { type: "triangle_strip", vertices: Float32Array, r: (int), g: (int), b: (int), a: (int) }
+ * Debug: { type: "debug" }
+ * Text: { type: "text", font: (string), x: (float), y: (float) }
+ */
+
 export class GraphemeWebGLRenderer {
   constructor () {
     const canvas = document.createElement("canvas")
@@ -106,6 +180,12 @@ export class GraphemeWebGLRenderer {
     this.gl = gl
 
     /**
+     * Map between scene ids and known information about them
+     * @type {Map<string, {}>}
+     */
+    this.sceneCaches = new Map()
+
+    /**
      * A mapping between program names and valid programs. When the context is lost, this map is reset
      * @type {Map<string, { glProgram: WebGLProgram, attribs: {}, uniforms: {} }>}
      */
@@ -114,6 +194,8 @@ export class GraphemeWebGLRenderer {
     this.buffers = new Map()
 
     this.textures = new Map()
+
+    this.textRenderer = new TextRenderer()
   }
 
   /**
@@ -178,6 +260,70 @@ export class GraphemeWebGLRenderer {
       this.createProgram("MonochromaticGeometry", ... MonochromaticGeometryProgram)
   }
 
+  getTextProgram () {
+    return this.getProgram("Text") ?? this.createProgram("Text", ... TextProgram)
+  }
+
+  getTexture (textureName) {
+    return this.textures.get(textureName)
+  }
+
+  deleteTexture (textureName) {
+    let texture = this.getTexture(textureName)
+
+    if (texture !== undefined) {
+      this.gl.deleteTexture(this.getTexture(textureName))
+      this.textures.delete(textureName)
+    }
+  }
+
+  createTexture (textureName) {
+    this.deleteTexture(textureName)
+    const texture = this.gl.createTexture()
+
+    this.textures.set(textureName, texture)
+    return texture
+  }
+
+  getBuffer (bufferName) {
+    return this.buffers.get(bufferName)
+  }
+
+  createBuffer (bufferName) {
+    let buffer = this.getBuffer(bufferName)
+
+    if (!buffer) {
+      buffer = this.gl.createBuffer()
+      this.buffers.set(bufferName, buffer)
+    }
+
+    return buffer
+  }
+
+  deleteBuffer (bufferName) {
+    const buffer = this.getBuffer(bufferName)
+
+    if (buffer !== undefined) {
+      this.buffers.delete(bufferName)
+      this.gl.deleteBuffer(buffer)
+    }
+  }
+
+  getTextAtlasTexture () {
+    let texture = this.getTexture("TextAtlas")
+    if (!texture) {
+      texture = this.createTexture("TextAtlas")
+
+      const { gl } = this
+
+      gl.bindTexture(gl.TEXTURE_2D, texture)
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+    }
+
+    return texture
+  }
+
   /**
    * Resize and clear the canvas, only clearing if the dimensions haven't changed, since the buffer will be erased.
    * @param width
@@ -199,11 +345,191 @@ export class GraphemeWebGLRenderer {
   clearCanvas () {
     const { gl } = this
 
-    gl.clearColor(1, 0, 0, 0.1)
+    gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
   }
 
-  renderInstructions (instructions) {
-    
+  createSceneCache (sceneID) {
+    let cache = this.sceneCaches.get(sceneID)
+
+    if (!cache) {
+      cache = {}
+
+      this.sceneCaches.set(sceneID, cache)
+    }
+
+    return cache
+  }
+
+  /**
+   *
+   * @param drawingUnits
+   * @returns {boolean}
+   */
+  generateTextAtlas (drawingUnits) {
+    const { textRenderer } = this
+    let hasText = false
+
+    for (const drawingUnit of drawingUnits) {
+      let { instructions } = drawingUnit
+
+      for (const instruction of instructions) {
+        if (instruction.type === "text") {
+          textRenderer.draw(instruction)
+          hasText = true
+        }
+      }
+    }
+
+    if (hasText) textRenderer.runQueue()
+
+    return hasText
+  }
+
+  renderText (canvasVerticesBuffer, textureCoordsBuffer, textRenderCount) {
+    const { gl, canvas } = this
+    const atlasTexture = this.getTextAtlasTexture()
+
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.ONE, gl.ONE)
+
+    // Bind atlas texture to texture 0
+    gl.activeTexture(gl.TEXTURE0)
+    gl.bindTexture(gl.TEXTURE_2D, atlasTexture)
+
+    const programInfo = this.getTextProgram()
+
+    const { vertexPosition, texCoords } = programInfo.attribs
+    const atlas = this.textRenderer.canvas
+
+    // Load the text rect vertices
+    gl.bindBuffer(gl.ARRAY_BUFFER, canvasVerticesBuffer)
+
+    gl.vertexAttribPointer(vertexPosition, 2, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(vertexPosition)
+
+    // Load the texture coord vertices
+    gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordsBuffer)
+
+    gl.vertexAttribPointer(texCoords, 2, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(texCoords)
+
+    gl.useProgram(programInfo.glProgram)
+
+    gl.uniform2f(programInfo.uniforms.xyScale, 2 / canvas.width, -2 / canvas.height)
+    gl.uniform2f(programInfo.uniforms.textureSize, atlas.width, atlas.height)
+    gl.uniform1i(programInfo.uniforms.textAtlas, 0)
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, textRenderCount * 4)
+  }
+
+  /**
+   * Somewhat tentative method to render a scene. Obviously skips a lotttt of steps.
+   * @param scene
+   */
+  renderScene (scene) {
+    // The scene should be fully updated
+    scene.updateAll()
+
+    this.clearAndResizeCanvas(scene.width, scene.height)
+
+    const sceneCache = this.createSceneCache(scene.id)
+    const lastVersion = +sceneCache.version
+
+    // Last instructions stores a
+    let lastInstructions = sceneCache.lastInstructions
+    if (!lastInstructions)
+      lastInstructions = sceneCache.lastInstructions = new Map()
+
+    const instructions = []
+
+    scene.apply(element => {
+      const elemInstructions = element.getRenderingInstructions()
+
+      if (elemInstructions) {
+        if (Array.isArray(elemInstructions))
+          instructions.push(...elemInstructions)
+        else
+          instructions.push(elemInstructions)
+      }
+    })
+
+    if (instructions.length === 0) return
+
+    // The first step is to sort the instructions by their z-index, at which point we create a list of drawing units
+    // for each z-index value.
+    instructions.sort((a, b) => a.zIndex - b.zIndex)
+
+    // The next step is to then group each set of consecutive equal zIndex values into their own drawing unit.
+    const drawingUnits = []
+    let drawingUnitZIndex = -1
+    let drawingUnit
+
+    for (let i = 0; i < instructions.length; ++i) {
+      let instruction = instructions[i]
+      let instructionZIndex = instruction.zIndex ?? 0
+
+      if (instructionZIndex === drawingUnitZIndex) {
+        drawingUnit.instructions.push(instruction)
+      } else {
+        drawingUnitZIndex = instructionZIndex
+        drawingUnit = {
+          zIndex: drawingUnitZIndex,
+          instructions: [ instruction ]
+        }
+
+        drawingUnits.push(drawingUnit)
+      }
+    }
+
+    const hasText = this.generateTextAtlas(drawingUnits)
+
+    const { gl, textRenderer } = this
+
+    // Load the text atlas into a texture
+    if (hasText) {
+      gl.bindTexture(gl.TEXTURE_2D, this.getTextAtlasTexture())
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textRenderer.canvas)
+    }
+
+    document.body.appendChild(textRenderer.canvas)
+
+    const textCanvasVerticesBuffer = this.createBuffer("TextBuffer")
+    const textTextureCoordsBuffer = this.createBuffer("TextTextureCoordsBuffer")
+    const monochromaticGeometryCoordsBuffer = this.createBuffer("MonochromaticGeometryCoordsBuffer")
+
+    // Having constructed a list of drawing units in order of zIndex, we now render each instruction. Soon we will
+    // optimize this, but for now we just use three buffers.
+    for (const drawingUnit of drawingUnits) {
+      const { instructions } = drawingUnit
+
+      for (const instruction of instructions) {
+        switch (instruction.type) {
+          case "text":
+            const textLocation = textRenderer.getTextLocation(instruction)
+            const textureAtlasLocation = textLocation.rect
+            const textRect = { x: instruction.x, y: instruction.y, w: textureAtlasLocation.w, h: textureAtlasLocation.h}
+
+            const canvasVertices = generateRectangleTriangleStrip(textRect)
+            const textureCoords = generateRectangleTriangleStrip(textureAtlasLocation)
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, textCanvasVerticesBuffer)
+            gl.bufferData(gl.ARRAY_BUFFER, canvasVertices, gl.DYNAMIC_DRAW)
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, textTextureCoordsBuffer)
+            gl.bufferData(gl.ARRAY_BUFFER, textureCoords, gl.DYNAMIC_DRAW)
+
+            console.log(canvasVertices, textureCoords)
+
+            this.renderText(textCanvasVerticesBuffer, textTextureCoordsBuffer, 1)
+            break
+          case "triangle_strip":
+
+          case "default":
+        }
+      }
+    }
+
+    sceneCache.version = getVersionID()
   }
 }
