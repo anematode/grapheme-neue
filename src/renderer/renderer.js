@@ -1,6 +1,7 @@
 import {GLResourceManager} from "./gl_manager"
 import {Color, Colors} from "../other/color"
-import {glTriangleStripMonochrome} from "./render_calls"
+import {glDebug, glText, glTriangleStripMonochrome} from "./render_calls"
+import {TextRenderer} from "./text_renderer"
 
 /**
  * RENDERER
@@ -22,10 +23,7 @@ export class WebGLRenderer {
     this.canvas = glCanvas
     this.gl = glContext
     this.glManager = new GLResourceManager(this.gl)
-
-    this.extensions = {
-      timerQuery: this.gl.getExtension("EXT_disjoint_timer_query_webgl2")
-    }
+    this.textRenderer = new TextRenderer()
   }
 
   clearCanvas () {
@@ -60,24 +58,24 @@ export class WebGLRenderer {
    * object will have more information, but for now we're just including some basic info.
    */
   getRenderingParameters () {
-    return {
-      renderer: this,
-      timeStart: Date.now()
-    }
+
   }
 
   // We render a fully updated scene by clearing the rendering canvas, recursing into the scene, getting render
   // instructions for each element, then rendering them in order.
   renderScene (scene) {
+
     // For a scene to be rendered, it needs to be updated
     scene.updateAll()
 
-    this.clearAndResizeTo(scene.width, scene.height) // TODO: dpi
+    let renderingInstructions = []
 
     // These are passed to the render functions
-    const renderingParameters = this.getRenderingParameters()
+    const renderingParameters = {
+      renderer: this,
+      timeStart: Date.now()
+    }
 
-    let renderingInstructions = []
 
     scene.apply(child => {
       const instructions = child.getRenderingInstructions()
@@ -86,6 +84,19 @@ export class WebGLRenderer {
     })
 
     renderingInstructions = renderingInstructions.flat()
+
+    this.clearAndResizeTo(scene.width, scene.height) // TODO: dpi
+
+    const { textRenderer } = this
+
+    // Get all text instructions and add them to the text renderer's list of text that is needed
+    for (const instruction of renderingInstructions) {
+      if (instruction?.type === "text") {
+        textRenderer.draw(instruction)
+      }
+    }
+
+    textRenderer.runQueue()
 
     console.log("Total number of instructions: ", renderingInstructions.length)
 
@@ -101,10 +112,27 @@ export class WebGLRenderer {
           case "gl_tri_strip_mono":
             glTriangleStripMonochrome(renderingParameters, instruction)
             break
+          case "debug":
+            glDebug(renderingParameters, instruction)
+            break
+          case "text":
+            glText(renderingParameters, instruction, textRenderer)
+            break
           default:
             break
         }
       }
     }
+  }
+
+  renderDOMScene (scene) {
+    this.renderScene(scene)
+
+    console.time("hi")
+
+    createImageBitmap(this.canvas).then(bitmap => {
+      scene.bitmapRenderer.transferFromImageBitmap(bitmap)
+      console.timeEnd("hi")
+    })
   }
 }

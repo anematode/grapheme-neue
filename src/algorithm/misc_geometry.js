@@ -518,4 +518,31 @@ function lineSegmentIntersectsBox(x1, y1, x2, y2, box_x1, box_y1, box_x2, box_y2
   return [x1, y1, x2, y2]
 }
 
+export function generateCircleTriangleStrip (radius, x=0, y=0, samples=8) {
+  const points = []
+
+  for (let i = 0; i <= samples; ++i) {
+    const angle = i / samples * 2 * Math.PI
+
+    const xc = x + radius * Math.cos(angle), yc = y + radius * Math.sin(angle)
+
+    if (i % 2 === 0) {
+      points.push(xc, yc)
+      points.push(x, y)
+    } else {
+      points.push(xc, yc)
+    }
+  }
+
+  return new Float32Array(points)
+}
+
+export function generateRectangleTriangleStrip (rect) {
+  const {x, y, w, h} = rect
+
+  const points = [x, y, x + w, y, x, y + h, x + w, y + h]
+
+  return new Float32Array(points)
+}
+
 export { pointLineSegmentMinDistance, pointLineSegmentClosest, anglesBetween, getLineIntersection, lineSegmentIntersect, lineSegmentIntersectsBox }

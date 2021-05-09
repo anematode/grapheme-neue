@@ -17,9 +17,11 @@
     document.body.appendChild(renderer.canvas)
     const canvas = ctx.canvas
 
-    renderer.draw({ text: "test", font: "12px Verdana" })
-    renderer.draw({ text: "test2", font: "12px Verdana" })
-    renderer.draw({ text: "test3", font: "12px Verdana" })
+    const text = "Handling a rejected promise in each .then() has consequences further down the promise chain. Sometimes there is no choice, because an error must be handled immediately. In such cases we must throw an error of some type to maintain error state down the chain. On the other hand, in the absence of an immediate need, it is simpler to leave out error handling until a final .catch() statement. A .catch() is really just a .then() without a slot for a callback function for the case when the promise is resolved."
+
+    text.split(' ').forEach(text => renderer.draw( { text, font: "12px Verdana" } ))
+
+    renderer.runQueue()
 
     /*let packer = new Grapheme.DynamicRectanglePacker()
 

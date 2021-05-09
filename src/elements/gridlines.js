@@ -111,26 +111,28 @@ export class GridlinesElement extends Element {
       }
     }
 
-    const geos = geometries.map(geo => geo.glVertices).join()
+    const geos = geometries.map(geo => geo.glVertices)
 
-    const len = geos.reduce((a, b) => a + b.glVertices.length, 0)
-    const arr = new Float32Array(len)
+    const len = geos.reduce((a, b) => a + b.length, 0)
+    const arr = new Float32Array(len + geos.length * 2)
 
     let i = 0
     for (const geo of geos) {
-
+      arr.set(geo, i)
+      i += geo.length
+      arr[i] = NaN
+      arr[i + 1] = NaN
+      i += 2
     }
-
-
 
     this.internal.instructions = [{
       type: "gl_tri_strip_mono",
-      geometry,
-      color: pen.color
+      geometry: arr,
+      color: { r: 0, g: 0, b: 0, a: 255 }
     }]
   }
 
   getRenderingInstructions() {
-    return this.internal.instructions
+    return this.internal.instructions.concat({ type:"debug", rectangle: [0, 5, 200, 10] }, { type: "text", font: "12px Verdana", x: 100, y: 100, text: "hello" }, { type: "text", font: "60px Verdana", x: 100, y: 400, text: "jello" })
   }
 }

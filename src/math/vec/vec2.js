@@ -16,6 +16,24 @@ class Vec2 {
     this.x = x
     this.y = y
   }
+
+  /**
+   * Converting things to a simpler form
+   * @param obj
+   */
+  static fromObj (obj) {
+    let x=0, y=0
+
+    if (Array.isArray(obj)) {
+      x = obj[0]
+      y = obj[1]
+    } else if (typeof obj === "object" && obj.x) {
+      x = obj.x
+      y = obj.y
+    }
+
+    return new Vec2(+x, +y)
+  }
 }
 
 export { Vec2 }

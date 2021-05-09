@@ -117,3 +117,7 @@ export function isTypedArray (arr) {
 export function mod (n, m) {
   return ((n % m) + m) % m
 }
+
+export function nextPowerOfTwo (n) {
+  return 1 << (Math.ceil(Math.log2(n)))
+}

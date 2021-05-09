@@ -269,6 +269,18 @@ export class GLResourceManager {
     return this.getProgram(programName, owner) !== undefined
   }
 
+  createTexture (textureName, ownerName='misc') {
+    const owner = this.getOwner(ownerName)
+    if (!owner.textures) owner.textures = {}
+
+    let texture = owner.textures[textureName]
+    if (!texture) {
+      texture = owner.textures[textureName] = this.gl.createTexture()
+    }
+
+    return texture
+  }
+
 
   createTextureFromImage (name, image) {
     const { gl } = this

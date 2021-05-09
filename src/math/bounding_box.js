@@ -2,6 +2,36 @@ import {Vec2} from "./vec/vec2"
 import * as utils from "../core/utils"
 
 /**
+ * Given some parameters describing a line segment, find a line segment that is consistent with at least two of them.
+ * @param x1 {number}
+ * @param x2 {number}
+ * @param w {number}
+ * @param cx {number}
+ */
+function resolveAxisSpecification (x1, x2, w, cx) {
+  let ox1, ox2, ow, ox
+
+  if (cx !== undefined) {
+    let halfWidth = 0
+
+    if (w !== undefined) halfWidth = w / 2
+    if (x2 !== undefined) halfWidth = x2 - cx
+    if (x1 !== undefined) halfWidth = cx - x1
+
+    halfWidth = Math.abs(halfWidth)
+
+    return [ cx - halfWidth, cx + halfWidth ]
+  } else if (x1 !== undefined) {
+    if (w !== undefined) return [x1, x1 + w]
+    if (x2 !== undefined) return [x1, x2]
+  } else if (x2 !== undefined) {
+    if (w !== undefined) return [x2 - w, x2]
+  }
+
+  return [ 0, 0 ]
+}
+
+/**
  * A bounding box. In general, we consider the bounding box to be in canvas coordinates, so that the "top" is -y and
  * the "bottom" is +y.
  */
@@ -53,6 +83,38 @@ export class BoundingBox {
 
   getY2 () {
     return this.y + this.h
+  }
+
+  static fromObj (obj) {
+    let finalX1, finalY1, finalX2, finalY2
+
+    if (Array.isArray(obj)) {
+      finalX1 = obj[0]
+      finalY1 = obj[1]
+      finalX2 = obj[2] + finalX1
+      finalY2 = obj[3] + finalY1
+    } else if (typeof obj === "object") {
+      let { x, y, x1, y1, x2, y2, w, h, width, height, cx, cy, centerX, centerY } = obj
+
+      // various aliases
+      x = x ?? x1
+      y = y ?? y1
+
+      w = w ?? width
+      h = h ?? height
+
+      cx = cx ?? centerX
+      cy = cy ?? centerY
+
+      // We wish to find a rectangle that is roughly consistent. Note that along each axis, we have four relevant
+      // variables: x, x2, w, cx. The axes are totally separable, so the problem is pretty trivial. I'm too tired
+      // to figure out how to do it elegantly rather than case work.
+
+      ;[ finalX1, finalX2 ] = resolveAxisSpecification(x, x2, width, cx)
+      ;[ finalY1, finalY2 ] = resolveAxisSpecification(y, y2, height, cy)
+    }
+
+    return new BoundingBox(finalX1, finalY1, finalX2 - finalX1, finalY2 - finalY1)
   }
 }
 

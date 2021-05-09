@@ -1,4 +1,5 @@
 import {packRectangles, potpack} from "../algorithm/rectangle_packing"
+import {getVersionID, nextPowerOfTwo} from "../core/utils"
 
 // There will eventually be multiple ways to draw text in Grapheme. For now, we will use a 2D canvas that essentially
 // draws text to be copied into a WebGL texture which is then rendered.
@@ -36,23 +37,34 @@ export class TextRenderer {
     this.textLocations = new Map()
 
     this.drawQueue = []
-
-    this.startSession()
+    this.version = -1
   }
 
-  getFontStore (font) {
+  /**
+   * Get the location of a piece of text on the canvas, again given a font and a text. Returns undefined if it doesn't
+   * exist. It gives { rect, font, metrics }
+   * @param textInfo {{ font: {string}, text: {string} }}
+   */
+  getTextLocation (textInfo={}) {
+    const { font, text } = textInfo
 
+    return this.textLocations.get(font)?.get(text)
   }
 
-  startSession () {
-    this.ctx.textAlign = "left"
-    this.clearText()
-  }
-
+  /**
+   * Clear out all previous text stores. In the future, when doing a dynamic text packing, this will be called sometimes
+   * to do a reallocation.
+   */
   clearText () {
     this.textLocations.clear()
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
   }
 
+  /**
+   * Parameters describing a given piece of text, sans color and position. More specifically, that means a font and a
+   * string of text.
+   * @param textInfo {{ font: {string}, text: {string} }}
+   */
   draw (textInfo) {
     this.drawQueue.push(textInfo)
   }
@@ -60,16 +72,29 @@ export class TextRenderer {
   getMetrics (textInfo) {
     const { ctx } = this
 
+    ctx.textAlign = "left"
+    ctx.textBaseline = "top"
+
     ctx.font = textInfo.font
 
     return ctx.measureText(textInfo.text)
+  }
+
+  resizeCanvas (width, height) {
+    this.canvas.width = width
+    this.canvas.height = height
+
+    const { ctx } = this
+
+    ctx.textAlign = "left"
+    ctx.textBaseline = "top"
   }
 
   runQueue () {
     // Get the bounding boxes of each element in the queue. Eventually we'll use a dynamic allocator. Oh well. We sort
     // by font
 
-    const { drawQueue } = this
+    const { drawQueue, ctx } = this
 
     drawQueue.sort((c1, c2) => (c1.font < c2.font))
 
@@ -78,8 +103,8 @@ export class TextRenderer {
     for (const draw of drawQueue) {
       const metrics = this.getMetrics(draw)
 
-      const width = metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight
-      const height = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent
+      const width = - metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight
+      const height = - metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent
 
       draw.metrics = metrics
       draw.rect = { w: Math.ceil(width), h: Math.ceil(height) }
@@ -87,16 +112,35 @@ export class TextRenderer {
       rects.push(draw.rect)
     }
 
-    potpack(rects)
+    const { w, h } = potpack(rects)
+    const canvasWidth = nextPowerOfTwo(w), canvasHeight = nextPowerOfTwo(h)
 
+    this.resizeCanvas(canvasWidth, canvasHeight)
+    this.clearText()
+
+    ctx.fillStyle = "black"
+
+    // Each draw is now { metrics: TextMetrics, rect: {w, h, x, y},
     for (const draw of drawQueue) {
-      this.textLocations.set(draw.text, draw)
+      ctx.font = draw.font
+
+      ctx.fillText(draw.text, draw.rect.x, draw.rect.y)
     }
 
-    this.drawQueue = []
-  }
+    let store
+    let currentFont
 
-  get (textInfo) {
+    // Last task is to store the text and font positions
+    for (const draw of drawQueue) {
+      if (draw.font !== currentFont) {
+        store = new Map()
+        this.textLocations.set(draw.font, store)
+        currentFont = draw.font
+      }
 
+      store.set(draw.text, draw)
+    }
+
+    this.version = getVersionID()
   }
 }

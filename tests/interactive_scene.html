@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Elements</title>
+</head>
+<body>
+
+<script src="test_setup.js"></script>
+
+<noscript id="setup">
+    const renderer = new Grapheme.WebGLRenderer()
+
+    const scene = new Grapheme.InteractiveScene({ id: "main" })
+    const figure = new Grapheme.Figure({ id: "figure" })
+
+    scene.add(figure)
+
+    function render () {
+    renderer.renderDOMScene(scene)
+    }
+
+    scene.updateAll()
+
+    figure.set("marginTop", 50)
+
+    document.body.appendChild(renderer.canvas)
+    const gl = renderer.gl
+
+    const baubles = new Grapheme.PlotBaubles({ id: "baubles" })
+
+    figure.add(baubles)
+
+    document.body.appendChild(scene.domElement)
+
+    scene.setSize(1000, 1000)
+
+    render()
+</noscript>
+
+
+</body>
+</html>
