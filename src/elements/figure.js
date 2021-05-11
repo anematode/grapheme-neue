@@ -217,10 +217,6 @@ export class Figure extends Group {
     props.setPropertyValue("plotTransform", newTransform, 2)
   }
 
-  setXBounds (x1, x2) {
-
-  }
-
   computeProps () {
     const { props } = this
 

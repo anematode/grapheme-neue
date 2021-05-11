@@ -4,11 +4,11 @@ import {getDashedPolyline, fastHypot} from "./dashed_polyline"
 const ENDCAP_TYPES = {
   'butt': 0,
   'round': 1,
-  'square': 0 // Need to implement
+  'square': 2 // Need to implement
 }
 const JOIN_TYPES = {
   'bevel': 0,
-  'miter': 3,
+  'miter': 2,
   'round': 1,
   'dynamic': 3
 }
@@ -63,7 +63,7 @@ function fastAtan2(y, x) {
  * @param pen {Object} A JSON representation of the pen. Could also be the pen object itself.
  * @param box {BoundingBox} The bounding box of the plot, used to optimize line dashes
  */
-export function calculatePolylineVertices(vertices, pen, box) {
+export function calculatePolylineVertices(vertices, pen, box=null) {
   let generator = asyncCalculatePolylineVertices(vertices, pen, box)
 
   while (true) {
@@ -194,6 +194,9 @@ export function* convertTriangleStrip(vertices, pen, chunkSize=256000) {
           glVertices.push(x2 + th * fastCos(theta_c), y2 + th * fastSin(theta_c), o_x, o_y)
         }
         continue
+      } else if (endcap === 2) {
+        glVertices.push(x2 - th * v2x + th * v2y, y2 - th * v2y - th * v2x, x2 - th * v2x - th * v2y, y2 - th * v2y + th * v2x)
+        continue
       } else {
         // no endcap
         glVertices.push(x2 + th * v2y, y2 - th * v2x, x2 - th * v2y, y2 + th * v2x)
@@ -265,11 +268,13 @@ export function* convertTriangleStrip(vertices, pen, chunkSize=256000) {
       scale = th * v1l / (b1_x * v1y - b1_y * v1x)
 
       if (join === 2 || (Math.abs(scale) < maxMiterLength)) {
-        // if the length of the miter is massive and we're in dynamic mode, we exit this if statement and do a rounded join
+        // Draw a miter. But the length of the miter is massive and we're in dynamic mode (3), we exit this if statement and do a rounded join
         b1_x *= scale
         b1_y *= scale
 
         glVertices.push(x2 - b1_x, y2 - b1_y, x2 + b1_x, y2 + b1_y)
+
+        console.log(glVertices)
 
         continue
       }

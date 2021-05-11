@@ -15,13 +15,13 @@
     const figure = new Grapheme.Figure({ id: "figure" })
 
     scene.add(figure)
-    scene.setSize(400, 400)
+    scene.setSize(1000, 1000)
 
     function render () {
         renderer.renderScene(scene)
     }
 
-    figure.set("marginTop", 50)
+    figure.set("margin", 50)
 
     document.body.appendChild(renderer.canvas)
     const gl = renderer.gl

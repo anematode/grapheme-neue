@@ -72,6 +72,9 @@
 import {getVersionID} from "../core/utils"
 import {TextRenderer} from "./text_renderer"
 import {generateRectangleTriangleStrip} from "../algorithm/misc_geometry"
+import {BoundingBox} from "../math/bounding_box"
+import {calculatePolylineVertices} from "../algorithm/polyline_triangulation"
+import {Pen} from "../other/pen"
 
 // Functions taken from Mozilla docs
 function createShaderFromSource (gl, shaderType, shaderSource) {
@@ -151,15 +154,15 @@ varying vec2 texCoord;
 void main() {
   gl_FragColor = texture2D(textAtlas, texCoord);
 }`,
-  ["vertexPosition", "texCoords"], ["textureSize", "xyScale", "textAtlas"]
+  ["vertexPosition", "texCoords"], ["textureSize", "xyScale", "textAtlas", "color"]
 ]
 
 /**
  * Currently accepted draw calls:
  *
- * Triangle strip: { type: "triangle_strip", vertices: Float32Array, r: (int), g: (int), b: (int), a: (int) }
+ * Triangle strip: { type: "triangle_strip", vertices: Float32Array, color: { r: (int), g: (int), b: (int), a: (int) } }
  * Debug: { type: "debug" }
- * Text: { type: "text", font: (string), x: (float), y: (float) }
+ * Text: { type: "text", font: (string), x: (float), y: (float), color: { r: ... } }
  */
 
 export class GraphemeWebGLRenderer {
@@ -391,7 +394,7 @@ export class GraphemeWebGLRenderer {
     const atlasTexture = this.getTextAtlasTexture()
 
     gl.enable(gl.BLEND)
-    gl.blendFunc(gl.ONE, gl.ONE)
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
 
     // Bind atlas texture to texture 0
     gl.activeTexture(gl.TEXTURE0)
@@ -416,11 +419,61 @@ export class GraphemeWebGLRenderer {
 
     gl.useProgram(programInfo.glProgram)
 
-    gl.uniform2f(programInfo.uniforms.xyScale, 2 / canvas.width, -2 / canvas.height)
-    gl.uniform2f(programInfo.uniforms.textureSize, atlas.width, atlas.height)
-    gl.uniform1i(programInfo.uniforms.textAtlas, 0)
+    const { xyScale, textureSize, textAtlas } = programInfo.uniforms
+
+    gl.uniform2fv(xyScale, this.getXYScale())
+    gl.uniform2f(textureSize, atlas.width, atlas.height)
+    gl.uniform1i(textAtlas, 0)
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, textRenderCount * 4)
+  }
+
+  getXYScale () {
+    return [ 2 / this.canvas.width, -2 / this.canvas.height ]
+  }
+
+  renderMonochromaticGeometry (canvasVerticesBuffer, vertexCount, color={r: 0, g: 0, b: 0, a: 255}, drawMode=this.gl.TRIANGLE_STRIP) {
+    const programInfo = this.getMonochromaticGeometryProgram()
+
+    const { vertexPosition } = programInfo.attribs
+    const { xyScale, color: colorUniform } = programInfo.uniforms
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, canvasVerticesBuffer)
+
+    gl.vertexAttribPointer(vertexPosition, 2, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(vertexPosition)
+
+    gl.useProgram(programInfo.glProgram)
+
+    gl.uniform2fv(xyScale, this.getXYScale())
+    gl.uniform4f(colorUniform, color.r / 255, color.g / 255, color.b / 255, color.a / 255)
+
+    gl.drawArrays(drawMode, 0, vertexCount)
+  }
+
+  // Hopefully will help us understand weird problems by drawing things on the screen
+  debug (instruction) {
+    let debugBuffer = this.createBuffer("debug")
+    let rectangle = instruction.rectangle || instruction.rect
+
+    const { gl } = this
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, debugBuffer)
+
+    let arr, mode
+
+    if (rectangle) {
+      rectangle = BoundingBox.fromObj(rectangle)
+
+      arr = generateRectangleTriangleStrip(rectangle)
+      mode = gl.LINE_STRIP
+    }
+
+    if (arr) {
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.DYNAMIC_DRAW)
+
+      this.renderMonochromaticGeometry(debugBuffer, arr.length / 2, { r: 255, g: 0, b: 0, a: 255 }, mode)
+    }
   }
 
   /**
@@ -492,8 +545,6 @@ export class GraphemeWebGLRenderer {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textRenderer.canvas)
     }
 
-    document.body.appendChild(textRenderer.canvas)
-
     const textCanvasVerticesBuffer = this.createBuffer("TextBuffer")
     const textTextureCoordsBuffer = this.createBuffer("TextTextureCoordsBuffer")
     const monochromaticGeometryCoordsBuffer = this.createBuffer("MonochromaticGeometryCoordsBuffer")
@@ -519,13 +570,29 @@ export class GraphemeWebGLRenderer {
             gl.bindBuffer(gl.ARRAY_BUFFER, textTextureCoordsBuffer)
             gl.bufferData(gl.ARRAY_BUFFER, textureCoords, gl.DYNAMIC_DRAW)
 
-            console.log(canvasVertices, textureCoords)
-
             this.renderText(textCanvasVerticesBuffer, textTextureCoordsBuffer, 1)
             break
           case "triangle_strip":
+            gl.bindBuffer(gl.ARRAY_BUFFER, monochromaticGeometryCoordsBuffer)
+            gl.bufferData(gl.ARRAY_BUFFER, instruction.vertices, gl.DYNAMIC_DRAW)
 
+            this.renderMonochromaticGeometry(monochromaticGeometryCoordsBuffer, instruction.vertices.length / 2, instruction.color)
+            break
+          case "debug":
+            this.debug(instruction)
+            break
+          case "polyline":
+            const pen = instruction.pen ?? new Pen()
+            const polylineVertices = calculatePolylineVertices(instruction.vertices, Pen.fromObj(pen), null)
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, monochromaticGeometryCoordsBuffer)
+            gl.bufferData(gl.ARRAY_BUFFER, polylineVertices.glVertices, gl.DYNAMIC_DRAW)
+
+            this.renderMonochromaticGeometry(monochromaticGeometryCoordsBuffer, polylineVertices.vertexCount, pen.color)
+
+            break
           case "default":
+            break
         }
       }
     }

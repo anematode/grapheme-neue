@@ -6,6 +6,7 @@ import {DefaultStyles} from "../styles/default"
 import {GridlineAllocators} from "../algorithm/tick_allocator"
 import {GridlinesElement} from "./gridlines"
 import {Group} from "../core/group"
+import {PlotBoxOutline} from "./plot_box_outline"
 
 // Somewhat temporary class for the combination of axes, axis labels, and gridlines, in all their various modes. This
 // will be a good test of the "child definition" side of Grapheme that I've been dreading. A lot of properties, several
@@ -26,7 +27,8 @@ export class PlotBaubles extends Group {
 
     this.props.setMultipleProperties({
       gridlines: true,
-      gridlinesAllocator: GridlineAllocators.Standard
+      gridlinesAllocator: GridlineAllocators.Standard,
+      plotBoxOutline: true
     })
   }
 
@@ -48,6 +50,16 @@ export class PlotBaubles extends Group {
     }
 
     return internal.gridlines
+  }
+
+  createPlotBoxOutlineElement () {
+    const { internal } = this
+
+    if (!internal.plotBoxOutline) {
+      this.add(internal.plotBoxOutline = new PlotBoxOutline())
+    }
+
+    return internal.plotBoxOutline
   }
 
   _updateGridlines () {
@@ -78,8 +90,6 @@ export class PlotBaubles extends Group {
 
     const gridlinesElement = this.createGridlinesElement()
 
-    console.log(gridlinePositions)
-
     gridlinesElement.set({ gridlinePositions })
     gridlinesElement.visible = true
   }
@@ -87,5 +97,6 @@ export class PlotBaubles extends Group {
   _update () {
     this.computeProps()
     this._updateGridlines()
+    this.createPlotBoxOutlineElement()
   }
 }

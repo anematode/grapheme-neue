@@ -545,4 +545,12 @@ export function generateRectangleTriangleStrip (rect) {
   return new Float32Array(points)
 }
 
+export function generateRectangleCycle (rect) {
+  const {x, y, w, h} = rect
+
+  const points = [x, y, x + w, y, x + w, y + h, x, y + h, x, y]
+
+  return new Float32Array(points)
+}
+
 export { pointLineSegmentMinDistance, pointLineSegmentClosest, anglesBetween, getLineIntersection, lineSegmentIntersect, lineSegmentIntersectsBox }

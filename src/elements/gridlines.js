@@ -99,6 +99,7 @@ export class GridlinesElement extends Element {
 
         if (positions.x) {
           for (const y of positions.x) {
+
             addLine([ plottingBox.x, y, plottingBox.getX2(), y], pen)
           }
         }
@@ -128,17 +129,12 @@ export class GridlinesElement extends Element {
     this.internal.instructions = [{
       type: "triangle_strip",
       vertices: arr,
-      r: 0,
-      g: 0,
-      b: 0,
-      a: 255,
+      color: {r: 0, g: 10, b: 30, a: 255},
       zIndex: 0
     }]
   }
 
   getRenderingInstructions() {
-    return this.internal.instructions.concat({
-      type:"debug", rectangle: [0, 5, 200, 10]
-    }, { type: "text", font: "12px Verdana", x: 300, y: 100, text: "诚", zIndex: Infinity }, { type: "text", font: "60px Verdana", x: 100, y: 100, text: "缧", zIndex: Infinity })
+    return this.internal.instructions
   }
 }

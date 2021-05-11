@@ -73,6 +73,13 @@ export class Element extends Eventful {
       this.props.inheritPropertiesFrom(this.parent.props, this.updateStage === -1)
   }
 
+  /**
+   * In this behavior, only properties with the given names are inherited.
+   */
+  inheritCertainProps () {
+
+  }
+
   stringify () {
     this.props.stringify()
   }
