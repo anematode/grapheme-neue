@@ -7,6 +7,8 @@ import {GridlineAllocators} from "../algorithm/tick_allocator"
 import {GridlinesElement} from "./gridlines"
 import {Group} from "../core/group"
 import {PlotBoxOutline} from "./plot_box_outline"
+import {AxisElement} from "./axis"
+import {Vec2} from "../math/vec/vec2"
 
 // Somewhat temporary class for the combination of axes, axis labels, and gridlines, in all their various modes. This
 // will be a good test of the "child definition" side of Grapheme that I've been dreading. A lot of properties, several
@@ -47,7 +49,7 @@ export class PlotBaubles extends Group {
 
     const { gridlinesAllocator, plotTransform, gridlines: showGridlines } = this.props.proxy
 
-    const { gx1, gx2, gy1, gy2, pw, ph } = plotTransform
+    const { px1, px2, py1, py2, gx1, gx2, gy1, gy2, pw, ph } = plotTransform
     const ticks = gridlinesAllocator(gx1, gx2, pw, gy1, gy2, ph)
 
     // Returns an object is an object of the form
@@ -60,6 +62,14 @@ export class PlotBaubles extends Group {
     // Generate the gridlines
     const gridlinesElement = this.createGridlinesElement()
     gridlinesElement.props.setPropertyValues({ ticks, plotTransform })
+
+    let start = new Vec2(px1, py1), end = new Vec2(px2, py1), startGraphX = gx1, endGraphX = gx2
+
+    // Generate the text. Simple for now, so that we can get to making writing elements less excruciating
+    const axis = this.createAxisElement()
+    axis.props.setPropertyValues({ start, end, startGraphX, endGraphX, ticks: ticks.x.major})
+
+    window.axis = axis
   }
 
   createGridlinesElement () {
@@ -70,6 +80,16 @@ export class PlotBaubles extends Group {
     }
 
     return internal.gridlines
+  }
+
+  createAxisElement () {
+    const { internal } = this
+
+    if (!internal.axis) {
+      this.add(internal.axis = new AxisElement())
+    }
+
+    return internal.axis
   }
 
   createPlotBoxOutlineElement () {

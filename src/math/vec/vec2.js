@@ -36,6 +36,10 @@ class Vec2 {
   sub (vec) {
     return new Vec2(this.x - vec.x, this.y - vec.y)
   }
+
+  mul (scalar) {
+    return new Vec2(this.x * scalar, this.y * scalar)
+  }
 }
 
 export { Vec2 }

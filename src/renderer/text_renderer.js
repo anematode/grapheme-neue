@@ -95,6 +95,7 @@ export class TextRenderer {
     // by font
 
     const { drawQueue, ctx } = this
+    const padding = 2
 
     drawQueue.sort((c1, c2) => (c1.font < c2.font))
 
@@ -107,7 +108,7 @@ export class TextRenderer {
       const height = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent
 
       draw.metrics = metrics
-      draw.rect = { w: Math.ceil(width) + 2, h: Math.ceil(height) + 2 }
+      draw.rect = { w: Math.ceil(width) + padding, h: Math.ceil(height) + padding }
 
       rects.push(draw.rect)
     }
@@ -125,6 +126,8 @@ export class TextRenderer {
       ctx.font = draw.font
 
       ctx.fillText(draw.text, draw.rect.x + draw.metrics.actualBoundingBoxLeft, draw.rect.y + draw.metrics.actualBoundingBoxAscent)
+      draw.rect.w -= padding
+      draw.rect.h -= padding
     }
 
     let store
@@ -140,6 +143,8 @@ export class TextRenderer {
 
       store.set(draw.text, draw)
     }
+
+    this.drawQueue = []
 
     this.version = getVersionID()
   }

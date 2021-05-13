@@ -34,14 +34,14 @@ export class Element extends Eventful {
     this.parent = null
 
     /**
-     * The scene this element is a part of; Adam or Eve.
+     * The scene this element is a part of
      * @type {Scene|null}
      * @property
      */
     this.scene = null
 
     /**
-     * Stores most of the state of the element. Similar to internal. Generally, should not be accessed directly.
+     * Stores most of the state of the element. Similar to internal but with a lot more predefined behavior
      * @type {Props}
      */
     this.props = new Props()
@@ -68,22 +68,17 @@ export class Element extends Eventful {
   }
 
   /**
-   * In this default behavior, all the properties from a parent are inherited.
+   * Internal function that elements define to actually describe the behavior of setting a property.
+   * @param propName {string}
+   * @param value {any}
+   * @private
    */
-  defaultInheritProps () {
-    if (this.parent)
-      this.props.inheritPropertiesFrom(this.parent.props, this.updateStage === -1)
-  }
-
-  /**
-   * In this behavior, only properties with the given names are inherited.
-   */
-  inheritCertainProps () {
+  _set (propName, value) {
 
   }
 
-  stringify () {
-    this.props.stringify()
+  _update () {
+
   }
 
   /**
@@ -92,6 +87,14 @@ export class Element extends Eventful {
    */
   apply (callback) {
     callback(this)
+  }
+
+  /**
+   * Inherit all properties from the parent
+   */
+  defaultInheritProps () {
+    if (this.parent)
+      this.props.inheritPropertiesFrom(this.parent.props, this.updateStage === -1)
   }
 
   /**
@@ -107,7 +110,7 @@ export class Element extends Eventful {
    * ask for new instructions.
    */
   getRenderingInstructions () {
-
+    if (this.internal.instructions) return this.internal.instructions
   }
 
   isChild (child, recursive=true) {
@@ -116,10 +119,6 @@ export class Element extends Eventful {
 
   isScene () {
     return false
-  }
-
-  setScene (scene) {
-    this.scene = scene
   }
 
   /**
@@ -140,14 +139,12 @@ export class Element extends Eventful {
     return this
   }
 
-  /**
-   * Internal function that elements define to actually describe the behavior of setting a property.
-   * @param propName {string}
-   * @param value {any}
-   * @private
-   */
-  _set (propName, value) {
+  setScene (scene) {
+    this.scene = scene
+  }
 
+  stringify () {
+    this.props.stringify()
   }
 
   /**
@@ -166,9 +163,5 @@ export class Element extends Eventful {
     this._update()
 
     this.updateStage = 100
-  }
-
-  _update () {
-
   }
 }

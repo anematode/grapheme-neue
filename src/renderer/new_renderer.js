@@ -373,6 +373,8 @@ export class GraphemeWebGLRenderer {
     const { textRenderer } = this
     let hasText = false
 
+    textRenderer.clearText()
+
     for (const drawingUnit of drawingUnits) {
       let { instructions } = drawingUnit
 
@@ -535,7 +537,6 @@ export class GraphemeWebGLRenderer {
       }
     }
 
-
     const hasText = this.generateTextAtlas(drawingUnits)
 
     const { gl, textRenderer } = this
@@ -544,6 +545,7 @@ export class GraphemeWebGLRenderer {
     if (hasText) {
       gl.bindTexture(gl.TEXTURE_2D, this.getTextAtlasTexture())
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textRenderer.canvas)
+
     }
 
     const textCanvasVerticesBuffer = this.createBuffer("TextBuffer")
@@ -561,6 +563,15 @@ export class GraphemeWebGLRenderer {
             const textLocation = textRenderer.getTextLocation(instruction)
             const textureAtlasLocation = textLocation.rect
             const textRect = { x: instruction.x, y: instruction.y, w: textureAtlasLocation.w, h: textureAtlasLocation.h}
+
+            let { align, baseline } = instruction
+
+            textRect.x -= textRect.w * (align === "center" ? 0.5 : (align === "right" ? 1 : 0))
+            textRect.y -= textRect.h * (baseline === "center" ? 0.5 : (baseline === "bottom" ? 1 : 0))
+
+            // Text should always be snapped to integer pixels
+            textRect.x = Math.round(textRect.x)
+            textRect.y = Math.round(textRect.y)
 
             const canvasVertices = generateRectangleTriangleStrip(textRect)
             const textureCoords = generateRectangleTriangleStrip(textureAtlasLocation)

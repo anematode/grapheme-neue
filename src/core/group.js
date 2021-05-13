@@ -8,6 +8,10 @@ export class Group extends Element {
     this.children = []
   }
 
+  _update () {
+    this.defaultInheritProps()
+  }
+
   /**
    * Add an element to this group.
    * @param elem {Element}
@@ -45,11 +49,17 @@ export class Group extends Element {
   }
 
   /**
-   * Whether the given element is a child of this element
-   * @param elem {Element}
-   * @param recursive {boolean} If true, whether it is any child; if false, whether it is a direct child
-   * @returns {boolean}
+   * If some inheritable properties have changed since the last global update completion, set all the children's update
+   * stages to 0. May change how this works later
    */
+  informChildrenOfInheritance () {
+    if (this.props.hasChangedInheritableProperties && this.children) {
+      this.children.forEach(child => {
+        child.updateStage = Math.min(child.updateStage, 0) // math.min so that update stage -1 still works
+      })
+    }
+  }
+
   isChild (elem, recursive=true) {
     for (const child of this.children) {
       if (child === elem) return true
@@ -71,7 +81,7 @@ export class Group extends Element {
       elem.parent = null
       elem.setScene(null)
 
-      elem.updateStage = -2
+      elem.updateStage = -1
 
       return this
     }
@@ -93,20 +103,8 @@ export class Group extends Element {
     super.triggerEvent(eventName, data)
   }
 
-  update () {// If some properties have changed, set the update stage accordingly. We use .min in case the update stage is -1
+  update () {
     super.update()
     this.informChildrenOfInheritance()
-  }
-
-  informChildrenOfInheritance () {
-    if (this.props.hasChangedInheritableProperties && this.children) {
-      this.children.forEach(child => {
-        child.updateStage = Math.min(child.updateStage, 0) // math.min so that update stage -1 still works
-      })
-    }
-  }
-
-  _update () {
-    this.defaultInheritProps()
   }
 }
