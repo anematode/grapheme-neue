@@ -93,11 +93,9 @@ export class Group extends Element {
     super.triggerEvent(eventName, data)
   }
 
-  update () {
-    this._update()
-
+  update () {// If some properties have changed, set the update stage accordingly. We use .min in case the update stage is -1
+    super.update()
     this.informChildrenOfInheritance()
-    this.updateStage = 100
   }
 
   informChildrenOfInheritance () {

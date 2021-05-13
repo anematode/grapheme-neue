@@ -149,8 +149,7 @@ export class Scene extends Group {
   updateAll () {
     // Update all children whose update stage is not 100.
     this.apply(child => {
-      if (child.updateStage !== 100)
-        child.update()
+      child.update()
     })
 
     // Mark all inherited props as done.

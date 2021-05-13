@@ -60,8 +60,6 @@ export class PlotBaubles extends Group {
     // Generate the gridlines
     const gridlinesElement = this.createGridlinesElement()
     gridlinesElement.props.setPropertyValues({ ticks, plotTransform })
-
-
   }
 
   createGridlinesElement () {

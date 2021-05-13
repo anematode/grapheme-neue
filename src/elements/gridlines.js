@@ -63,7 +63,7 @@ export class GridlinesElement extends Element {
       }
 
       // Having computed the lines for this style we push it onto the list of instructions
-      instructions.push({ type: "polyline", vertices: lines, pen, zIndex: 0 })
+      if (lines.length > 0) instructions.push({ type: "polyline", vertices: lines, pen, zIndex: 0 })
     }
 
     this.internal.instructions = instructions

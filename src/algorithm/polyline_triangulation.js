@@ -71,7 +71,7 @@ export function calculatePolylineVertices(vertices, pen, box=null) {
   }
 }
 
-
+// TODO convert to float array. Arrays are surprisingly memory inefficient (8 to 16x), not sure why
 export function convertTriangleStrip(vertices, pen) {
   if (pen.thickness <= 0 ||
     pen.endcapRes < MIN_RES_ANGLE ||

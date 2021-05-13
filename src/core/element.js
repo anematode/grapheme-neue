@@ -137,10 +137,6 @@ export class Element extends Eventful {
       this._set(propName, value)
     }
 
-    // If some properties have changed, set the update stage accordingly. We use .min in case the update stage is -1
-    if (this.props.hasChangedProperties)
-      this.updateStage = Math.min(this.updateStage, 0)
-
     return this
   }
 
@@ -161,6 +157,12 @@ export class Element extends Eventful {
    * operation.
    */
   update () {
+    // If some properties have changed, set the update stage accordingly. We use .min in case the update stage is -1
+    if (this.props.hasChangedProperties)
+      this.updateStage = Math.min(this.updateStage, 0)
+
+    if (this.updateStage === 100) return
+
     this._update()
 
     this.updateStage = 100

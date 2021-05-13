@@ -587,8 +587,6 @@ export class GraphemeWebGLRenderer {
 
             const polylineVertices = calculatePolylineVertices(instruction.vertices, Pen.fromObj(pen), null)
 
-            if (window.show) console.log(polylineVertices)
-
             gl.bindBuffer(gl.ARRAY_BUFFER, monochromaticGeometryCoordsBuffer)
             gl.bufferData(gl.ARRAY_BUFFER, polylineVertices.glVertices, gl.DYNAMIC_DRAW)
 

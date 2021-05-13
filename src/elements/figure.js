@@ -206,6 +206,10 @@ export class Figure extends Group {
       isMouseDown = true
     })
 
+    this.addEventListener("mouseup", listeners.mousedown = ({ x, y }) => {
+      isMouseDown = false
+    })
+
     this.addEventListener("mousemove", listeners.mousemove = ({ x, y }) => {
       if (!isMouseDown) return
 
@@ -215,12 +219,9 @@ export class Figure extends Group {
       let graphMouseMoveAt = transform.pixelToGraph({ x, y })
 
       let translationNeeded = graphMouseDownAt.sub(graphMouseMoveAt)
-      console.log(translationNeeded)
 
       transform.gx1 += translationNeeded.x
       transform.gy1 += translationNeeded.y
-
-      console.log(transform)
 
       props.markChanged("plotTransform")
     })
@@ -285,15 +286,7 @@ export class Figure extends Group {
     this.updatePlotTransform()
   }
 
-  /**
-   * Update the figure's parameters.
-   * @param updateParams
-   */
   _update (updateParams) {
-    // For now, we will have the overall bounding box of the figure be the size of the plot, unless it is otherwise
-    // specified.
-    super._update()
-
     this.computeProps()
   }
 }
