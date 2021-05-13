@@ -19,8 +19,7 @@ export function fastHypot(x, y) {
 const MAX_DASHED_POLYLINE_VERTICES = 1e7
 
 /**
- * Convert a polyline into another polyline, but with dashes. The function periodically yields a number which represents
- * the fraction of which it has completed the calculation. This is useful for asynchronous computations.
+ * Convert a polyline into another polyline, but with dashes.
  * @param vertices {Array} The vertices of the polyline.
  * @param pen {Pen} The polyline's pen
  * @param box {BoundingBox} The plotting box, used to clip excess portions of the polyline. There could theoretically be
@@ -29,7 +28,7 @@ const MAX_DASHED_POLYLINE_VERTICES = 1e7
  * @param chunkSize {number} The number of
  * @returns {Array}
  */
-export function* getDashedPolyline(vertices, pen, box, chunkSize=256000) {
+export function getDashedPolyline(vertices, pen, box) {
   if (!box) {
     box = new BoundingBox(-Infinity, -Infinity, Infinity, Infinity)
   }
@@ -208,13 +207,6 @@ export function* getDashedPolyline(vertices, pen, box, chunkSize=256000) {
     generateDashes(intersect[0], intersect[1], intersect[2], intersect[3])
 
     chunkPos++
-
-    // Provide a progress report
-    if (chunkPos >= chunkSize) {
-      yield i / vertices.length
-
-      chunkPos = 0
-    }
 
     if (!pt2Contained)
       recalculateOffset(fastHypot(x2 - intersect[2], y2 - intersect[3]))

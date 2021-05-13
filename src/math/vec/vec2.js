@@ -1,10 +1,4 @@
-/**
- * @file This file describes a {@link Vec2} class. It is intended to be lightweight and mainly for internal use.
- */
 
-/**
- * A 2D vector consisting of two floating-point numbers x and y.
- */
 class Vec2 {
   /**
    * Construct a Vec2. Because this operation is incredibly frequent, the constructor is simple. There are special
@@ -33,6 +27,14 @@ class Vec2 {
     }
 
     return new Vec2(+x, +y)
+  }
+
+  add (vec) {
+    return new Vec2(this.x + vec.x, this.y + vec.y)
+  }
+
+  sub (vec) {
+    return new Vec2(this.x - vec.x, this.y - vec.y)
   }
 }
 

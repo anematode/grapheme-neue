@@ -101,11 +101,12 @@ export class Eventful {
    * @returns {boolean} Whether any listener stopped propagation
    */
   triggerEvent (eventName, data) {
+    if (this.eventListeners.size === 0) return false
     const listeners = this.eventListeners.get(eventName)
 
     if (Array.isArray(listeners)) {
       for (let i = 0; i < listeners.length; ++i) {
-        if (listeners[i](data, this, eventName)) return true
+        if (listeners[i](data)) return true
       }
     }
 

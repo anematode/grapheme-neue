@@ -84,9 +84,13 @@ export class Group extends Element {
     this.children.forEach(child => child.setScene(scene))
   }
 
-  // todo
   triggerEvent (eventName, data) {
+    for (const child of this.children) {
+      if (child.triggerEvent(eventName, data))
+        return true
+    }
 
+    super.triggerEvent(eventName, data)
   }
 
   update () {

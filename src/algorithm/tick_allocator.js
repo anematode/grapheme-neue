@@ -1,7 +1,7 @@
 
 
 // Copied code from Grapheme
-const desiredDemarcationSeparation = 25
+const desiredDemarcationSeparation = 5
 
 // Array of potential demarcations [a,b], where the small demarcations are spaced every b * 10^n and the big ones are spaced every a * 10^n
 const StandardDemarcations = [[1, 0.2], [1, 0.25], [2, 0.5]]
@@ -65,11 +65,11 @@ export const GridlineAllocators = {
    * @param yStart {number} The beginning of the y axis
    * @param yEnd {number} The end of the y axis
    * @param yLength {number} The length of the y axis
-   * @returns {IterableIterator<any>}
+   * @returns {IterableIterator<{dir: string, pos: number, type: string}>}
    * @constructor
    */
   Standard: function (xStart, xEnd, xLength, yStart, yEnd, yLength) {
-    const ret = []
+    const ret = { 'x': {}, 'y': {} }
 
     let eggRatio = (xEnd - xStart) / (yEnd - yStart) * yLength / xLength
     let forceSameDemarcations = Math.abs(eggRatio - 1) < 0.3
@@ -83,12 +83,21 @@ export const GridlineAllocators = {
       demarcationY = getDemarcation(yStart, yEnd, yLength)
     }
 
+    function addLine (dir, marker)  {
+      let arr = ret[dir][marker.type]
+      if (!arr) {
+        arr = ret[dir][marker.type] = []
+      }
+
+      arr.push(marker.pos)
+    }
+
     for (let xMarker of demarcate(xStart, xEnd, demarcationX)) {
-      ret.push({dir: 'x', pos: xMarker.pos, type: xMarker.type})
+      addLine('x', xMarker)
     }
 
     for (let yMarker of demarcate(yStart, yEnd, demarcationY)) {
-      ret.push({dir: 'y', pos: yMarker.pos, type: yMarker.type})
+      addLine('y', yMarker)
     }
 
     return ret

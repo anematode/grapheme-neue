@@ -391,6 +391,12 @@ export class Props {
     return value
   }
 
+  setPropertyValues (values, equalityCheck=0, markChanged=true) {
+    for (const [ propName, propValue ] of Object.entries(values)) {
+      this.setPropertyValue(propName, propValue, equalityCheck, markChanged)
+    }
+  }
+
   markHasChangedProperties () {
     this.hasChangedProperties = true
   }

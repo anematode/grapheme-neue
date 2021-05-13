@@ -116,6 +116,22 @@ export class BoundingBox {
 
     return new BoundingBox(finalX1, finalY1, finalX2 - finalX1, finalY2 - finalY1)
   }
+
+  get x1 () {
+    return this.x
+  }
+
+  get y1 () {
+    return this.y
+  }
+
+  get x2 () {
+    return this.getX2()
+  }
+
+  get y2 () {
+    return this.getY2()
+  }
 }
 
 

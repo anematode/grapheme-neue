@@ -18,51 +18,11 @@ export class GridlinesElement extends Element {
     this.props.setMultipleProperties({
       gridlineStyles: {
         major: DefaultStyles.gridlinesMajor,
-        minor: DefaultStyles.gridlinesMinor
+        minor: DefaultStyles.gridlinesMinor,
+        axis: DefaultStyles.gridlinesAxis
       },
-      gridlinePositions: {}
+      ticks: {}
     })
-  }
-
-  _set (propName, value) {
-    const { props } = this
-
-    // This is pain. We need to get the forwarding system done soon
-    switch (propName) {
-      case "majorStyle":
-        props.getPropertyValue("gridlineStyles").major = value
-        props.markChanged("gridlineStyles")
-
-        break
-      case "minorStyle":
-        props.getPropertyValue("gridlineStyles").minor = value
-        props.markChanged("gridlineStyles")
-
-        break
-      case "majorGridlinePositions":
-        props.getPropertyValue("gridlinePositions").major = value
-        props.markChanged("gridlinePositions")
-
-        break
-      case "minorGridlinePositions":
-        props.getPropertyValue("gridlinePositions").minor = value
-        props.markChanged("gridlinePositions")
-
-        break
-      case "gridlinePositions":
-        props.setPropertyValue("gridlinePositions", value)
-    }
-  }
-
-  get (propName) {
-    const { props } = this
-
-    switch (propName) {
-      case "majorStyle":
-        return props.gridlineStyles.major
-      case "minorStyle":
-        return props.gridlineStyles.minor
-    }
   }
 
   computeProps () {
@@ -74,64 +34,39 @@ export class GridlinesElement extends Element {
   _update () {
     this.computeProps()
 
-    const { gridlineStyles, gridlinePositions, plotTransform } = this.props.proxy
-    const plottingBox = plotTransform.pixelCoordinatesBox()
+    const { gridlineStyles, plotTransform, ticks } = this.props.proxy
 
-    const geometries = []
+    const plottingBox = plotTransform.pixelCoordinatesBox()
+    const { x1, y1, x2, y2} = plottingBox
 
     const instructions = []
-    const addLine = (vertices, pen) => {
-      let geometry = calculatePolylineVertices(vertices, pen, null)
 
-      geometries.push(geometry)
-    }
+    // We iterate over styles because "it's all we know how to draw"
+    for (let [ style, pen ] of Object.entries(gridlineStyles)) {
+      const lines = []
 
-    // This is purposely painful to stress test the renderer. Normally we could just have two geometries, one for major
-    // and one for minor.
+      for (let dir of [ 'x', 'y' ]) {
+        const thisTicks = ticks[dir][style]
 
-    for (let key in gridlineStyles) {
-      if (gridlineStyles.hasOwnProperty(key)) {
+        if (!thisTicks) continue
 
-        let positions = gridlinePositions[key]
-
-        if (!positions) continue
-        let pen = gridlineStyles[key]
-
-        if (positions.x) {
-          for (const y of positions.x) {
-
-            addLine([ plottingBox.x, y, plottingBox.getX2(), y], pen)
-          }
-        }
-
-        if (positions.y) {
-          for (const x of positions.y) {
-            addLine([ x, plottingBox.y, x, plottingBox.getY2()], pen)
+        for (let tick of thisTicks) {
+          // Generate the individual line
+          if (dir === 'x') {
+            tick = plotTransform.graphToPixelX(tick)
+            lines.push(NaN, NaN, tick, y1, tick, y2)
+          } else {
+            tick = plotTransform.graphToPixelY(tick)
+            lines.push(NaN, NaN, x1, tick, x2, tick)
           }
         }
       }
+
+      // Having computed the lines for this style we push it onto the list of instructions
+      instructions.push({ type: "polyline", vertices: lines, pen, zIndex: 0 })
     }
 
-    const geos = geometries.map(geo => geo.glVertices)
-
-    const len = geos.reduce((a, b) => a + b.length, 0)
-    const arr = new Float32Array(len + geos.length * 2)
-
-    let i = 0
-    for (const geo of geos) {
-      arr.set(geo, i)
-      i += geo.length
-      arr[i] = NaN
-      arr[i + 1] = NaN
-      i += 2
-    }
-
-    this.internal.instructions = [{
-      type: "triangle_strip",
-      vertices: arr,
-      color: {r: 0, g: 10, b: 30, a: 255},
-      zIndex: 0
-    }]
+    this.internal.instructions = instructions
   }
 
   getRenderingInstructions() {

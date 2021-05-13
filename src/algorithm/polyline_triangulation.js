@@ -64,62 +64,21 @@ function fastAtan2(y, x) {
  * @param box {BoundingBox} The bounding box of the plot, used to optimize line dashes
  */
 export function calculatePolylineVertices(vertices, pen, box=null) {
-  let generator = asyncCalculatePolylineVertices(vertices, pen, box)
-
-  while (true) {
-    let ret = generator.next()
-
-    if (ret.done)
-      return ret.value
-  }
-}
-
-export function* asyncCalculatePolylineVertices(vertices, pen, box) {
   if (pen.dashPattern.length === 0) {
-    // No dashes to draw
-    let generator = convertTriangleStrip(vertices, pen);
-
-    while (true) {
-      let ret = generator.next()
-
-      if (ret.done)
-        return ret.value
-      else
-        yield ret.value
-    }
+    return convertTriangleStrip(vertices, pen)
   } else {
-    let gen1 = getDashedPolyline(vertices, pen, box)
-    let ret
-
-    while (true) {
-      ret = gen1.next()
-
-      if (ret.done)
-        break
-      else
-        yield ret.value / 2
-    }
-
-    let gen2 = convertTriangleStrip(ret.value, pen)
-
-    while (true) {
-      let ret = gen2.next()
-
-      if (ret.done)
-        return ret.value
-      else
-        yield ret.value / 2 + 0.5
-    }
+    return convertTriangleStrip(getDashedPolyline(vertices, pen, box), pen)
   }
 }
 
-export function* convertTriangleStrip(vertices, pen, chunkSize=256000) {
+
+export function convertTriangleStrip(vertices, pen) {
   if (pen.thickness <= 0 ||
     pen.endcapRes < MIN_RES_ANGLE ||
     pen.joinRes < MIN_RES_ANGLE ||
     vertices.length <= 3) {
 
-    return {glVertices: null, vertexCount: 0}
+    return { glVertices: null, vertexCount: 0 }
   }
 
   let glVertices = []
@@ -144,12 +103,6 @@ export function* convertTriangleStrip(vertices, pen, chunkSize=256000) {
 
   for (let i = 0; i < origVertexCount; ++i) {
     chunkPos++
-
-    if (chunkPos >= chunkSize) {
-      yield i / origVertexCount
-
-      chunkPos = 0
-    }
 
     x1 = (i !== 0) ? vertices[2 * i - 2] : NaN // Previous vertex
     x2 = vertices[2 * i] // Current vertex
@@ -273,8 +226,6 @@ export function* convertTriangleStrip(vertices, pen, chunkSize=256000) {
         b1_y *= scale
 
         glVertices.push(x2 - b1_x, y2 - b1_y, x2 + b1_x, y2 + b1_y)
-
-        console.log(glVertices)
 
         continue
       }

@@ -40,6 +40,28 @@ export class PlotBaubles extends Group {
     const { props } = this
 
     this.defaultInheritProps()
+
+    // We first compute the x and y ticks along each axis. We represent it like so:
+    // { x: { major: [ -1, -0.8, -0.6, ... ], minor: [ ... ], y: { ... } }.
+    // Notably, the coordinates are in graph space, not pixel space.
+
+    const { gridlinesAllocator, plotTransform, gridlines: showGridlines } = this.props.proxy
+
+    const { gx1, gx2, gy1, gy2, pw, ph } = plotTransform
+    const ticks = gridlinesAllocator(gx1, gx2, pw, gy1, gy2, ph)
+
+    // Returns an object is an object of the form
+    // { x: { major: [ 0.2, 0.4 ] , minor: [...] }, y: { ... }}. In general this is how we will represent ticks and
+    // gridlines -- splitting into direction, then type, then position. The convention is that an "x" gridline is
+    // parallel to the x axis
+
+    props.setPropertyValue("ticks", ticks)
+
+    // Generate the gridlines
+    const gridlinesElement = this.createGridlinesElement()
+    gridlinesElement.props.setPropertyValues({ ticks, plotTransform })
+
+
   }
 
   createGridlinesElement () {
@@ -63,35 +85,7 @@ export class PlotBaubles extends Group {
   }
 
   _updateGridlines () {
-    const { plotTransform, gridlines, gridlinesAllocator } = this.props.proxy
 
-    if (!gridlines) {
-      const gridlines = this.internal.gridlines
-      if (gridlines) gridlines.visible = false
-
-      return
-    }
-
-    const { gx1, gw, gy1, gh, pw, ph } = plotTransform
-    const generatedGridlines = gridlinesAllocator(gx1, gx1 + gw, pw, gy1, gy1 + gh, ph)
-
-    const gridlinePositions = {
-      axis: {x: [] /* To be clear, these are parallel to the x-axis */, y: []},
-      major: {x: [], y: []},
-      minor: {x: [], y: []}
-    }
-
-    for (const gridline of generatedGridlines) {
-      const group = gridlinePositions[gridline.type]
-      let pixelPosition = gridline.dir === 'x' ? plotTransform.graphToPixelY(gridline.pos) : plotTransform.graphToPixelX(gridline.pos)
-
-      group[gridline.dir].push(pixelPosition)
-    }
-
-    const gridlinesElement = this.createGridlinesElement()
-
-    gridlinesElement.set({ gridlinePositions })
-    gridlinesElement.visible = true
   }
 
   _update () {

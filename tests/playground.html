@@ -11,19 +11,20 @@
 <noscript id="setup">
     const renderer = new Grapheme.GraphemeWebGLRenderer()
 
-    const scene = new Grapheme.Scene({ id: "main" })
+    const scene = new Grapheme.InteractiveScene({ id: "main" })
     const figure = new Grapheme.Figure({ id: "figure" })
 
     scene.add(figure)
     scene.setSize(1000, 1000)
 
     function render () {
-        renderer.renderScene(scene)
+        renderer.renderDOMScene(scene)
+        requestAnimationFrame(render)
     }
 
     figure.set("margin", 50)
 
-    document.body.appendChild(renderer.canvas)
+    document.body.appendChild(scene.domElement)
     const gl = renderer.gl
 
     const baubles = new Grapheme.PlotBaubles({ id: "baubles" })
@@ -32,40 +33,9 @@
 
     console.log(baubles.updateStage)
 
+    scene.set({ interactivity: true })
+
     render()
-
-
-
-
-
-
-
-
-
-
-
-
-    /*let test = Grapheme.getTextSDFInformation()
-    function monochromeToRGBA(arr) {
-        let ret = new Uint8ClampedArray(arr.length * 4)
-        for (let i = 0; i < arr.length; ++i) { ret[4*i] = ret[4*i+1] = ret[4*i + 2] = arr[i]; ret[4*i+3] = 255; }
-        return ret
-    }
-
-    function imagedata_to_image(imagedata) {
-    var canvas = document.createElement('canvas');
-    var ctx = canvas.getContext('2d');
-    canvas.width = imagedata.width;
-    canvas.height = imagedata.height;
-    ctx.putImageData(imagedata, 0, 0);
-
-    var image = new Image();
-    image.src = canvas.toDataURL();
-    return image;
-    }
-
-    let data = new ImageData(monochromeToRGBA(test.atlas), test.atlasWidth, test.atlasHeight)
-    document.body.appendChild(imagedata_to_image(data))*/
 
 </noscript>
 

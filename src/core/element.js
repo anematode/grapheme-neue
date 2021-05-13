@@ -63,6 +63,8 @@ export class Element extends Eventful {
     this.internal = {
       version: getVersionID()
     }
+
+    this.set(params)
   }
 
   /**

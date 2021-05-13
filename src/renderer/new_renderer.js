@@ -535,6 +535,7 @@ export class GraphemeWebGLRenderer {
       }
     }
 
+
     const hasText = this.generateTextAtlas(drawingUnits)
 
     const { gl, textRenderer } = this
@@ -583,7 +584,10 @@ export class GraphemeWebGLRenderer {
             break
           case "polyline":
             const pen = instruction.pen ?? new Pen()
+
             const polylineVertices = calculatePolylineVertices(instruction.vertices, Pen.fromObj(pen), null)
+
+            if (window.show) console.log(polylineVertices)
 
             gl.bindBuffer(gl.ARRAY_BUFFER, monochromaticGeometryCoordsBuffer)
             gl.bufferData(gl.ARRAY_BUFFER, polylineVertices.glVertices, gl.DYNAMIC_DRAW)
@@ -598,5 +602,13 @@ export class GraphemeWebGLRenderer {
     }
 
     sceneCache.version = getVersionID()
+  }
+
+  renderDOMScene (scene) {
+    this.renderScene(scene)
+
+    createImageBitmap(this.canvas).then(bitmap => {
+      scene.bitmapRenderer.transferFromImageBitmap(bitmap)
+    })
   }
 }

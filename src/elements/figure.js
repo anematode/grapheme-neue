@@ -1,6 +1,7 @@
 import {Group} from "../core/group"
 import {BoundingBox} from "../math/bounding_box"
 import {PlotBaubles} from "./plot_baubles"
+import {Vec2} from "../math/vec/vec2"
 
 /**
  * Represents a linear transformation by storing two bounding boxes: one for the plot in CSS pixels, and one for the
@@ -29,6 +30,22 @@ class LinearPlot2DTransform {
     this.gy1 = gy1
     this.gw = gw
     this.gh = gh
+  }
+
+  get px2 () {
+    return this.px1 + this.pw
+  }
+
+  get py2 () {
+    return this.py1 + this.ph
+  }
+
+  get gx2 () {
+    return this.gx1 + this.gw
+  }
+
+  get gy2 () {
+    return this.gy1 + this.gh
   }
 
   pixelCoordinatesBox () {
@@ -95,6 +112,14 @@ class LinearPlot2DTransform {
     // This is flipped
     return (1 - (y - this.gy1) / this.gh) * this.ph + this.py1
   }
+
+  pixelToGraph (vec) {
+    return new Vec2(this.pixelToGraphX(vec.x), this.pixelToGraphY(vec.y))
+  }
+
+  graphToPixel (vec) {
+    return new Vec2(this.graphToPixelX(vec.x), this.graphToPixelY(vec.y))
+  }
 }
 
 function createTransform (plotBox, graphBox) {
@@ -128,12 +153,13 @@ export class Figure extends Group {
     this.props.setMultipleProperties({
       figureBoundingBox: new BoundingBox(0, 0, 100, 100),
       plottingBox: new BoundingBox(0, 0, 640, 480),
-      plotTransform: new LinearPlot2DTransform(0, 0, 640, 480, -1, -1, 2, 2)
+      plotTransform: new LinearPlot2DTransform(0, 0, 640, 480, -1, -1, 4, 2)
     }).configureProperties(["figureBoundingBox", "plotTransform"], {
       inherit: true
     })
 
     this.set({ margin: 0 })
+    this.enableInteractivity()
   }
 
   _set (propName, value) {
@@ -166,6 +192,39 @@ export class Figure extends Group {
         // Virtual property
         return this.getMargins()
     }
+  }
+
+  enableInteractivity () {
+    const { internal, props } = this
+
+    const listeners = internal.interactivityListeners = {}
+    let mouseDownAt, graphMouseDownAt, isMouseDown
+
+    this.addEventListener("mousedown", listeners.mousedown = ({ x, y }) => {
+      mouseDownAt = new Vec2(x, y)
+      graphMouseDownAt = props.getPropertyValue("plotTransform").pixelToGraph(mouseDownAt)
+      isMouseDown = true
+    })
+
+    this.addEventListener("mousemove", listeners.mousemove = ({ x, y }) => {
+      if (!isMouseDown) return
+
+      let transform = props.getPropertyValue("plotTransform")
+
+      // Get where the mouse is currently at and move (graphMouseDownAt) to (mouseDownAt)
+      let graphMouseMoveAt = transform.pixelToGraph({ x, y })
+
+      let translationNeeded = graphMouseDownAt.sub(graphMouseMoveAt)
+      console.log(translationNeeded)
+
+      transform.gx1 += translationNeeded.x
+      transform.gy1 += translationNeeded.y
+
+      console.log(transform)
+
+      props.markChanged("plotTransform")
+    })
+
   }
 
   // Grotesque example of a virtual property. Could definitely be made simpler code-wise once the interface system is
