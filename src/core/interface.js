@@ -35,7 +35,15 @@ function invertDestructure (obj) {
   let ret = {}
 
   for (let key in obj) {
-    ret[obj[key]] = key
+    let invertedKey = obj[key]
+    let isIdentity = typeof invertedKey === "boolean"
+
+    if (isIdentity) {
+      invertedKey = key
+      key = true
+    }
+
+    ret[invertedKey] = key
   }
 
   return ret
@@ -46,7 +54,7 @@ export function constructInterface (interfaceDescription) {
   // The gist of it is we just have a list of actions associated with each property's get and set operation. So we have
   // two lists: one for setting and one for getting. For setting properties that match names with the internal, that's
   // the simplest; we store propName: true. Then for properties which have a different target, we store the string
-  // "target".
+  // "target". When this gets more complex I'll restructure this code
 
   const setters = {}
   const getters = {}
@@ -56,7 +64,7 @@ export function constructInterface (interfaceDescription) {
       // Simply map propName to the given targetName
       setters[propName] = getters[propName] = description
     } else if (typeof description === "object") {
-      let { aliases, conversion, target, destructuring, readOnly, writeOnly } = description
+      let { aliases, conversion, target, destructuring, readOnly, writeOnly, set, get } = description
 
       if (readOnly && writeOnly) continue // lol
       let needsSetter = !readOnly
@@ -99,31 +107,83 @@ export function constructInterface (interfaceDescription) {
     }
   }
 
-  return {
-    set: (element, name, value) => {
-      const steps = setters[name]
-      if (typeof steps === "boolean") element.props.setPropertyValue(name, value)
-      else if (typeof steps === "string") element.props.setPropertyValue(steps, value)
-      else {
-        let target = name
+  function set (element, name, value) {
+    if (typeof name === "object") {
+      // Passed a dictionary of values to set
+      for (const [ propName, propValue ] of Object.entries(element)) {
+        set(element, propName, propValue)
+      }
 
-        for (const step of steps) {
-          if (typeof step === "string") {
-            target = step
-            break
-          } else {
-            if (step.type === "destructuring") {
+      return
+    }
 
+    let steps = setters[name]
+    if (typeof steps === "boolean") element.props.setPropertyValue(name, value)
+    else if (typeof steps === "string") element.props.setPropertyValue(steps, value)
+    else {
+      let target = name
+      steps = Array.isArray(steps) ? steps : [steps]
+
+      for (const step of steps) {
+        if (typeof step === "string") {
+          target = step
+          break
+        } else {
+          if (step.type === "destructuring") {
+            let destructuring = step.destructuring
+
+            for (const [propName, propValue] of Object.entries(value)) {
+              let renamed = destructuring[propName]
+              if (typeof renamed !== "string") renamed = propName
+
+              set(element, renamed, propValue)
             }
+
+            return
+          } else if (step.type === "conversion") {
+            value = step.conversion(value)
           }
         }
-
-        element.props.setPropertyValue(target, value)
       }
-    },
-    get: (element, name, value) => {
 
-    },
+      element.props.setPropertyValue(target, value)
+    }
+  }
+
+  function get (element, name) {
+    let steps = getters[name]
+    if (typeof steps === "boolean") return element.props.getPropertyValue(name)
+    else if (typeof steps === "string") return element.props.getPropertyValue(steps)
+    else {
+      let value
+      steps = Array.isArray(steps) ? steps : [steps]
+
+      for (const step of steps) {
+        if (typeof step === "string") {
+          value = element.props.getPropertyValue(step)
+        } else {
+          if (step.type === "restructuring") {
+            let restructuring = step.restructuring
+            let ret = {}
+
+            for (let [internalName, propName] of Object.entries(restructuring)) {
+              if (typeof internalName !== "string") internalName = propName
+
+              ret[propName] = get(element, internalName)
+            }
+
+            return ret
+          }
+        }
+      }
+
+      return value
+    }
+  }
+
+  return {
+    set,
+    get,
     setters,
     getters
   }
