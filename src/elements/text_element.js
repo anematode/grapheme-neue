@@ -1,16 +1,26 @@
 
 import {Element} from "../core/element"
-import {TextStyle} from "../other/text_style"
 import {Vec2} from "../math/vec/vec2"
+import {constructInterface} from "../core/interface"
+
+const textElementInterface = constructInterface({
+  font: true,
+  fontSize: true,
+  text: true,
+  align: true,
+  baseline: true,
+  position: { conversion: Vec2.fromObj }
+})
 
 /**
- * Let's try designing a relatively clean element. Won't be super lightweight because that'll be reserved for primitives
+ * Let's try designing a relatively clean element. Won't be SUPER lightweight because that'll be reserved for primitives
  * later. We'll also see how inheriting styles from the parent might work
  */
 export class TextElement extends Element {
   constructor (params={}) {
     super(params)
 
+    // Defaults, may change how this works later
     this.set({
       font: "Cambria",
       fontSize: 50,
@@ -21,8 +31,8 @@ export class TextElement extends Element {
     })
   }
 
-  _set (propName, value) {
-    this.props.setPropertyValue(propName, value)
+  getInterface () {
+    return textElementInterface
   }
 
   getRenderingInstructions () {

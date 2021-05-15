@@ -381,7 +381,7 @@ export class Props {
     if (markChanged) {
       this.markHasChangedProperties()
 
-      // For values to be inherited, store the version of this value. We leave our hands off of inherit: 1 properties
+      // For values to be inherited, store the version of this value. Only for inherit: 2 properties
       if (store.inherit === 2) {
         store.version = getVersionID()
         this.markHasChangedInheritableProperties()

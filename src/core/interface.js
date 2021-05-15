@@ -31,6 +31,7 @@ export const SampleInterface = {
   "sceneDimensions": { readOnly: true }
 }
 
+
 function invertDestructure (obj) {
   let ret = {}
 
@@ -49,8 +50,24 @@ function invertDestructure (obj) {
   return ret
 }
 
+const builtinTypechecks = {
+  string: x => typeof x === "string"
+}
+
+function createTypecheck (description) {
+  if (typeof description === "function") {
+    return description
+  } else if (typeof description === "string") {
+    const typecheck = builtinTypechecks[string]
+
+    return typecheck
+  }
+}
+
+const reservedPropNames = [ "id", "updateStage" ]
+
 export function constructInterface (interfaceDescription) {
-  // We basically need to construct a set(element, name, value) and get(element, name, value) function. That's about it.
+  // We basically need to construct a set(element, name, value) and get(element, name) function. That's about it.
   // The gist of it is we just have a list of actions associated with each property's get and set operation. So we have
   // two lists: one for setting and one for getting. For setting properties that match names with the internal, that's
   // the simplest; we store propName: true. Then for properties which have a different target, we store the string
@@ -60,11 +77,13 @@ export function constructInterface (interfaceDescription) {
   const getters = {}
 
   for (const [ propName, description ] of Object.entries(interfaceDescription)) {
+    if (reservedPropNames.includes(propName)) continue
+
     if (typeof description === "string") {
       // Simply map propName to the given targetName
       setters[propName] = getters[propName] = description
     } else if (typeof description === "object") {
-      let { aliases, conversion, target, destructuring, readOnly, writeOnly, set, get } = description
+      let { aliases, conversion, target, destructuring, readOnly, writeOnly, typecheck, set, get, onSet } = description
 
       if (readOnly && writeOnly) continue // lol
       let needsSetter = !readOnly
@@ -77,29 +96,45 @@ export function constructInterface (interfaceDescription) {
         }
       }
 
-      // First convert, then destructure, then target
+      // First typecheck, then convert, then destructure, then target, then onSet
       if (needsSetter) {
-        const steps = []
+        if (set) {
+          // Specific instructions for setting
+          setters[propName] = set
+        } else {
+          const steps = []
 
-        if (conversion) steps.push({ type: "conversion", conversion })
-        if (destructuring) steps.push({ type: "destructuring", destructuring })
-        if (target) steps.push(target)
+          if (typecheck) {
+            let typecheckFunction = createTypecheck(typecheck)
+            if (typecheckFunction)
+              steps.push({type: "typecheck", typecheck: typecheckFunction})
+          }
+          if (conversion) steps.push({type: "conversion", conversion})
+          if (destructuring) steps.push({type: "destructuring", destructuring})
+          if (target) steps.push(target)
+          if (onSet) steps.push({ type: "onSet", onSet })
 
-        if (steps.length === 0) setters[propName] = true
-        else if (steps.length === 1) setters[propName] = steps[0]
-        else setters[propName] = steps
+          if (steps.length === 0) setters[propName] = true
+          else if (steps.length === 1) setters[propName] = steps[0]
+          else setters[propName] = steps
+        }
       }
 
       // First target, then destructure
       if (needsGetter) {
-        const steps = []
+        if (get) {
+          // Specific instructions for getting
+          getters[propName] = get
+        } else {
+          const steps = []
 
-        if (target) steps.push(target)
-        if (destructuring) steps.push({ type: "restructuring", restructuring: invertDestructure(destructuring) })
+          if (target) steps.push(target)
+          if (destructuring) steps.push({type: "restructuring", restructuring: invertDestructure(destructuring)})
 
-        if (steps.length === 0) getters[propName] = true
-        else if (steps.length === 1) getters[propName] = steps[0]
-        else getters[propName] = steps
+          if (steps.length === 0) getters[propName] = true
+          else if (steps.length === 1) getters[propName] = steps[0]
+          else getters[propName] = steps
+        }
       }
     } else {
       // Map directly to the same property name
@@ -110,7 +145,7 @@ export function constructInterface (interfaceDescription) {
   function set (element, name, value) {
     if (typeof name === "object") {
       // Passed a dictionary of values to set
-      for (const [ propName, propValue ] of Object.entries(element)) {
+      for (const [ propName, propValue ] of Object.entries(name)) {
         set(element, propName, propValue)
       }
 
@@ -118,16 +153,19 @@ export function constructInterface (interfaceDescription) {
     }
 
     let steps = setters[name]
-    if (typeof steps === "boolean") element.props.setPropertyValue(name, value)
+    if (typeof steps === "undefined") {
+      // Silently fail
+    } else if (typeof steps === "boolean") element.props.setPropertyValue(name, value)
     else if (typeof steps === "string") element.props.setPropertyValue(steps, value)
+    else if (typeof steps === "function") steps.bind(element)(value)
     else {
-      let target = name
+      let target
       steps = Array.isArray(steps) ? steps : [steps]
 
       for (const step of steps) {
         if (typeof step === "string") {
           target = step
-          break
+          element.props.setPropertyValue(target, value)
         } else {
           if (step.type === "destructuring") {
             let destructuring = step.destructuring
@@ -142,18 +180,29 @@ export function constructInterface (interfaceDescription) {
             return
           } else if (step.type === "conversion") {
             value = step.conversion(value)
+          } else if (step.type === "typecheck") {
+            if (!step.typecheck(value)) {
+              throw new TypeError(`Failed typecheck on parameter '${name}' on element #${element.id}.`)
+            }
+          } else if (step.type === "onSet") {
+            step.onSet.bind(element)(value)
           }
         }
       }
 
-      element.props.setPropertyValue(target, value)
+      if (!target)
+        element.props.setPropertyValue(name, value)
     }
   }
 
   function get (element, name) {
     let steps = getters[name]
-    if (typeof steps === "boolean") return element.props.getPropertyValue(name)
+
+    if (typeof steps === "undefined"){
+      // Silently fail
+    } else if (typeof steps === "boolean") return element.props.getPropertyValue(name)
     else if (typeof steps === "string") return element.props.getPropertyValue(steps)
+    else if (typeof steps === "function") return steps.bind(element)()
     else {
       let value
       steps = Array.isArray(steps) ? steps : [steps]
@@ -185,6 +234,41 @@ export function constructInterface (interfaceDescription) {
     set,
     get,
     setters,
-    getters
+    getters,
+    description: interfaceDescription
   }
 }
+
+/**
+ * Attach getters and setters for ease of use. Probably will only have setters/getters for the more commonly used
+ * properties, to avoid clutter. Thinking about memory footprint, these functions are on a per-element-class basis, so
+ * it isn't too worrying in my opinion.
+ * @param prototype
+ * @param constructedInterface
+ */
+export function attachGettersAndSetters (prototype, constructedInterface) {
+  const {setters, getters} = constructedInterface
+
+  const properties = {}
+
+  function createPropertyDeclaration(name) {
+    return properties[name] ?? (properties[name] = {})
+  }
+
+  for (let setterName of Object.keys(setters)) {
+    createPropertyDeclaration(setterName).set = function (value) {
+      constructedInterface.set(this, setterName, value)
+    }
+  }
+
+  // Define only getters
+  for (let getterName of Object.keys(getters)) {
+    createPropertyDeclaration(getterName).get = function () {
+      return constructedInterface.get(this, getterName)
+    }
+  }
+
+  Object.defineProperties(prototype, properties)
+}
+
+export const NullInterface = constructInterface({})

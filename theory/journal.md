@@ -318,4 +318,21 @@ Progress continues! The properties and update system may be so far considered as
 11. Therefore, an element can interrupt the default inheriting of a property from above by setting the inheritance value in the current element to 0 or 2, which would indicate that the element is not to be inherited.
 12. 
 
-# May 8
+# May 14
+
+I'm slightly concerned about the perf impact of the actual set and get functions, and the memory footprint of the props system in general. I'm not sure exactly how object shape optimization will help. Certain properties which are always associated with each other (say, marginLeft ... marginTop) could be bundled into a single "margins" object and then destructured or restructured as necessary, but then you can't specify a specific left margin while letting the program specify the rest. Eh, premature optimization. I'm sure there are ways around it, including the primitives concept. Again, most of the time will be spent in updating and in rendering, so keeping track of changes like a hawk allows serious gains there. Jesus/V8 take the wheel!
+
+Interface design. The only kind of UI I'll ever want to work on. Okay, so, the user has setters and getters of various names, each of which may or may not map on directly to an internal property. Hm. Deleting a property is essentially setting a property to undefined. Eventually there will be a bit more functionality but this makes sense for now. When we are given set (name, value), what should we do?
+
+Some important functionalities on setters:
+- type checking
+- validity checking
+- storage (with potentially a different name)
+- destructuring
+- type conversion
+
+Some important functionalities on getters:
+- restructuring
+- retrieval (with potentially a different name)
+
+I'm not sure how sophisticated this should be. I'll keep the interfaces relatively simple for now.

@@ -9,10 +9,25 @@
 <script src="test_setup.js"></script>
 
 <noscript id="setup">
+
     const renderer = new Grapheme.GraphemeWebGLRenderer()
+    const elem = new Grapheme.TextElement()
 
     const scene = new Grapheme.InteractiveScene({ id: "main" })
+    scene.add(elem)
+    document.body.appendChild(scene.domElement)
+    scene.setSize(1000, 1000)
+
     const figure = new Grapheme.Figure({ id: "figure" })
+    scene.add(figure)
+
+    // renderer.renderDOMScene(scene)
+    function render () {
+      renderer.renderDOMScene(scene)
+    }
+
+
+    /*
 
     scene.add(figure)
     scene.setSize(1000, 1000)
@@ -34,12 +49,11 @@
     console.log(baubles.updateStage)
 
     scene.set({ interactivity: true })
-    const elem = new Grapheme.TextElement()
-    scene.add(elem)
 
-    render()
+    //render()
 
-    let cow = Grapheme.constructInterface(Grapheme.SampleInterface)
+    let cow = Grapheme.constructInterface(Grapheme.SampleInterface)*/
+
 
 </noscript>
 
