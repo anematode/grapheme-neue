@@ -8,7 +8,7 @@ export class PlotBoxOutline extends Element {
   }
 
   _update () {
-    const plottingBox = this.parent.props.getPropertyValue("plotTransform").pixelCoordinatesBox()
+    const plottingBox = this.parent.props.get("plotTransform").pixelCoordinatesBox()
 
     this.internal.instructions = plottingBox ? {
       type: "polyline", vertices: generateRectangleCycle(plottingBox),

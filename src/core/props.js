@@ -5,10 +5,10 @@ import {deepEquals, getVersionID} from "./utils"
 
 const proxyHandlers = {
   get: (target, propName) => {
-    return target.getPropertyValue(propName)
+    return target.get(propName)
   },
   set: (target, propName, value) => {
-    target.setPropertyValue(propName, value)
+    target.set(propName, value)
   }
 }
 
@@ -276,7 +276,7 @@ export class Props {
       const otherPropsStore = props.getPropertyStore(propName)
 
       // if no such inheritable property, delete the local property
-      if (!otherPropsStore || otherPropsStore.inherit < 1) this.setPropertyValue(propName, undefined)
+      if (!otherPropsStore || otherPropsStore.inherit < 1) this.set(propName, undefined)
 
       // Value has been changed!
       if (otherPropsStore.version > propStore.version) {
@@ -301,7 +301,7 @@ export class Props {
           if (!ourPropStore) {
             ourPropStore = this.createPropertyStore(propName)
 
-            // Goes around setPropertyValue
+            // Goes around set
             ourPropStore.inherit = 1
             ourPropStore.value = propStore.value
 
@@ -330,7 +330,7 @@ export class Props {
    * inheritable property, that will be noted
    * @returns {any}
    */
-  setPropertyValue (propName, value, equalityCheck=0, markChanged=true) {
+  set (propName, value, equalityCheck=0, markChanged=true) {
     if (value === undefined) {
       // Special case of deletion. If the property exists, we set its value to undefined, and if that property is
       // defined to be inheritable, we set its inherit to 0, and this.hasChangedInheritableProperties to 2. Note that
@@ -391,10 +391,12 @@ export class Props {
     return value
   }
 
-  setPropertyValues (values, equalityCheck=0, markChanged=true) {
+  setProperties (values, equalityCheck=0, markChanged=true) {
     for (const [ propName, propValue ] of Object.entries(values)) {
-      this.setPropertyValue(propName, propValue, equalityCheck, markChanged)
+      this.set(propName, propValue, equalityCheck, markChanged)
     }
+
+    return this
   }
 
   markHasChangedProperties () {
@@ -407,14 +409,6 @@ export class Props {
 
   markHasChangedInheritanceSignature() {
     this.hasChangedInheritableProperties = 2
-  }
-
-  setMultipleProperties (dictionary={}) {
-    for (const [propName, propValue] of Object.entries(dictionary)) {
-      this.setPropertyValue(propName, propValue)
-    }
-
-    return this
   }
 
   configureProperty (propName, opts={}) {
@@ -462,7 +456,7 @@ export class Props {
    * @param propName {string}
    * @returns {*}
    */
-  getPropertyValue (propName) {
+  get (propName) {
     return this.getPropertyStore(propName)?.value
   }
 
@@ -471,8 +465,8 @@ export class Props {
    * @param propNameList {string[]}
    * @returns {*}
    */
-  getPropertyValues (propNameList) {
-    return propNameList.map(propName => this.getPropertyValue(propName))
+  getProperties (propNameList) {
+    return propNameList.map(propName => this.get(propName))
   }
 
   /**

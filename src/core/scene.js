@@ -42,7 +42,7 @@ export class Scene extends Group {
   init (params) {
     this.scene = this
 
-    this.props.setPropertyValues({ width: 640, height: 480, dpr: 1 })
+    this.props.setProperties({ width: 640, height: 480, dpr: 1 })
   }
 
   /**
@@ -55,7 +55,7 @@ export class Scene extends Group {
     const sceneDimensions = new SceneDimensions(width, height, dpr)
 
     // Equality check of 2 for deep comparison, in case width, height, dpr have not actually changed
-    props.setPropertyValue("sceneDimensions", sceneDimensions, 2)
+    props.set("sceneDimensions", sceneDimensions, 2)
     props.setPropertyInheritance("sceneDimensions", true)
   }
 

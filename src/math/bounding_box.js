@@ -77,6 +77,14 @@ export class BoundingBox {
     return new BoundingBox(x + left, y + top, w - (left + right), h - (top + bottom))
   }
 
+  translate (v) {
+    return new BoundingBox(this.x + v.x, this.y + v.y, this.w, this.h)
+  }
+
+  scale (s) {
+    return new BoundingBox (this.x * s, this.y * s, this.w * s, this.h * s)
+  }
+
   getX2 () {
     return this.x + this.w
   }

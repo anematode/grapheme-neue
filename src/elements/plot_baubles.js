@@ -24,7 +24,7 @@ export class PlotBaubles extends Group {
   }
 
   init (params) {
-    this.props.setMultipleProperties({
+    this.props.setProperties({
       gridlines: true,
       gridlinesAllocator: GridlineAllocators.Standard,
       plotBoxOutline: true
@@ -54,17 +54,17 @@ export class PlotBaubles extends Group {
     // gridlines -- splitting into direction, then type, then position. The convention is that an "x" gridline is
     // parallel to the x axis
 
-    props.setPropertyValue("ticks", ticks)
+    props.set("ticks", ticks)
 
     // Generate the gridlines
     const gridlinesElement = this.createGridlinesElement()
-    gridlinesElement.props.setPropertyValues({ ticks, plotTransform })
+    gridlinesElement.props.setProperties({ ticks, plotTransform })
 
     let start = new Vec2(px1, py1), end = new Vec2(px2, py1), startGraphX = gx1, endGraphX = gx2
 
     // Generate the text. Simple for now, so that we can get to making writing elements less excruciating
     const axis = this.createAxisElement()
-    axis.props.setPropertyValues({ start, end, startGraphX, endGraphX, ticks: ticks.x.major})
+    axis.props.setProperties({ start, end, startGraphX, endGraphX, ticks: ticks.x.major})
 
     window.axis = axis
   }

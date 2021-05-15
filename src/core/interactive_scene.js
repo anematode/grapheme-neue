@@ -34,17 +34,24 @@ export class InteractiveScene extends Scene {
     const { internal } = this
     let listeners = internal.listeners = {}
 
-    ;[ "mousedown", "mousemove", "mouseup", "wheel" ].forEach(event => {
-      let listener = listeners[event] = (evt) => {
-        let rect = this.domElement.getBoundingClientRect()
+    const getSceneCoords = (evt) => {
+      let rect = this.domElement.getBoundingClientRect()
+      return {x: evt.pageX - rect.x, y: evt.pageY - rect.y}
+    }
 
-        let x = evt.pageX - rect.x
-        let y = evt.pageY - rect.y
-
-        this.triggerEvent(event, { x, y })
+    ;[ "mousedown", "mousemove", "mouseup", "wheel" ].forEach(eventName => {
+      let listener
+      if (eventName === "wheel") {
+        listener = (evt) => {
+          this.triggerEvent(eventName, { ... getSceneCoords(evt), deltaY: evt.deltaY })
+        }
+      } else {
+        listener = (evt) => {
+          this.triggerEvent(eventName, getSceneCoords(evt))
+        }
       }
 
-      this.domElement.addEventListener(event, listener)
+      this.domElement.addEventListener(eventName, listeners[eventName] = listener)
     })
   }
 

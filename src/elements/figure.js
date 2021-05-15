@@ -19,7 +19,7 @@ export class Figure extends Group {
     super(params)
 
     // TODO make more elegant
-    this.props.setMultipleProperties({
+    this.props.setProperties({
       figureBoundingBox: new BoundingBox(0, 0, 100, 100),
       plottingBox: new BoundingBox(0, 0, 640, 480),
       plotTransform: new LinearPlot2DTransform(0, 0, 640, 480, -1, -1, 4, 2)
@@ -28,45 +28,74 @@ export class Figure extends Group {
     })
 
     this.set({ margin: 0 })
-    this.enableInteractivity()
+    this._enableInteractivity()
   }
 
   getInterface () {
     return figureInterface
   }
 
-  enableInteractivity () {
-    const { internal, props } = this
+  _enableInteractivity () {
+    // Example of how internals will generally work. We don't use local variables, preferring to manipulate internal
+    // directly, so that the state is accessible from outside
+    const { internal: int, props } = this
 
-    const listeners = internal.interactivityListeners = {}
-    let mouseDownAt, graphMouseDownAt, isMouseDown
+    const listeners = int.interactivityListeners = {}
 
+    // Mouse dragging handlers
     this.addEventListener("mousedown", listeners.mousedown = ({ x, y }) => {
-      mouseDownAt = new Vec2(x, y)
-      graphMouseDownAt = props.getPropertyValue("plotTransform").pixelToGraph(mouseDownAt)
-      isMouseDown = true
+      int.mouseDownAt = new Vec2(x, y)
+      int.graphMouseDownAt = props.get("plotTransform").pixelToGraph(int.mouseDownAt) // try to keep this constant
+
+      int.isDragging = true
     })
 
-    this.addEventListener("mouseup", listeners.mousedown = ({ x, y }) => {
-      isMouseDown = false
+    this.addEventListener("mouseup", listeners.mousedown = () => {
+      int.isDragging = false
     })
 
     this.addEventListener("mousemove", listeners.mousemove = ({ x, y }) => {
-      if (!isMouseDown) return
-
-      let transform = props.getPropertyValue("plotTransform")
+      if (!int.isDragging) return
+      let transform = props.get("plotTransform")
 
       // Get where the mouse is currently at and move (graphMouseDownAt) to (mouseDownAt)
       let graphMouseMoveAt = transform.pixelToGraph({ x, y })
-
-      let translationNeeded = graphMouseDownAt.sub(graphMouseMoveAt)
+      let translationNeeded = int.graphMouseDownAt.sub(graphMouseMoveAt)
 
       transform.gx1 += translationNeeded.x
       transform.gy1 += translationNeeded.y
 
+      // Directly modified the transform object, so we have to mark it as changed. Could also clone and set it
       props.markChanged("plotTransform")
     })
 
+    // Scroll handler
+    this.addEventListener("wheel", listeners.wheel = ({ x, y, deltaY }) => {
+      let transform = props.get("plotTransform")
+      let graphScrollAt = transform.pixelToGraph({ x, y })
+      let scaleFactor = 1 + deltaY / 300
+
+      let graphBox = transform.graphCoordinatesBox()
+
+      // We need to scale graphBox at graphScrollAt with a scale factor. We translate it by -graphScrollAt, scale it by
+      // sF, then translate it by graphScrollAt
+      graphBox = graphBox.translate(graphScrollAt.mul(-1)).scale(scaleFactor).translate(graphScrollAt)
+
+
+      transform.resizeToGraphBox(graphBox)
+      props.markChanged("plotTransform")
+    })
+  }
+
+  _disableInteractivity () {
+    const {internal} = this
+
+    const listeners = internal.interactivityListeners
+    for (const [listenerName, listener] of Object.entries(listeners)) {
+      this.removeEventListener(listenerName, listener)
+    }
+
+    this.internal.interactivityListeners = null
   }
 
   /**
@@ -75,15 +104,15 @@ export class Figure extends Group {
   updateBoxes () {
     const { props } = this
 
-    const boundingBox = props.setPropertyValue("figureBoundingBox",
-      props.getPropertyValue("sceneDimensions").getBoundingBox(), 2)
+    const boundingBox = props.set("figureBoundingBox",
+      props.get("sceneDimensions").getBoundingBox(), 2)
 
     if (props.havePropertiesChanged(["marginLeft", "marginRight", "marginTop", "marginBottom", "figureBoundingBox"])) {
       const margins = this.get("margins")
 
       let plottingBox = boundingBox.squishAsymmetrically(margins.left, margins.right, margins.bottom, margins.top) ?? boundingBox.clone()
 
-      props.setPropertyValue("plottingBox", plottingBox, 2)
+      props.set("plottingBox", plottingBox, 2)
     }
   }
 
@@ -96,7 +125,7 @@ export class Figure extends Group {
     const { plotTransform, plottingBox } = props.proxy
     const newTransform = plotTransform.clone().resizeToPixelBox(plottingBox)
 
-    props.setPropertyValue("plotTransform", newTransform, 2)
+    props.set("plotTransform", newTransform, 2)
   }
 
   _update () {

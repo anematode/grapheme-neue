@@ -18,7 +18,7 @@ const gridlinesInterface = constructInterface({
 
 export class GridlinesElement extends Element {
   init (params) {
-    this.props.setMultipleProperties({
+    this.props.setProperties({
       gridlineStyles: {
         major: DefaultStyles.gridlinesMajor,
         minor: DefaultStyles.gridlinesMinor,

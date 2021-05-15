@@ -155,8 +155,8 @@ export function constructInterface (interfaceDescription) {
     let steps = setters[name]
     if (typeof steps === "undefined") {
       // Silently fail
-    } else if (typeof steps === "boolean") element.props.setPropertyValue(name, value)
-    else if (typeof steps === "string") element.props.setPropertyValue(steps, value)
+    } else if (typeof steps === "boolean") element.props.set(name, value)
+    else if (typeof steps === "string") element.props.set(steps, value)
     else if (typeof steps === "function") steps.bind(element)(value)
     else {
       let target
@@ -165,7 +165,7 @@ export function constructInterface (interfaceDescription) {
       for (const step of steps) {
         if (typeof step === "string") {
           target = step
-          element.props.setPropertyValue(target, value)
+          element.props.set(target, value)
         } else {
           if (step.type === "destructuring") {
             let destructuring = step.destructuring
@@ -191,7 +191,7 @@ export function constructInterface (interfaceDescription) {
       }
 
       if (!target)
-        element.props.setPropertyValue(name, value)
+        element.props.set(name, value)
     }
   }
 
@@ -200,8 +200,8 @@ export function constructInterface (interfaceDescription) {
 
     if (typeof steps === "undefined"){
       // Silently fail
-    } else if (typeof steps === "boolean") return element.props.getPropertyValue(name)
-    else if (typeof steps === "string") return element.props.getPropertyValue(steps)
+    } else if (typeof steps === "boolean") return element.props.get(name)
+    else if (typeof steps === "string") return element.props.get(steps)
     else if (typeof steps === "function") return steps.bind(element)()
     else {
       let value
@@ -209,7 +209,7 @@ export function constructInterface (interfaceDescription) {
 
       for (const step of steps) {
         if (typeof step === "string") {
-          value = element.props.getPropertyValue(step)
+          value = element.props.get(step)
         } else {
           if (step.type === "restructuring") {
             let restructuring = step.restructuring
