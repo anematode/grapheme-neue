@@ -64,7 +64,11 @@ export class Element extends Eventful {
       version: getVersionID()
     }
 
-    // Any remaining parameters will be set here
+    // Call the element-defined constructor
+    this.init(params)
+
+    // Call set on remaining parameters. Corollary: constructor-only parameters should not also be parameters (no "id",
+    // for example)
     this.set(params)
   }
 
@@ -91,6 +95,10 @@ export class Element extends Eventful {
 
   isScene () {
     return false
+  }
+
+  init (params) {
+
   }
 
   set (propName, value) {

@@ -1,32 +1,29 @@
-
-
-
-import {Element} from "../core/element"
-import {DefaultStyles} from "../styles/default"
 import {GridlineAllocators} from "../algorithm/tick_allocator"
 import {GridlinesElement} from "./gridlines"
 import {Group} from "../core/group"
 import {PlotBoxOutline} from "./plot_box_outline"
 import {AxisElement} from "./axis"
 import {Vec2} from "../math/vec/vec2"
+import {constructInterface} from "../core/interface"
 
 // Somewhat temporary class for the combination of axes, axis labels, and gridlines, in all their various modes. This
 // will be a good test of the "child definition" side of Grapheme that I've been dreading. A lot of properties, several
 // children, pain. I'm not sure exactly how this will work... Which is why it's a good test!
 
-// For now, we'll have:
-
-// gridlineAllocator: calculates where gridlines and ticks of various types should actually go.
-//
-//
-// inherits: plottingBox (is what's relevant)
-
-// It has a child: GridlinesElement
+const baublesInterface = constructInterface({
+  gridlines: true,
+  gridlinesAllocator: true,
+  plotBoxOutline: true
+})
 
 export class PlotBaubles extends Group {
   constructor (params) {
     super(params)
 
+
+  }
+
+  init (params) {
     this.props.setMultipleProperties({
       gridlines: true,
       gridlinesAllocator: GridlineAllocators.Standard,

@@ -39,10 +39,7 @@ class SceneDimensions {
  * element knows its scene directly as its .scene property.
  */
 export class Scene extends Group {
-  constructor (params={}) {
-    super(params)
-
-    // Scene is its own scene
+  init (params) {
     this.scene = this
 
     this.props.setPropertyValues({ width: 640, height: 480, dpr: 1 })

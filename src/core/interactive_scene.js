@@ -15,8 +15,9 @@ const interactiveSceneInterface = constructInterface({
  * A scene endowed with an actual DOM element.
  */
 export class InteractiveScene extends Scene {
-  constructor (params={}) {
-    super(params)
+
+  init (params) {
+    super.init(params)
 
     this.domElement = document.createElement("canvas")
     this.bitmapRenderer = this.domElement.getContext("bitmaprenderer")

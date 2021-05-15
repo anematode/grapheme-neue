@@ -440,6 +440,8 @@ export class GraphemeWebGLRenderer {
     const { vertexPosition } = programInfo.attribs
     const { xyScale, color: colorUniform } = programInfo.uniforms
 
+    const { gl } = this
+
     gl.bindBuffer(gl.ARRAY_BUFFER, canvasVerticesBuffer)
 
     gl.vertexAttribPointer(vertexPosition, 2, gl.FLOAT, false, 0, 0)

@@ -3,6 +3,7 @@
  * actual elements in the graph. Some parts of this should be highly optimized, but it needn't be complicated.
  */
 import {BoundingBox} from "./bounding_box"
+import { Vec2 } from "./vec/vec2"
 
 export class LinearPlot2DTransform {
   /**

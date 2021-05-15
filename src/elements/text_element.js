@@ -17,10 +17,7 @@ const textElementInterface = constructInterface({
  * later. We'll also see how inheriting styles from the parent might work
  */
 export class TextElement extends Element {
-  constructor (params={}) {
-    super(params)
-
-    // Defaults, may change how this works later
+  init (params) {
     this.set({
       font: "Cambria",
       fontSize: 50,

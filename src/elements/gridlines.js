@@ -2,6 +2,7 @@ import {Element} from "../core/element"
 import {Pen} from "../other/pen"
 import {DefaultStyles} from "../styles/default"
 import {calculatePolylineVertices} from "../algorithm/polyline_triangulation"
+import {constructInterface} from "../core/interface"
 
 // A relatively primitive element that simply takes in a list of gridline types and gridline styles for each type, then
 // gridline positions.
@@ -11,10 +12,12 @@ import {calculatePolylineVertices} from "../algorithm/polyline_triangulation"
 // gridlinePositions: { major: {x: [0, 100, 200, 300, 400], y: [0, 100, 200, 300, 400]}, minor: {x: [0, 10, 20, 30, 40, 50], y: [0, 10, 20, 30, 40, 50] }
 // plottingBox: (inherited)
 
-export class GridlinesElement extends Element {
-  constructor (params) {
-    super(params)
+const gridlinesInterface = constructInterface({
+  ticks: true
+})
 
+export class GridlinesElement extends Element {
+  init (params) {
     this.props.setMultipleProperties({
       gridlineStyles: {
         major: DefaultStyles.gridlinesMajor,
@@ -23,6 +26,10 @@ export class GridlinesElement extends Element {
       },
       ticks: {}
     })
+  }
+
+  getInterface () {
+    return gridlinesInterface
   }
 
   computeProps () {

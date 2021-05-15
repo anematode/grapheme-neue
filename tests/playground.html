@@ -13,7 +13,7 @@
     const renderer = new Grapheme.GraphemeWebGLRenderer()
     const elem = new Grapheme.TextElement()
 
-    const scene = new Grapheme.InteractiveScene({ id: "main" })
+    const scene = new Grapheme.InteractiveScene({ id: "main", interactivity: true })
     scene.add(elem)
     document.body.appendChild(scene.domElement)
     scene.setSize(1000, 1000)
@@ -21,38 +21,16 @@
     const figure = new Grapheme.Figure({ id: "figure" })
     scene.add(figure)
 
-    // renderer.renderDOMScene(scene)
-    function render () {
-      renderer.renderDOMScene(scene)
-    }
+    const baubles = new Grapheme.PlotBaubles({ id: "baubles" })
 
+    figure.add(baubles)
 
-    /*
-
-    scene.add(figure)
-    scene.setSize(1000, 1000)
+    render()
 
     function render () {
         renderer.renderDOMScene(scene)
         requestAnimationFrame(render)
     }
-
-    figure.set("margin", 50)
-
-    document.body.appendChild(scene.domElement)
-    const gl = renderer.gl
-
-    const baubles = new Grapheme.PlotBaubles({ id: "baubles" })
-
-    figure.add(baubles)
-
-    console.log(baubles.updateStage)
-
-    scene.set({ interactivity: true })
-
-    //render()
-
-    let cow = Grapheme.constructInterface(Grapheme.SampleInterface)*/
 
 
 </noscript>
