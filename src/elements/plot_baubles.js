@@ -17,12 +17,6 @@ const baublesInterface = constructInterface({
 })
 
 export class PlotBaubles extends Group {
-  constructor (params) {
-    super(params)
-
-
-  }
-
   init (params) {
     this.props.setProperties({
       gridlines: true,
@@ -99,13 +93,9 @@ export class PlotBaubles extends Group {
     return internal.plotBoxOutline
   }
 
-  _updateGridlines () {
-
-  }
-
   _update () {
     this.computeProps()
-    this._updateGridlines()
+
     this.createPlotBoxOutlineElement()
   }
 }

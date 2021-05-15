@@ -534,6 +534,8 @@ export function generateCircleTriangleStrip (radius, x=0, y=0, samples=8) {
     }
   }
 
+  points.push(NaN, NaN)
+
   return new Float32Array(points)
 }
 

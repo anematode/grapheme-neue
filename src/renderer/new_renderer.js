@@ -396,7 +396,7 @@ export class GraphemeWebGLRenderer {
     const atlasTexture = this.getTextAtlasTexture()
 
     gl.enable(gl.BLEND)
-    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
     // Bind atlas texture to texture 0
     gl.activeTexture(gl.TEXTURE0)
@@ -565,6 +565,7 @@ export class GraphemeWebGLRenderer {
             const textLocation = textRenderer.getTextLocation(instruction)
             const textureAtlasLocation = textLocation.rect
             const textRect = { x: instruction.x, y: instruction.y, w: textureAtlasLocation.w, h: textureAtlasLocation.h}
+
 
             let { align, baseline } = instruction
 

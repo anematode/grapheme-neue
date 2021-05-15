@@ -118,4 +118,18 @@ export class LinearPlot2DTransform {
   graphToPixel (vec) {
     return new Vec2(this.graphToPixelX(vec.x), this.graphToPixelY(vec.y))
   }
+
+  /**
+   * Return {xm, ym, xb, yb} where xm * x + xb is the transformation from graph x to pixel x, etc.
+   */
+  getReducedGraphToPixelTransform () {
+    const { px1, py1, pw, ph, gx1, gy1, gw, gh } = this
+
+    return {
+      xm: pw / gw,
+      ym: -ph / gh,
+      xb: -gx1 / gw * pw + px1,
+      yb: (1 + gy1 / gh) * ph + py1
+    }
+  }
 }

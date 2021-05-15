@@ -14,7 +14,6 @@
     const elem = new Grapheme.TextElement()
 
     const scene = new Grapheme.InteractiveScene({ id: "main", interactivity: true })
-    scene.add(elem)
     document.body.appendChild(scene.domElement)
     scene.setSize(1000, 1000)
 
@@ -24,6 +23,11 @@
     const baubles = new Grapheme.PlotBaubles({ id: "baubles" })
 
     figure.add(baubles)
+
+    scene.add(elem)
+
+    const pointCloud = new Grapheme.PointCloudElement({ id: "pointcloud", data: [ 4, 5, 1, 2 ]})
+    figure.add(pointCloud)
 
     render()
 

@@ -81,7 +81,6 @@ export class Figure extends Group {
       // sF, then translate it by graphScrollAt
       graphBox = graphBox.translate(graphScrollAt.mul(-1)).scale(scaleFactor).translate(graphScrollAt)
 
-
       transform.resizeToGraphBox(graphBox)
       props.markChanged("plotTransform")
     })
