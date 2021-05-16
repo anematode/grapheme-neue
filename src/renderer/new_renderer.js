@@ -71,7 +71,7 @@
 
 import {getVersionID} from "../core/utils"
 import {TextRenderer} from "./text_renderer"
-import {generateRectangleTriangleStrip} from "../algorithm/misc_geometry"
+import {combineTriangleStrips, generateRectangleTriangleStrip} from "../algorithm/misc_geometry"
 import {BoundingBox} from "../math/bounding_box"
 import {calculatePolylineVertices} from "../algorithm/polyline_triangulation"
 import {Pen} from "../other/pen"
@@ -156,6 +156,11 @@ void main() {
 }`,
   ["vertexPosition", "texCoords"], ["textureSize", "xyScale", "textAtlas", "color"]
 ]
+
+// Given a map of zIndex -> list of instructions, generate a list of equivalent instructions
+function compactInstructions (instructionMap) {
+
+}
 
 /**
  * Currently accepted draw calls:
@@ -497,7 +502,8 @@ export class GraphemeWebGLRenderer {
     const { textRenderer } = this
     textRenderer.clearText()
 
-    // Map between z indices and lists of instructions. A program generally won't have many z indices so this is fine
+    // Map between z indices and lists of instructions. A program generally won't have many z indices so this is
+    // probably somewhat more efficient than sorting a list
     const instructionsMap = new Map()
 
     function processInstruction (instruction) {
@@ -547,7 +553,8 @@ export class GraphemeWebGLRenderer {
 
         let coordBufferSize = 12 * (spanEnd - spanStart) - 4
         let textureCoords = new Float32Array(coordBufferSize), canvasCoords = new Float32Array(coordBufferSize)
-        let bufferIndex = 0
+        let packTextureCoord = combineTriangleStrips(textureCoords)
+        let packCanvasCoord = combineTriangleStrips(canvasCoords)
 
         for (let i = spanStart; i < spanEnd; ++i) {
           let instruction = instructions[i]
@@ -561,10 +568,28 @@ export class GraphemeWebGLRenderer {
 
           textRect.x = Math.round(textRect.x)
           textRect.y = Math.round(textRect.y)
+
+          packTextureCoord(generateRectangleTriangleStrip(textLocation))
+          packCanvasCoord(generateRectangleTriangleStrip(textRect))
         }
 
+        return { type: "text", textureCoords, canvasCoords }
       } else if (spanType === "triangle_strip") {
+        let totalLength = 0
+        for (let i = spanStart; i < spanEnd; ++i) {
+          let instruction = instructions[i]
 
+          totalLength += instruction.vertices.length
+        }
+
+        let verticesCoords = new Float32Array(totalLength + 4 * (spanEnd - spanStart) - 4) // ignore colors for now
+        let packVerticesCoord = combineTriangleStrips(verticesCoords)
+
+        for (let i = spanStart; i < spanEnd; ++i) {
+          packVerticesCoord(instructions[i].vertices)
+        }
+
+        return { type: "triangle_strip", vertices: verticesCoords }
       }
     }
 
@@ -583,55 +608,21 @@ export class GraphemeWebGLRenderer {
 
         if (instruction?.type !== spanType) {
           // [spanStart, spanEnd) is a span of instructions of the same type
-          compactSpan(instructions, spanType, spanStart, spanEnd)
+          compactedInstructions.push(compactSpan(instructions, spanType, spanStart, spanEnd))
 
           spanStart = spanEnd
         }
       }
     }
 
+    console.log(compactedInstructions)
 
-    if (instructionsMap.length === 0) return
-    return
-
-    // The first step is to sort the instructions by their z-index, at which point we create a list of drawing units
-    // for each z-index value.
-    instructionsMap.sort((a, b) => a.zIndex - b.zIndex)
-
-    // The next step is to then group each set of consecutive equal zIndex values into their own drawing unit.
-    const drawingUnits = []
-    let drawingUnitZIndex = -1
-    let drawingUnit
-
-    for (let i = 0; i < instructionsMap.length; ++i) {
-      let instruction = instructionsMap[i]
-      let instructionZIndex = instruction.zIndex ?? (instruction.type === "text" ? Infinity : 0)
-
-      if (instructionZIndex === drawingUnitZIndex) {
-        drawingUnit.instructions.push(instruction)
-      } else {
-        drawingUnitZIndex = instructionZIndex
-        drawingUnit = {
-          zIndex: drawingUnitZIndex,
-          instructions: [ instruction ]
-        }
-
-        drawingUnits.push(drawingUnit)
-      }
-    }
-
-    console.log(drawingUnits)
-
-    const hasText = this.generateTextAtlas(drawingUnits)
 
     const { gl } = this
 
     // Load the text atlas into a texture
-    if (hasText) {
-      gl.bindTexture(gl.TEXTURE_2D, this.getTextAtlasTexture())
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textRenderer.canvas)
-
-    }
+    gl.bindTexture(gl.TEXTURE_2D, this.getTextAtlasTexture())
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textRenderer.canvas)
 
     const textCanvasVerticesBuffer = this.createBuffer("TextBuffer")
     const textTextureCoordsBuffer = this.createBuffer("TextTextureCoordsBuffer")
@@ -639,31 +630,13 @@ export class GraphemeWebGLRenderer {
 
     // Having constructed a list of drawing units in order of zIndex, we now render each instruction. Soon we will
     // optimize this, but for now we just use three buffers.
-    for (const drawingUnit of drawingUnits) {
-      const { instructions } = drawingUnit
-
-      for (const instruction of instructions) {
+    for (const instruction of compactedInstructions) {
         switch (instruction.type) {
           case "text":
-            const textLocation = textRenderer.getTextLocation(instruction)
-            const textureAtlasLocation = textLocation.rect
-            const textRect = { x: instruction.x, y: instruction.y, w: textureAtlasLocation.w, h: textureAtlasLocation.h}
-
-
-            let { align, baseline } = instruction
-
-            textRect.x -= textRect.w * (align === "center" ? 0.5 : (align === "right" ? 1 : 0))
-            textRect.y -= textRect.h * (baseline === "center" ? 0.5 : (baseline === "bottom" ? 1 : 0))
-
-            // Text should always be snapped to integer pixels
-            textRect.x = Math.round(textRect.x)
-            textRect.y = Math.round(textRect.y)
-
-            const canvasVertices = generateRectangleTriangleStrip(textRect)
-            const textureCoords = generateRectangleTriangleStrip(textureAtlasLocation)
+            const { textureCoords, canvasCoords } = instruction
 
             gl.bindBuffer(gl.ARRAY_BUFFER, textCanvasVerticesBuffer)
-            gl.bufferData(gl.ARRAY_BUFFER, canvasVertices, gl.DYNAMIC_DRAW)
+            gl.bufferData(gl.ARRAY_BUFFER, canvasCoords, gl.DYNAMIC_DRAW)
 
             gl.bindBuffer(gl.ARRAY_BUFFER, textTextureCoordsBuffer)
             gl.bufferData(gl.ARRAY_BUFFER, textureCoords, gl.DYNAMIC_DRAW)
@@ -679,23 +652,11 @@ export class GraphemeWebGLRenderer {
           case "debug":
             this.debug(instruction)
             break
-          case "polyline":
-            const pen = instruction.pen ?? new Pen()
-
-            const polylineVertices = calculatePolylineVertices(instruction.vertices, Pen.fromObj(pen), null)
-
-            gl.bindBuffer(gl.ARRAY_BUFFER, monochromaticGeometryCoordsBuffer)
-            gl.bufferData(gl.ARRAY_BUFFER, polylineVertices.glVertices, gl.DYNAMIC_DRAW)
-
-            this.renderMonochromaticGeometry(monochromaticGeometryCoordsBuffer, polylineVertices.vertexCount, pen.color)
-
-            break
           case "default":
             break
         }
       }
     }
-  }
 
   renderDOMScene (scene) {
     this.renderScene(scene)

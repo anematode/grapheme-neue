@@ -555,17 +555,25 @@ export function generateRectangleCycle (rect) {
   return new Float32Array(points)
 }
 
+// Given a Float32Array of appropriate size, repeatedly add given triangle strips
 export function combineTriangleStrips (buff) {
   let index = 0
-  let previousX = 0, previousY = 0
 
   return (arr) => {
+    if (arr.length === 0) return
+
     // Repeat previous vertex
     if (index > 0) {
-      buff[index]
+      buff[index] = buff[index-2]
+      buff[index+1] = buff[index-1]
+      buff[index+2] = arr[0]
+      buff[index+3] = arr[1]
+
+      index += 4
     }
 
     buff.set(arr, index)
+    index += arr.length
   }
 }
 
