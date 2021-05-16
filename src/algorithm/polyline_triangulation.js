@@ -288,8 +288,5 @@ export function convertTriangleStrip(vertices, pen) {
     glVertices.push(x2 + th * v2y, y2 - th * v2x, x2 - th * v2y, y2 + th * v2x)
   }
 
-  return {
-    glVertices: new Float32Array(glVertices),
-    vertexCount: glVertices.length / 2
-  }
+  return new Float32Array(glVertices)
 }

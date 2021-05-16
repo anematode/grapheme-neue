@@ -1,5 +1,7 @@
 import { Color } from './color'
 
+let DefaultPen
+
 class Pen {
   constructor (params = {}) {
     const {
@@ -52,7 +54,11 @@ class Pen {
 
     return new Pen(strOrObj)
   }
+
+  static DefaultPen = DefaultPen
 }
+
+DefaultPen = Object.freeze(new Pen())
 
 // Fun Asymptote Vector Graphics–like thing :) We break up str into tokens which each have some meaning TODO
 function _interpretStringAsPen (str) {

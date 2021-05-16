@@ -481,7 +481,8 @@ export class GraphemeWebGLRenderer {
   }
 
   /**
-   * Somewhat tentative method to render a scene. Obviously skips a lotttt of steps.
+   * Statically render a scene (for now). Doesn't try to do any caching, etc., because that makes things more complicated.
+   * Instead this will help us understand the underlying difficulties
    * @param scene
    */
   renderScene (scene) {
@@ -490,41 +491,121 @@ export class GraphemeWebGLRenderer {
 
     this.clearAndResizeCanvas(scene.width, scene.height)
 
-    const sceneCache = this.createSceneCache(scene.id)
-    const lastVersion = +sceneCache.version
+    // We first build an understanding of the scene from the renderer's point of view. The instructions should not be
+    // mutated but some will have to be copied and modified; text, for example, has a default zIndex of Infinity.
 
-    // Last instructions stores a
-    let lastInstructions = sceneCache.lastInstructions
-    if (!lastInstructions)
-      lastInstructions = sceneCache.lastInstructions = new Map()
+    const { textRenderer } = this
+    textRenderer.clearText()
 
-    const instructions = []
+    // Map between z indices and lists of instructions. A program generally won't have many z indices so this is fine
+    const instructionsMap = new Map()
+
+    function processInstruction (instruction) {
+      let zIndex = instruction.zIndex
+      let isText = instruction.type === "text"
+
+      if (zIndex === undefined) {
+        zIndex = isText ? Infinity : 0
+      }
+
+      if (isText) textRenderer.draw(instruction)
+
+      // Preprocessing, converting to triangle strip
+      if (instruction.type === "polyline") {
+        let pen = instruction.pen ? Pen.fromObj(instruction.pen) : Pen.DefaultPen
+
+        const vertices = calculatePolylineVertices(instruction.vertices, pen, new BoundingBox(0, 0, scene.width, scene.height))
+        instruction = { type: "triangle_strip", vertices, color: pen.color }
+      }
+
+      if (!instructionsMap.has(zIndex)) instructionsMap.set(zIndex, [ instruction ])
+      else instructionsMap.get(zIndex).push(instruction)
+    }
 
     scene.apply(element => {
       const elemInstructions = element.getRenderingInstructions()
 
       if (elemInstructions) {
-        if (Array.isArray(elemInstructions))
-          instructions.push(...elemInstructions)
-        else
-          instructions.push(elemInstructions)
+        if (Array.isArray(elemInstructions)) {
+          elemInstructions.forEach(processInstruction)
+        } else {
+          processInstruction(elemInstructions)
+        }
       }
     })
 
-    if (instructions.length === 0) return
+    textRenderer.runQueue()
+
+    const compactedInstructions = []
+
+    // Algorithm for combining triangle strips: <first strip> <last vertex> <first vertex of second> <second strip>
+    // Length of combining n triangle strips with total length L: L + 4n - 4
+    function compactSpan (instructions, spanType, spanStart, spanEnd) {
+      // Try to make this fast and memory efficient
+      if (spanType === "text") {
+        // Gather information about the span
+
+        let coordBufferSize = 12 * (spanEnd - spanStart) - 4
+        let textureCoords = new Float32Array(coordBufferSize), canvasCoords = new Float32Array(coordBufferSize)
+        let bufferIndex = 0
+
+        for (let i = spanStart; i < spanEnd; ++i) {
+          let instruction = instructions[i]
+
+          const textLocation = textRenderer.getTextLocation(instruction).rect
+          const textRect = { x: instruction.x, y: instruction.y, w: textLocation.w, h: textLocation.h}
+
+          let { align, baseline } = instruction
+          textRect.x -= textRect.w * (align === "center" ? 0.5 : (align === "right" ? 1 : 0))
+          textRect.y -= textRect.h * (baseline === "center" ? 0.5 : (baseline === "bottom" ? 1 : 0))
+
+          textRect.x = Math.round(textRect.x)
+          textRect.y = Math.round(textRect.y)
+        }
+
+      } else if (spanType === "triangle_strip") {
+
+      }
+    }
+
+    for (const [ zIndex, instructions ] of instructionsMap.entries()) {
+      // We wish to turn the instructions into a series of compacted instructions. For now there are two main types of
+      // instructions: triangle strips and text. Thus we split the instructions into spans of triangle strips and spans
+      // of text so that each can be combined.
+
+      if (instructions.length === 0) continue
+
+      let spanStart = 0
+      let spanType = instructions[0].type
+
+      for (let spanEnd = 1; spanEnd <= instructions.length; ++spanEnd) {
+        let instruction = instructions[spanEnd]
+
+        if (instruction?.type !== spanType) {
+          // [spanStart, spanEnd) is a span of instructions of the same type
+          compactSpan(instructions, spanType, spanStart, spanEnd)
+
+          spanStart = spanEnd
+        }
+      }
+    }
+
+
+    if (instructionsMap.length === 0) return
+    return
 
     // The first step is to sort the instructions by their z-index, at which point we create a list of drawing units
     // for each z-index value.
-    instructions.sort((a, b) => a.zIndex - b.zIndex)
+    instructionsMap.sort((a, b) => a.zIndex - b.zIndex)
 
     // The next step is to then group each set of consecutive equal zIndex values into their own drawing unit.
     const drawingUnits = []
     let drawingUnitZIndex = -1
     let drawingUnit
 
-    for (let i = 0; i < instructions.length; ++i) {
-      let instruction = instructions[i]
-      let instructionZIndex = instruction.zIndex ?? 0
+    for (let i = 0; i < instructionsMap.length; ++i) {
+      let instruction = instructionsMap[i]
+      let instructionZIndex = instruction.zIndex ?? (instruction.type === "text" ? Infinity : 0)
 
       if (instructionZIndex === drawingUnitZIndex) {
         drawingUnit.instructions.push(instruction)
@@ -539,9 +620,11 @@ export class GraphemeWebGLRenderer {
       }
     }
 
+    console.log(drawingUnits)
+
     const hasText = this.generateTextAtlas(drawingUnits)
 
-    const { gl, textRenderer } = this
+    const { gl } = this
 
     // Load the text atlas into a texture
     if (hasText) {
@@ -612,8 +695,6 @@ export class GraphemeWebGLRenderer {
         }
       }
     }
-
-    sceneCache.version = getVersionID()
   }
 
   renderDOMScene (scene) {

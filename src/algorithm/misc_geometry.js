@@ -555,4 +555,18 @@ export function generateRectangleCycle (rect) {
   return new Float32Array(points)
 }
 
+export function combineTriangleStrips (buff) {
+  let index = 0
+  let previousX = 0, previousY = 0
+
+  return (arr) => {
+    // Repeat previous vertex
+    if (index > 0) {
+      buff[index]
+    }
+
+    buff.set(arr, index)
+  }
+}
+
 export { pointLineSegmentMinDistance, pointLineSegmentClosest, anglesBetween, getLineIntersection, lineSegmentIntersect, lineSegmentIntersectsBox }

@@ -15,7 +15,7 @@ const pointCloudInterface = constructInterface({
 
 export class PointCloudElement extends Element {
   init () {
-    this.set({ pointRadius: 10, color: Colors.BLUE })
+    this.set({ pointRadius: 4, color: Colors.BLUE })
   }
 
   getInterface () {
