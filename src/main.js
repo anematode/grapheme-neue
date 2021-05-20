@@ -36,3 +36,4 @@ export * from './renderer/new_renderer'
 export * from './elements/text_element'
 export * from './core/interface'
 export * from './elements/point_cloud'
+export * from "./algorithm/misc_geometry"

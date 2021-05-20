@@ -396,7 +396,7 @@ export class GraphemeWebGLRenderer {
     return hasText
   }
 
-  renderText (canvasVerticesBuffer, textureCoordsBuffer, textRenderCount) {
+  renderText (canvasVerticesBuffer, textureCoordsBuffer, vertexCount) {
     const { gl, canvas } = this
     const atlasTexture = this.getTextAtlasTexture()
 
@@ -432,7 +432,7 @@ export class GraphemeWebGLRenderer {
     gl.uniform2f(textureSize, atlas.width, atlas.height)
     gl.uniform1i(textAtlas, 0)
 
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, textRenderCount * 4)
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, vertexCount)
   }
 
   getXYScale () {
@@ -615,9 +615,6 @@ export class GraphemeWebGLRenderer {
       }
     }
 
-    console.log(compactedInstructions)
-
-
     const { gl } = this
 
     // Load the text atlas into a texture
@@ -641,7 +638,7 @@ export class GraphemeWebGLRenderer {
             gl.bindBuffer(gl.ARRAY_BUFFER, textTextureCoordsBuffer)
             gl.bufferData(gl.ARRAY_BUFFER, textureCoords, gl.DYNAMIC_DRAW)
 
-            this.renderText(textCanvasVerticesBuffer, textTextureCoordsBuffer, 1)
+            this.renderText(textCanvasVerticesBuffer, textTextureCoordsBuffer, textureCoords.length / 2)
             break
           case "triangle_strip":
             gl.bindBuffer(gl.ARRAY_BUFFER, monochromaticGeometryCoordsBuffer)

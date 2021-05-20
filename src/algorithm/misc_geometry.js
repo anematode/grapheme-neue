@@ -1,3 +1,5 @@
+import {mod} from "../core/utils"
+
 function GeometryASMFunctionsCreate (stdlib, foreign, buffer) {
   'use asm'
 
@@ -574,6 +576,63 @@ export function combineTriangleStrips (buff) {
 
     buff.set(arr, index)
     index += arr.length
+  }
+}
+
+/**
+ * Fill the TypedArray arr with a given pattern throughout [startIndex, endIndex). Works if either is out of bounds.
+ * Worst code ever. Uses copyWithin to try make the operation FAST for large arrays (not optimized for small ones). On
+ * a 50000-element array in my chrome, it provides a 16x speedup.
+ * @param arr Array to fill
+ * @param pattern {Array} Pattern to fill with
+ * @param startIndex {number} Index of the first instance of the pattern
+ * @param endIndex {number} Index immediately after the last instance of the pattern
+ * @param patternStride {number} Offset to begin copying the pattern
+ * @returns The original array
+ */
+export function fillRepeating (arr, pattern, startIndex=0, endIndex=arr.length, patternStride=0) {
+  if (endIndex <= startIndex) return arr
+
+  let patternLen = pattern.length, arrLen = arr.length
+  if (patternLen === 0) return arr
+
+  endIndex = Math.min(endIndex, arrLen)
+  if (endIndex <= 0 || startIndex >= arrLen) return arr
+
+  if (startIndex < 0) {
+    patternStride -= startIndex
+    startIndex = 0
+  }
+
+  if (patternStride !== 0) patternStride = mod(patternStride, patternLen)
+
+  let filledEndIndex = Math.min(endIndex, startIndex + patternLen)
+
+  let i, j
+  for (i = startIndex, j = patternStride; i < filledEndIndex && j < patternLen; ++i, ++j) {
+    arr[i] = pattern[j]
+  }
+
+  // For nonzero strides
+  for (j = 0; i < filledEndIndex; ++i, ++j) {
+    arr[i] = pattern[j]
+  }
+
+  if (filledEndIndex === endIndex) return arr
+
+  // We now need to iteratively copy [startIndex, startIndex + filledLen) to [startIndex + filledLen, endIndex) and
+  // double filledLen accordingly. memcpy, take the wheel!
+  let filledLen = patternLen
+
+  while (true) {
+    let copyLen = Math.min(filledLen, endIndex - filledEndIndex)
+
+    arr.copyWithin(filledEndIndex, startIndex, startIndex + copyLen)
+    filledEndIndex += copyLen
+    filledLen += copyLen
+
+    // Should never be greater, but whatever
+    if (filledEndIndex >= endIndex) return arr
   }
 }
 

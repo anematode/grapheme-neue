@@ -336,3 +336,30 @@ Some important functionalities on getters:
 - retrieval (with potentially a different name)
 
 I'm not sure how sophisticated this should be. I'll keep the interfaces relatively simple for now.
+
+# May 16
+
+I think a more capable renderer is in order. Currently it basically accepts a bunch of instructions, rearranges them by zIndex, compacts them and draws them, reusing the same buffers over and over. I suppose that makes sense in a static draw scenario but I think we should really make formal how the renderer works.
+
+In a static draw, the renderer goes through all elements in a scene in order, calling the function `getRenderingInstructions()` on each. Each element may return a list of rendering instructions (bet you didn't guess that). In exactly what format, I'm not sure, but I don't think a single array is sufficient in some cases. The simplest example is a plot, which must call gl.scissor before letting its elements draw, and then releasing the scissor after. That can't be expressed in a simple "list", and even more problematically, the zIndex cannot be honored *within* a scissor. So the scissor could create its own little "zIndex bubble" in which elements are simply drawn in the global zIndex of the parent but in the order within the bubble. An example of this: Suppose you wanted to make a little "zoom" thing with a circle and a graph inside containing a smaller view of the plot. How would you do that? Well, you'd have a subelement of the plot called "magnifying glass" or whatever with a zIndex of, say, 2 (above the plot) and containing another plot, zoomed to the correct coordinates and containing a copy of each relevant element in the main plot so that the zoom looks natural. The magnifying glass would have a special instruction (somehow) saying "stencil circle at (300, 400) with radius 200".
+
+Should all this information be captured within getRenderingInstructions() ? I think so, because it provides the best balance of abstraction to simplicity and optimizability. Okay, here is the specification:
+
+1. At the lowest, abstract level, the renderer takes a list of instructions and returns a canvas.
+2. The renderer traverses each element in the scene, recursively, calling `getRenderingInstructions()` on each.
+3. An element who returns `undefined` is basically a no-op. An element may return a single instruction or an array of instructions, and a group may additionally return instructions to render before, context instructions, and instructions to render after.
+4. Renderers can *accept* instructions like the following: `{ type: "polyline", vertices: [ 30, 40, 100, 500 ], pen: "black" }`. If an instruction has no type, it is invalid.
+* Example return values: `{ type: "text", text: "Hello", font: "Comic Sans", position: { x: 4, y: 500 }, align: "baseline" }`
+* `[{ type: "rectangle", x: 4, y: 100, w: 30, h: 80, zIndex: 1 }, {type: "text", ..., zIndex: Infinity}]`
+* `{ beforeChildren: [{type: "rectangle", x: 3, y: 8, w: 254, h: 254}], instructions: [... goes inside context, at the beginning ...], context: [{ type: "scissor", x: 5, y: 10, w: 250, h: 250}], afterChildren: [] }`
+5. The determination of instruction order is a bit complex. Instructions may specify a zIndex which will reorder them into a "layer" above or below that of other elements. The default zIndex is 0. A background image might have a zIndex of -Infinity, while a highlighted function plot might be 1.
+6. The default zIndex of "text" instructions is Infinity.
+7. If a group defines a context instruction like { scissor: ... }, its children are not sorted into the normal zIndex system, *unless* they are configured to escape the context with "escapeContext: true".
+8. The default escapeContext of "text" instructions is true.
+9. Renderers may combine instructions into larger instructions to minimize the number of bufferData and drawArrays calls.
+
+I think the context stuff will use a similar system to the "popping" of canvas 2d contexts after save. Seems natural. But I'm going to ignore contexts for now and focus on the elements. Elements can do a bunch of funky stuff, like moving between groups, reordering, being added or being deleted. That's complicated and annoying. We could use a "diff" type system, but if the scene completely changes it will be useless.
+
+Okay, ignore contexts for now. All the instructions are split up into their zIndexes... now, we can keep track of which instructions came from which element. The order of the instructions in each zIndex is exactly the order of the elements in the tree. Most of the instructions will be in the same zIndex.
+
+
