@@ -71,7 +71,12 @@
 
 import {getVersionID} from "../core/utils"
 import {TextRenderer} from "./text_renderer"
-import {combineTriangleStrips, generateRectangleTriangleStrip} from "../algorithm/misc_geometry"
+import {
+  combineColoredTriangleStrips,
+  combineTriangleStrips,
+  fillRepeating,
+  generateRectangleTriangleStrip
+} from "../algorithm/misc_geometry"
 import {BoundingBox} from "../math/bounding_box"
 import {calculatePolylineVertices} from "../algorithm/polyline_triangulation"
 import {Pen} from "../other/pen"
@@ -127,6 +132,32 @@ void main() {
 }`,
 
   ["vertexPosition"], ["color", "xyScale"]
+]
+
+const MulticolorGeometryProgram = [`
+precision highp float;
+attribute vec2 vertexPosition;
+attribute vec4 vertexColor;
+
+varying vec4 fragmentColor;
+
+// Transforms a vertex from pixel coordinates to clip space
+uniform vec2 xyScale;
+
+vec2 displacement = vec2(-1, 1);
+         
+void main() {
+   gl_Position = vec4(vertexPosition * xyScale + displacement, 0, 1);
+   fragmentColor = vertexColor;
+}`, `
+precision highp float;
+varying vec4 fragmentColor;
+  
+void main() {
+   gl_FragColor = fragmentColor;
+}`,
+
+  ["vertexPosition", "vertexColor"], ["xyScale"]
 ]
 
 const TextProgram = [`
@@ -266,6 +297,11 @@ export class GraphemeWebGLRenderer {
   getMonochromaticGeometryProgram () {
     return this.getProgram("MonochromaticGeometry") ??
       this.createProgram("MonochromaticGeometry", ... MonochromaticGeometryProgram)
+  }
+
+  getMulticolorGeometryProgram () {
+    return this.getProgram("MulticolorGeometry") ??
+      this.createProgram("MulticolorGeometry", ... MulticolorGeometryProgram)
   }
 
   getTextProgram () {
@@ -460,6 +496,31 @@ export class GraphemeWebGLRenderer {
     gl.drawArrays(drawMode, 0, vertexCount)
   }
 
+  renderMulticolorGeometry (canvasVerticesBuffer, colorsBuffer, vertexCount, drawMode=this.gl.TRIANGLE_STRIP) {
+    const programInfo = this.getMulticolorGeometryProgram()
+
+    const { vertexPosition, vertexColor } = programInfo.attribs
+    const { xyScale } = programInfo.uniforms
+
+    const { gl } = this
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, canvasVerticesBuffer)
+
+    gl.vertexAttribPointer(vertexPosition, 2, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(vertexPosition)
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, colorsBuffer)
+
+    gl.vertexAttribPointer(vertexColor, 4, gl.FLOAT, false, 0, 0)
+    gl.enableVertexAttribArray(vertexColor)
+
+    gl.useProgram(programInfo.glProgram)
+
+    gl.uniform2fv(xyScale, this.getXYScale())
+
+    gl.drawArrays(drawMode, 0, vertexCount)
+  }
+
   // Hopefully will help us understand weird problems by drawing things on the screen
   debug (instruction) {
     let debugBuffer = this.createBuffer("debug")
@@ -582,14 +643,18 @@ export class GraphemeWebGLRenderer {
           totalLength += instruction.vertices.length
         }
 
-        let verticesCoords = new Float32Array(totalLength + 4 * (spanEnd - spanStart) - 4) // ignore colors for now
-        let packVerticesCoord = combineTriangleStrips(verticesCoords)
+        let len = totalLength + 4 * (spanEnd - spanStart) - 4
+
+        // I hate this code
+        let verticesCoords = new Float32Array(len)
+        let colorsCoords = new Float32Array(2 * len)
+        let packVerticesCoord = combineColoredTriangleStrips(verticesCoords, colorsCoords)
 
         for (let i = spanStart; i < spanEnd; ++i) {
-          packVerticesCoord(instructions[i].vertices)
+          packVerticesCoord(instructions[i].vertices, instructions[i].color)
         }
 
-        return { type: "triangle_strip", vertices: verticesCoords }
+        return { type: "multicolor_triangle_strip", vertices: verticesCoords, colors: colorsCoords }
       }
     }
 
@@ -624,6 +689,8 @@ export class GraphemeWebGLRenderer {
     const textCanvasVerticesBuffer = this.createBuffer("TextBuffer")
     const textTextureCoordsBuffer = this.createBuffer("TextTextureCoordsBuffer")
     const monochromaticGeometryCoordsBuffer = this.createBuffer("MonochromaticGeometryCoordsBuffer")
+    const multicolorGeometryCoordsBuffer = this.createBuffer("MulticolorGeometryCoordsBuffer")
+    const multicolorGeometryColorsBuffer = this.createBuffer("MulticolorGeometryColorsBuffer")
 
     // Having constructed a list of drawing units in order of zIndex, we now render each instruction. Soon we will
     // optimize this, but for now we just use three buffers.
@@ -645,6 +712,15 @@ export class GraphemeWebGLRenderer {
             gl.bufferData(gl.ARRAY_BUFFER, instruction.vertices, gl.DYNAMIC_DRAW)
 
             this.renderMonochromaticGeometry(monochromaticGeometryCoordsBuffer, instruction.vertices.length / 2, instruction.color)
+            break
+          case "multicolor_triangle_strip":
+            gl.bindBuffer(gl.ARRAY_BUFFER, multicolorGeometryCoordsBuffer)
+            gl.bufferData(gl.ARRAY_BUFFER, instruction.vertices, gl.DYNAMIC_DRAW)
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, multicolorGeometryColorsBuffer)
+            gl.bufferData(gl.ARRAY_BUFFER, instruction.colors, gl.DYNAMIC_DRAW)
+
+            this.renderMulticolorGeometry(multicolorGeometryCoordsBuffer, multicolorGeometryColorsBuffer,instruction.vertices.length / 2)
             break
           case "debug":
             this.debug(instruction)

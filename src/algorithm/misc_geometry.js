@@ -558,7 +558,7 @@ export function generateRectangleCycle (rect) {
 }
 
 // Given a Float32Array of appropriate size, repeatedly add given triangle strips
-export function combineTriangleStrips (buff) {
+export function combineTriangleStrips (verticesBuff) {
   let index = 0
 
   return (arr) => {
@@ -566,18 +566,41 @@ export function combineTriangleStrips (buff) {
 
     // Repeat previous vertex
     if (index > 0) {
-      buff[index] = buff[index-2]
-      buff[index+1] = buff[index-1]
-      buff[index+2] = arr[0]
-      buff[index+3] = arr[1]
+      verticesBuff[index] = verticesBuff[index-2]
+      verticesBuff[index+1] = verticesBuff[index-1]
+      verticesBuff[index+2] = arr[0]
+      verticesBuff[index+3] = arr[1]
 
       index += 4
     }
 
-    buff.set(arr, index)
+    verticesBuff.set(arr, index)
     index += arr.length
   }
 }
+
+export function combineColoredTriangleStrips (verticesBuff, colorBuff) {
+  let index = 0
+
+  return (arr, { r=0, g=0, b=0, a=0 }) => {
+    if (arr.length === 0) return
+
+    // Repeat previous vertex
+    if (index > 0) {
+      verticesBuff[index] = verticesBuff[index-2]
+      verticesBuff[index+1] = verticesBuff[index-1]
+      verticesBuff[index+2] = arr[0]
+      verticesBuff[index+3] = arr[1]
+
+      index += 4
+    }
+
+    verticesBuff.set(arr, index)
+    fillRepeating(colorBuff, [ r/255, g/255, b/255, a/255 ], index * 2, 2 * (index + arr.length))
+    index += arr.length
+  }
+}
+
 
 /**
  * Fill the TypedArray arr with a given pattern throughout [startIndex, endIndex). Works if either is out of bounds.
@@ -635,5 +658,8 @@ export function fillRepeating (arr, pattern, startIndex=0, endIndex=arr.length, 
     if (filledEndIndex >= endIndex) return arr
   }
 }
+
+// Merging geometries of various types is a very common operation because we want to minimize bufferData and drawArrays
+// calls at nearly all costs.
 
 export { pointLineSegmentMinDistance, pointLineSegmentClosest, anglesBetween, getLineIntersection, lineSegmentIntersect, lineSegmentIntersectsBox }
