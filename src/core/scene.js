@@ -4,9 +4,9 @@ import {attachGettersAndSetters, constructInterface} from "./interface"
 
 // Example interface
 const sceneInterface = constructInterface({
-  "dpr": true,
-  "width": true,
-  "height": true,
+  "dpr": { typecheck: "number" },
+  "width": { typecheck: "number" },
+  "height": { typecheck: "number" },
   "sceneDimensions": { readOnly: true, aliases: [ "dimensions" ] }
 })
 
@@ -39,10 +39,15 @@ class SceneDimensions {
  * element knows its scene directly as its .scene property.
  */
 export class Scene extends Group {
+  getInterface() {
+    return sceneInterface
+  }
+
   init (params) {
     this.scene = this
 
     this.props.setProperties({ width: 640, height: 480, dpr: 1 })
+    this.props.setPropertyInheritance("sceneDimensions", true)
   }
 
   /**
@@ -78,10 +83,6 @@ export class Scene extends Group {
 
   _update () {
     this.calculateSceneDimensions()
-  }
-
-  getInterface() {
-    return sceneInterface
   }
 
   /**

@@ -51,16 +51,29 @@ function invertDestructure (obj) {
 }
 
 const builtinTypechecks = {
-  string: x => typeof x === "string"
+  string: x => {
+    if (typeof x === "string") return true
+    else return "Expected string"
+  },
+  number: x => {
+    if (typeof x === "number") return true
+    else return "Expected number"
+  },
+  boolean: x => {
+    if (typeof x === "number") return true
+    else return "Expected boolean"
+  }
 }
 
 function createTypecheck (description) {
   if (typeof description === "function") {
     return description
   } else if (typeof description === "string") {
-    const typecheck = builtinTypechecks[string]
+    const typecheck = builtinTypechecks[description]
 
     return typecheck
+  } else if (typeof description === "object") {
+
   }
 }
 
@@ -181,8 +194,9 @@ export function constructInterface (interfaceDescription) {
           } else if (step.type === "conversion") {
             value = step.conversion(value)
           } else if (step.type === "typecheck") {
-            if (!step.typecheck(value)) {
-              throw new TypeError(`Failed typecheck on parameter '${name}' on element #${element.id}.`)
+            let typecheck = step.typecheck(value)
+            if (typecheck !== true) {
+              return //throw new TypeError(`Failed typecheck on parameter '${name}' on element #${element.id}. Error message: ${typecheck}`)
             }
           } else if (step.type === "onSet") {
             step.onSet.bind(element)(value)

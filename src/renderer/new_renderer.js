@@ -74,12 +74,13 @@ import {TextRenderer} from "./text_renderer"
 import {
   combineColoredTriangleStrips,
   combineTriangleStrips,
-  fillRepeating,
-  generateRectangleTriangleStrip
+  fillRepeating, flattenVec2Array,
+  generateRectangleTriangleStrip, getActualTextLocation
 } from "../algorithm/misc_geometry"
 import {BoundingBox} from "../math/bounding_box"
 import {calculatePolylineVertices} from "../algorithm/polyline_triangulation"
 import {Pen} from "../other/pen"
+import {Vec2} from "../math/vec/vec2"
 
 // Functions taken from Mozilla docs
 function createShaderFromSource (gl, shaderType, shaderSource) {
@@ -581,7 +582,7 @@ export class GraphemeWebGLRenderer {
       if (instruction.type === "polyline") {
         let pen = instruction.pen ? Pen.fromObj(instruction.pen) : Pen.DefaultPen
 
-        const vertices = calculatePolylineVertices(instruction.vertices, pen, new BoundingBox(0, 0, scene.width, scene.height))
+        const vertices = calculatePolylineVertices(flattenVec2Array(instruction.vertices), pen, new BoundingBox(0, 0, scene.width, scene.height))
         instruction = { type: "triangle_strip", vertices, color: pen.color }
       }
 
@@ -619,13 +620,13 @@ export class GraphemeWebGLRenderer {
 
         for (let i = spanStart; i < spanEnd; ++i) {
           let instruction = instructions[i]
+          let { anchor, position, anchorDir, spacing } = instruction
+
+          anchor = anchor ?? position
 
           const textLocation = textRenderer.getTextLocation(instruction).rect
-          const textRect = { x: instruction.x, y: instruction.y, w: textLocation.w, h: textLocation.h}
 
-          let { align, baseline } = instruction
-          textRect.x -= textRect.w * (align === "center" ? 0.5 : (align === "right" ? 1 : 0))
-          textRect.y -= textRect.h * (baseline === "center" ? 0.5 : (baseline === "bottom" ? 1 : 0))
+          const textRect = getActualTextLocation(textLocation, anchor, anchorDir, spacing)
 
           textRect.x = Math.round(textRect.x)
           textRect.y = Math.round(textRect.y)
@@ -695,41 +696,44 @@ export class GraphemeWebGLRenderer {
     // Having constructed a list of drawing units in order of zIndex, we now render each instruction. Soon we will
     // optimize this, but for now we just use three buffers.
     for (const instruction of compactedInstructions) {
-        switch (instruction.type) {
-          case "text":
-            const { textureCoords, canvasCoords } = instruction
+      switch (instruction.type) {
+        case "text":
+          const { textureCoords, canvasCoords } = instruction
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, textCanvasVerticesBuffer)
-            gl.bufferData(gl.ARRAY_BUFFER, canvasCoords, gl.DYNAMIC_DRAW)
+          gl.bindBuffer(gl.ARRAY_BUFFER, textCanvasVerticesBuffer)
+          gl.bufferData(gl.ARRAY_BUFFER, canvasCoords, gl.DYNAMIC_DRAW)
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, textTextureCoordsBuffer)
-            gl.bufferData(gl.ARRAY_BUFFER, textureCoords, gl.DYNAMIC_DRAW)
+          gl.bindBuffer(gl.ARRAY_BUFFER, textTextureCoordsBuffer)
+          gl.bufferData(gl.ARRAY_BUFFER, textureCoords, gl.DYNAMIC_DRAW)
 
-            this.renderText(textCanvasVerticesBuffer, textTextureCoordsBuffer, textureCoords.length / 2)
-            break
-          case "triangle_strip":
-            gl.bindBuffer(gl.ARRAY_BUFFER, monochromaticGeometryCoordsBuffer)
-            gl.bufferData(gl.ARRAY_BUFFER, instruction.vertices, gl.DYNAMIC_DRAW)
+          this.renderText(textCanvasVerticesBuffer, textTextureCoordsBuffer, textureCoords.length / 2)
+          break
+        case "triangle_strip":
+          gl.bindBuffer(gl.ARRAY_BUFFER, monochromaticGeometryCoordsBuffer)
+          gl.bufferData(gl.ARRAY_BUFFER, instruction.vertices, gl.DYNAMIC_DRAW)
 
-            this.renderMonochromaticGeometry(monochromaticGeometryCoordsBuffer, instruction.vertices.length / 2, instruction.color)
-            break
-          case "multicolor_triangle_strip":
-            gl.bindBuffer(gl.ARRAY_BUFFER, multicolorGeometryCoordsBuffer)
-            gl.bufferData(gl.ARRAY_BUFFER, instruction.vertices, gl.DYNAMIC_DRAW)
+          this.renderMonochromaticGeometry(monochromaticGeometryCoordsBuffer, instruction.vertices.length / 2, instruction.color)
+          break
+        case "multicolor_triangle_strip":
+          gl.bindBuffer(gl.ARRAY_BUFFER, multicolorGeometryCoordsBuffer)
+          gl.bufferData(gl.ARRAY_BUFFER, instruction.vertices, gl.DYNAMIC_DRAW)
 
-            gl.bindBuffer(gl.ARRAY_BUFFER, multicolorGeometryColorsBuffer)
-            gl.bufferData(gl.ARRAY_BUFFER, instruction.colors, gl.DYNAMIC_DRAW)
+          gl.bindBuffer(gl.ARRAY_BUFFER, multicolorGeometryColorsBuffer)
+          gl.bufferData(gl.ARRAY_BUFFER, instruction.colors, gl.DYNAMIC_DRAW)
 
-            this.renderMulticolorGeometry(multicolorGeometryCoordsBuffer, multicolorGeometryColorsBuffer,instruction.vertices.length / 2)
-            break
-          case "debug":
-            this.debug(instruction)
-            break
-          case "default":
-            break
-        }
+          this.renderMulticolorGeometry(multicolorGeometryCoordsBuffer, multicolorGeometryColorsBuffer,instruction.vertices.length / 2)
+          break
+        case "debug":
+          this.debug(instruction)
+          break
+        case "function":
+          instruction.function(this)
+          break
+        case "default":
+          break
       }
     }
+  }
 
   renderDOMScene (scene) {
     this.renderScene(scene)

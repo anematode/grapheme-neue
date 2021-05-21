@@ -15,8 +15,8 @@ function resolveAxisSpecification (x1, x2, w, cx) {
     let halfWidth = 0
 
     if (w !== undefined) halfWidth = w / 2
-    if (x2 !== undefined) halfWidth = x2 - cx
-    if (x1 !== undefined) halfWidth = cx - x1
+    else if (x2 !== undefined) halfWidth = x2 - cx
+    else if (x1 !== undefined) halfWidth = cx - x1
 
     halfWidth = Math.abs(halfWidth)
 
@@ -118,8 +118,8 @@ export class BoundingBox {
       // variables: x, x2, w, cx. The axes are totally separable, so the problem is pretty trivial. I'm too tired
       // to figure out how to do it elegantly rather than case work.
 
-      ;[ finalX1, finalX2 ] = resolveAxisSpecification(x, x2, width, cx)
-      ;[ finalY1, finalY2 ] = resolveAxisSpecification(y, y2, height, cy)
+      ;[ finalX1, finalX2 ] = resolveAxisSpecification(x, x2, w, cx)
+      ;[ finalY1, finalY2 ] = resolveAxisSpecification(y, y2, h, cy)
     }
 
     return new BoundingBox(finalX1, finalY1, finalX2 - finalX1, finalY2 - finalY1)

@@ -15,10 +15,7 @@ const figureInterface = constructInterface({
 })
 
 export class Figure extends Group {
-  constructor (params) {
-    super(params)
-
-    // TODO make more elegant
+  init () {
     this.props.setProperties({
       figureBoundingBox: new BoundingBox(0, 0, 100, 100),
       plottingBox: new BoundingBox(0, 0, 640, 480),

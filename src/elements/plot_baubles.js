@@ -25,10 +25,6 @@ export class PlotBaubles extends Group {
     })
   }
 
-  _set (propName, value) {
-
-  }
-
   computeProps () {
     const { props } = this
 
@@ -38,7 +34,7 @@ export class PlotBaubles extends Group {
     // { x: { major: [ -1, -0.8, -0.6, ... ], minor: [ ... ], y: { ... } }.
     // Notably, the coordinates are in graph space, not pixel space.
 
-    const { gridlinesAllocator, plotTransform, gridlines: showGridlines } = this.props.proxy
+    const { gridlinesAllocator, plotTransform } = this.props.proxy
 
     const { px1, px2, py1, py2, gx1, gx2, gy1, gy2, pw, ph } = plotTransform
     const ticks = gridlinesAllocator(gx1, gx2, pw, gy1, gy2, ph)

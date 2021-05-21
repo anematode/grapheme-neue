@@ -47,6 +47,11 @@ export class TextElement extends Element {
     return textElementInterface
   }
 
+  _update () {
+
+
+  }
+
   getRenderingInstructions () {
     const { font, fontSize, text, position, align, baseline, color, shadowRadius, shadowColor } = this.props.proxy
 

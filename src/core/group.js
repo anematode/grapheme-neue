@@ -21,7 +21,7 @@ export class Group extends Element {
     if (elem.isScene())
       throw new Error("Scene cannot be a child")
     if (elem.parent)
-      throw new Error("Parent already there")
+      throw new Error("Element to be added already has a parent")
     if (!(elem instanceof Element))
       throw new TypeError("Element not element")
     if (elem === this)

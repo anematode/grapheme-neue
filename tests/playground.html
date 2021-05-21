@@ -11,49 +11,15 @@
 <noscript id="setup">
 
     const renderer = new Grapheme.GraphemeWebGLRenderer()
-    const elem = new Grapheme.TextElement()
-
     const scene = new Grapheme.InteractiveScene({ id: "main", interactivity: true })
+
     document.body.appendChild(scene.domElement)
     scene.setSize(1000, 1000)
 
-    const figure = new Grapheme.Figure({ id: "figure" })
-    scene.add(figure)
+    const polyline = new Grapheme.PolylineElement({ vertices: [2, 3, 100, 20 ], pen: { thickness: 2, color: "blue" } })
+    scene.add(polyline)
 
-    const baubles = new Grapheme.PlotBaubles({ id: "baubles" })
-
-    figure.add(baubles)
-
-    scene.add(elem)
-
-
-    function generatePoints () {
-      let arr = []
-      const x = t => 5 * Math.sin(t * 700)
-      const y = t => 2 * Math.cos(t * 800)
-
-      let pointCount = 1000
-
-      for (let i = 0; i < pointCount; ++i) {
-         let t = i / pointCount
-         arr.push(x(t), y(t))
-      }
-
-      return arr
-    }
-
-
-    const pointCloud = new Grapheme.PointCloudElement({ id: "pointcloud", data: generatePoints()})
-    figure.add(pointCloud)
-
-    render()
-
-    function render () {
-        renderer.renderDOMScene(scene)
-        //requestAnimationFrame(render)
-    }
-
-
+    renderer.renderDOMScene(scene)
 </noscript>
 
 

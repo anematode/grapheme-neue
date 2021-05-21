@@ -1,4 +1,6 @@
-import {mod} from "../core/utils"
+import {isTypedArray, mod} from "../core/utils"
+import {Vec2} from "../math/vec/vec2"
+import {BoundingBox} from "../math/bounding_box"
 
 function GeometryASMFunctionsCreate (stdlib, foreign, buffer) {
   'use asm'
@@ -657,6 +659,64 @@ export function fillRepeating (arr, pattern, startIndex=0, endIndex=arr.length, 
     // Should never be greater, but whatever
     if (filledEndIndex >= endIndex) return arr
   }
+}
+
+function _flattenVec2ArrayInternal(arr) {
+  const out = []
+
+  for (let i = 0; i < arr.length; ++i) {
+    let item = arr[i]
+
+    if (item === null) {
+      out.push(NaN, NaN)
+    } else if (item.x !== undefined && item.y !== undefined) {
+      out.push(item.x, item.y)
+    } else {
+      if (typeof item === "number") out.push (item)
+      else throw new TypeError(`Error when converting array to flattened Vec2 array: Unknown item ${item} at index ${i} in given array`)
+    }
+  }
+
+  return out
+}
+
+// Given some arbitrary array of Vec2s, turn it into the regularized format [x1, y1, x2, y2, ..., xn, yn]. The end of
+// one polyline and the start of another is done by one pair of numbers being NaN, NaN.
+export function flattenVec2Array (arr) {
+  if (isTypedArray(arr)) return arr
+
+  for (let i = 0; i < arr.length; ++i) {
+    if (typeof arr[i] !== "number") return _flattenVec2ArrayInternal(arr)
+  }
+
+  return arr
+}
+
+
+/**
+ * Get the actual bounding rectangle of a piece of text with a given vector anchor and spacing from that anchor. For
+ * example, getActualTextLocation( { x: 0, y: 0, w: 10, h: 10 }, { x: 50, y: 50 }, "S", 3 ) is { x: 45, y: 37, w: 10, h: 10 } )
+ * @param textRect {BoundingBox} The bounding box of the text rectangle (x and y are ignored)
+ * @param anchor {Vec2} The position to anchor to
+ * @param anchorDir {Vec2} The direction of the anchor
+ * @param spacing {number} The additional constant spacing from the anchor
+ * @returns {BoundingBox}
+ */
+export function getActualTextLocation (textRect, anchor, anchorDir, spacing) {
+  // We get the center of the rectangle, starting at anchor and adding anchorDir * textRect.wh / 4 * (1 + spacing / norm(textRect.wh) / 2).
+
+  const { w, h } = textRect
+
+  anchor = Vec2.fromObj(anchor) ?? new Vec2(0,0)
+  anchorDir = Vec2.fromObj(anchorDir) ?? new Vec2(0, 0)
+  spacing = spacing ?? 0
+
+  spacing /= anchorDir.len()
+
+  let centerX = anchor.x + anchorDir.x * (textRect.w / 4 + spacing)
+  let centerY = anchor.y + anchorDir.y * (textRect.h / 4 + spacing)
+
+  return BoundingBox.fromObj({ cx: centerX, cy: centerY, w, h })
 }
 
 // Merging geometries of various types is a very common operation because we want to minimize bufferData and drawArrays

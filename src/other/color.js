@@ -117,6 +117,14 @@ class Color {
 
     throwBadColor()
   }
+
+  static fromObj (obj) {
+    if (typeof obj === "string") {
+      return Color.fromCss(obj)
+    }
+
+    return new Color(obj)
+  }
 }
 
 // Credit to https://stackoverflow.com/a/11508164/13458117

@@ -1,20 +1,11 @@
 
+// Another one of these, yada yada, reinventing the wheel, yay
 class Vec2 {
-  /**
-   * Construct a Vec2. Because this operation is incredibly frequent, the constructor is simple. There are special
-   * static class functions for constructing a vector, or setting a vector, from other forms.
-   * @param x {number} The x component of the vector
-   * @param y {number} The y component of the vector
-   */
   constructor (x, y) {
     this.x = x
     this.y = y
   }
 
-  /**
-   * Converting things to a simpler form
-   * @param obj
-   */
   static fromObj (obj) {
     let x=0, y=0
 
@@ -24,7 +15,27 @@ class Vec2 {
     } else if (typeof obj === "object" && obj.x) {
       x = obj.x
       y = obj.y
-    }
+    } else if (typeof obj === "string") {
+      switch (obj) {
+        case "N": case "NE": case "NW":
+          y = 1
+          break
+        case "S": case "SE": case "SW":
+          y = -1
+          break
+      }
+
+      switch (obj) {
+        case "E": case "NE": case "SE":
+          x = 1
+          break
+        case "W": case "NW": case "SW":
+          x = -1
+          break
+      }
+
+      if (x === 0 && y === 0 && obj !== 'C') return undefined
+    } else return undefined
 
     return new Vec2(+x, +y)
   }
@@ -39,6 +50,28 @@ class Vec2 {
 
   mul (scalar) {
     return new Vec2(this.x * scalar, this.y * scalar)
+  }
+
+  rot (angle, centre) {
+    let s = Math.sin(angle), c = Math.cos(angle)
+
+    if (!centre) return new Vec2(c * this.x - s * this.y, s * this.x + c * this.y)
+  }
+
+  rotDeg (angle, centre) {
+    return this.rot(angle * Math.PI / 180, centre)
+  }
+
+  unit () {
+    return this.mul(1 / this.len())
+  }
+
+  len () {
+    return Math.hypot(this.x, this.y)
+  }
+
+  lenSq () {
+    return this.x * this.x + this.y * this.y
   }
 }
 

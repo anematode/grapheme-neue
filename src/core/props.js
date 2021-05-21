@@ -124,12 +124,21 @@ const proxyHandlers = {
  * Finding the former is less, it copies the new version and new value of sceneDimensions, then sets figure.props.
  * hasChangedInheritableProperties to 1, and sets function's updateStage to 0.
  *
- * Beginning from STATE 1, suppose the scene deletes sceneDimensions, setting its value to undefined and inherit to 0.
+ * Beginning from STATE 1, suppose the scene deletes sceneDimensions, setting its value to undefined.
  * This operation sets the hasChangedInheritableProperties to 2 and all the children's update stages to 0. 2 means that
  * the actual types of inherited properties have changed. In this case, the child has to both inherit changed properties
  * AND delete the properties which it had inherited. The operation is similar; it sets its value to undefined and
  * inherit to 0, and its hasChangedInheritableProperties to 2. Other operations which set it to "2" are adding an
  * inheritable property and setting the inheritance of a property back to 0.
+ *
+ * Alongside the value of a property, there may or may not be a user-intended value and a program value. For some
+ * parameters for which preprocessing is necessary, the user-intended value is the value that is actually changed when
+ * .set() is called. Consider a pen, for instance. If the user does  set("pen", "blue"), then the expected result should
+ * be a blue line. Simple enough. But the pen used is not actually the string "blue"; it is an object of the form
+ * {color, thickness, ...}. Thus, the user-intended value of pen is "blue", and the actual value of pen is the pen
+ * object. The program value is a value indicating an "internal set". For example, a label may be a child of a certain
+ * element, which sets the child's position to (50, 20). In this case, the program value is (50, 20) and the value is
+ * (50, 20).
  */
 export class Props {
   constructor (init) {
@@ -275,8 +284,15 @@ export class Props {
 
       const otherPropsStore = props.getPropertyStore(propName)
 
-      // if no such inheritable property, delete the local property
-      if (!otherPropsStore || otherPropsStore.inherit < 1) this.set(propName, undefined)
+      // if no such inheritable property, *delete* the local property (do not keep it as inheritable)
+      if (!otherPropsStore || otherPropsStore.inherit < 1 || otherPropsStore.value === undefined) {
+        propStore.value = undefined
+        propStore.changed = true
+        propStore.inherit = 0
+
+        this.markHasChangedProperties()
+        this.markHasChangedInheritableProperties()
+      }
 
       // Value has been changed!
       if (otherPropsStore.version > propStore.version) {
@@ -292,7 +308,7 @@ export class Props {
     // If updateAll is true, we run through all the given properties and inherit all 1s and 2s.
     if (updateAll) {
       for (const [ propName, propStore ] of props.store.entries()) {
-        if (!propStore.inherit) continue
+        if (!propStore.inherit || propStore.value === undefined) continue
 
         let ourPropStore = this.getPropertyStore(propName)
 
@@ -321,7 +337,8 @@ export class Props {
   /**
    * This function sets the value of a property. It is meant mostly for internal use. If prompted, it will check to see
    * whether the value given and the current value are strictly equal, or deeply equal, and if so, not mark the property
-   * as changed. By default, this check is turned off, meaning all value assignments are marked as "changed".
+   * as changed. By default, this check is turned off, meaning all value assignments are marked as "changed". The third
+   * parameter indicates whether the value should be directly modified, or
    * @param propName {string} The name of the property
    * @param value {any} The value of the property
    * @param equalityCheck {number} What type of equality check to perform against the current value, if any, to assess
@@ -344,10 +361,10 @@ export class Props {
         // If the store has an inheritance value of 1, we don't do anything
         return undefined
       } else if (store.inherit === 2) {
-        // If the property has inheritance 2, we delete it and notify that the signature of inheritable properties has
+        // If the property has inheritance 2, we keep it as undefined and notify that the signature of inheritable properties has
         // changed.
-        store.inherit = 0
         store.value = undefined
+        store.version = getVersionID()
 
         if (markChanged) this.markHasChangedInheritanceSignature()
       } else {
@@ -431,9 +448,7 @@ export class Props {
    * @return {Props}
    */
   setPropertyInheritance (propName, inherit=false) {
-    const store = this.getPropertyStore(propName)
-
-    if (!store) return this
+    const store = this.createPropertyStore(propName)
 
     let currentInheritance = !!store.inherit
     if (currentInheritance === !!inherit) return this
@@ -446,7 +461,8 @@ export class Props {
       delete store.inherit
     }
 
-    this.hasChangedInheritableProperties = 2
+    if (store.value !== undefined)
+      this.hasChangedInheritableProperties = 2
 
     return this
   }
