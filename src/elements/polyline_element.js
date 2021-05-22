@@ -3,7 +3,7 @@ import {constructInterface} from "../core/interface"
 import {DefaultStyles, Pen} from "../styles/definitions"
 
 const polylineInterface = constructInterface({
-  pen: true,
+  pen: { as: "user" },
   vertices: true
 })
 
@@ -17,14 +17,17 @@ export class PolylineElement extends Element {
   }
 
   _update () {
+    let pen = this.props.getPropertyStore("pen")
 
+    console.log(pen)
+
+    this.props.set("pen", Pen.compose(DefaultStyles.Pen, pen.userValue))
   }
 
   getRenderingInstructions () {
     let { vertices, pen } = this.props.proxy
 
     if (!vertices) return
-    pen = Pen.compose(DefaultStyles.Pen, pen)
 
     return { type: "polyline", vertices, pen }
   }

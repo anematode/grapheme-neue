@@ -96,7 +96,7 @@ export function constructInterface (interfaceDescription) {
       // Simply map propName to the given targetName
       setters[propName] = getters[propName] = description
     } else if (typeof description === "object") {
-      let { aliases, conversion, target, destructuring, readOnly, writeOnly, typecheck, set, get, onSet } = description
+      let { aliases, conversion, target, as, setAs, getAs, equalityCheck, destructuring, readOnly, writeOnly, typecheck, set, get, onSet } = description
 
       if (readOnly && writeOnly) continue // lol
       let needsSetter = !readOnly
@@ -124,7 +124,9 @@ export function constructInterface (interfaceDescription) {
           }
           if (conversion) steps.push({type: "conversion", conversion})
           if (destructuring) steps.push({type: "destructuring", destructuring})
-          if (target) steps.push(target)
+
+          steps.push({ type: "target", target: target ?? propName, as: setAs ?? as ?? "real", equalityCheck: equalityCheck ?? 0 })
+
           if (onSet) steps.push({ type: "onSet", onSet })
 
           if (steps.length === 0) setters[propName] = true
@@ -141,7 +143,7 @@ export function constructInterface (interfaceDescription) {
         } else {
           const steps = []
 
-          if (target) steps.push(target)
+          if (target) steps.push({ type: "target", target, as: getAs ?? as ?? "real" })
           if (destructuring) steps.push({type: "restructuring", restructuring: invertDestructure(destructuring)})
 
           if (steps.length === 0) getters[propName] = true
@@ -176,10 +178,7 @@ export function constructInterface (interfaceDescription) {
       steps = Array.isArray(steps) ? steps : [steps]
 
       for (const step of steps) {
-        if (typeof step === "string") {
-          target = step
-          element.props.set(target, value)
-        } else {
+
           if (step.type === "destructuring") {
             let destructuring = step.destructuring
 
@@ -191,6 +190,10 @@ export function constructInterface (interfaceDescription) {
             }
 
             return
+          } else if (step.type === "target") {
+            let { target, as, equalityCheck } = step
+
+            element.props.set(target, value, equalityCheck, as)
           } else if (step.type === "conversion") {
             value = step.conversion(value)
           } else if (step.type === "typecheck") {
@@ -201,7 +204,6 @@ export function constructInterface (interfaceDescription) {
           } else if (step.type === "onSet") {
             step.onSet.bind(element)(value)
           }
-        }
       }
 
       if (!target)
@@ -222,10 +224,9 @@ export function constructInterface (interfaceDescription) {
       steps = Array.isArray(steps) ? steps : [steps]
 
       for (const step of steps) {
-        if (typeof step === "string") {
-          value = element.props.get(step)
-        } else {
-          if (step.type === "restructuring") {
+        if (step.type === "target") {
+          value = element.props.get(step.target, step.as)
+        } else if (step.type === "restructuring") {
             let restructuring = step.restructuring
             let ret = {}
 
@@ -237,7 +238,6 @@ export function constructInterface (interfaceDescription) {
 
             return ret
           }
-        }
       }
 
       return value

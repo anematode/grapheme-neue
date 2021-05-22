@@ -343,19 +343,38 @@ export class Props {
    * @param value {any} The value of the property
    * @param equalityCheck {number} What type of equality check to perform against the current value, if any, to assess
    * the changed value. 0 - no check, 1 - strict equals, 2 - deep equals
+   * @param as
    * @param markChanged {boolean} Whether to actually mark the value as changed. In turn, if the property is a changed
    * inheritable property, that will be noted
    * @returns {any}
    */
-  set (propName, value, equalityCheck=0, markChanged=true) {
+  set (propName, value, equalityCheck=0, as="real", markChanged=true) {
+    let store = this.getPropertyStore(propName)
+
+    // Helper functions to abstract away the "user/program/real" concept
+    function getStoreValue () {
+      switch (as) {
+        case "user": return store.userValue
+        case "program": return store.programValue
+        default: return store.value
+      }
+    }
+
+    function setStoreValue (v) {
+      switch (as) {
+        case "user": store.userValue = v; break
+        case "program": store.programValue = v; break
+        default: store.value = v
+      }
+    }
+
     if (value === undefined) {
       // Special case of deletion. If the property exists, we set its value to undefined, and if that property is
       // defined to be inheritable, we set its inherit to 0, and this.hasChangedInheritableProperties to 2. Note that
       // an inheritED property cannot be deleted, as that would be inconsistent. It can only be overridden.
-      let store = this.getPropertyStore(propName)
 
       // trivial case, don't do anything
-      if (!store || store.value === undefined) return undefined
+      if (!store || getStoreValue() === undefined) return undefined
 
       if (store.inherit === 1) {
         // If the store has an inheritance value of 1, we don't do anything
@@ -363,13 +382,13 @@ export class Props {
       } else if (store.inherit === 2) {
         // If the property has inheritance 2, we keep it as undefined and notify that the signature of inheritable properties has
         // changed.
-        store.value = undefined
+        setStoreValue(undefined)
         store.version = getVersionID()
 
         if (markChanged) this.markHasChangedInheritanceSignature()
       } else {
         // Typical case of deleting a property. We just set its value to undefined
-        store.value = undefined
+        setStoreValue(undefined)
       }
 
       if (markChanged) {
@@ -381,18 +400,20 @@ export class Props {
     }
 
     // Otherwise, we need to get a property store
-    const store = this.createPropertyStore(propName)
+    if (!store) store = this.createPropertyStore(propName)
 
     // We reject assignments to an inherited property. This can be overridden by setting the property's inheritance
     // status.
     if (store.inherit === 1) return value
 
+    let storeValue = getStoreValue()
+
     // Perform various equality checks
-    if (equalityCheck === 1 && store.value === value) return value
-    else if (equalityCheck === 2 && deepEquals(store.value, value)) return value
+    if (equalityCheck === 1 && storeValue === value) return value
+    else if (equalityCheck === 2 && deepEquals(storeValue, value)) return value
 
     // Set the value and changed values
-    store.value = value
+    setStoreValue(value)
     store.changed = store.changed || markChanged
 
     if (markChanged) {
@@ -470,10 +491,18 @@ export class Props {
   /**
    * Get the value of a property.
    * @param propName {string}
+   * @param as
    * @returns {*}
    */
-  get (propName) {
-    return this.getPropertyStore(propName)?.value
+  get (propName, as="real") {
+    let store = this.getPropertyStore(propName)
+
+    if (!store) return undefined
+    switch (as) {
+      case "program": return store.programValue
+      case "user": return store.userValue
+      default: return store.value
+    }
   }
 
   /**

@@ -43,4 +43,5 @@ export const DefaultStyles = {
   gridlinesMajor: { thickness: 2 },
   gridlinesMinor: { thickness: 1 },
   gridlinesAxis: { thickness: 4 },
+  Pen: Pen.default
 }
