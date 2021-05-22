@@ -143,7 +143,7 @@ export function constructInterface (interfaceDescription) {
         } else {
           const steps = []
 
-          if (target) steps.push({ type: "target", target, as: getAs ?? as ?? "real" })
+          steps.push({ type: "target", target: target ?? propName, as: getAs ?? as ?? "real" })
           if (destructuring) steps.push({type: "restructuring", restructuring: invertDestructure(destructuring)})
 
           if (steps.length === 0) getters[propName] = true

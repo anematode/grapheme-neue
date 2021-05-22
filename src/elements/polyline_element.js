@@ -19,8 +19,6 @@ export class PolylineElement extends Element {
   _update () {
     let pen = this.props.getPropertyStore("pen")
 
-    console.log(pen)
-
     this.props.set("pen", Pen.compose(DefaultStyles.Pen, pen.userValue))
   }
 
