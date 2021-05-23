@@ -373,9 +373,14 @@ export class GraphemeWebGLRenderer {
    * Resize and clear the canvas, only clearing if the dimensions haven't changed, since the buffer will be erased.
    * @param width
    * @param height
+   * @param dpr
    */
-  clearAndResizeCanvas (width, height) {
+  clearAndResizeCanvas (width, height, dpr=1) {
     const { canvas } = this
+
+    this.dpr = dpr
+    width *= dpr
+    height *= dpr
 
     if (canvas.width === width && canvas.height === height) {
       this.clearCanvas()
@@ -473,7 +478,7 @@ export class GraphemeWebGLRenderer {
   }
 
   getXYScale () {
-    return [ 2 / this.canvas.width, -2 / this.canvas.height ]
+    return [ 2 / this.canvas.width * this.dpr, -2 / this.canvas.height * this.dpr ]
   }
 
   renderMonochromaticGeometry (canvasVerticesBuffer, vertexCount, color={r: 0, g: 0, b: 0, a: 255}, drawMode=this.gl.TRIANGLE_STRIP) {
@@ -556,7 +561,7 @@ export class GraphemeWebGLRenderer {
     // The scene should be fully updated
     scene.updateAll()
 
-    this.clearAndResizeCanvas(scene.width, scene.height)
+    this.clearAndResizeCanvas(scene.width, scene.height, scene.dpr)
 
     // We first build an understanding of the scene from the renderer's point of view. The instructions should not be
     // mutated but some will have to be copied and modified; text, for example, has a default zIndex of Infinity.

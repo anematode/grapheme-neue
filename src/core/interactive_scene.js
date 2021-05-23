@@ -4,18 +4,19 @@ import {constructInterface} from "./interface"
 const interactiveSceneInterface = constructInterface({
   ...Scene.prototype.getInterface().description,
 
-  "interactivity": { onSet: function (value) { this._interactivityEnabled(value) }, typecheck: "boolean"},
+  "interactivity": { onSet: function (value) {
+      console.log("hi"); this._interactivityEnabled(value) }, typecheck: "boolean"},
 
   // When width and height are set we want to immediately adjust the size of the canvas
   "width": { onSet: function () { this.resizeCanvas() }, typecheck: "number" },
-  "height": { onSet: function () { this.resizeCanvas() }, typecheck: "number" }
+  "height": { onSet: function () { this.resizeCanvas() }, typecheck: "number" },
+  "dpr": { onSet: function () { this.resizeCanvas() }, typecheck: "number" }
 })
 
 /**
  * A scene endowed with an actual DOM element.
  */
 export class InteractiveScene extends Scene {
-
   init (params) {
     super.init(params)
 
@@ -23,6 +24,7 @@ export class InteractiveScene extends Scene {
     this.bitmapRenderer = this.domElement.getContext("bitmaprenderer")
 
     this.resizeCanvas()
+    this.set({ dpr: window.devicePixelRatio })
   }
 
   /**
@@ -36,7 +38,7 @@ export class InteractiveScene extends Scene {
 
     const getSceneCoords = (evt) => {
       let rect = this.domElement.getBoundingClientRect()
-      return {x: evt.pageX - rect.x, y: evt.pageY - rect.y}
+      return {x: evt.clientX - rect.x, y: evt.clientY - rect.y}
     }
 
     ;[ "mousedown", "mousemove", "mouseup", "wheel" ].forEach(eventName => {
@@ -44,10 +46,12 @@ export class InteractiveScene extends Scene {
       if (eventName === "wheel") {
         listener = (evt) => {
           this.triggerEvent(eventName, { ... getSceneCoords(evt), deltaY: evt.deltaY })
+          evt.preventDefault()
         }
       } else {
         listener = (evt) => {
           this.triggerEvent(eventName, getSceneCoords(evt))
+          evt.preventDefault()
         }
       }
 
@@ -83,7 +87,13 @@ export class InteractiveScene extends Scene {
   }
 
   resizeCanvas () {
-    this.domElement.width = this.width
-    this.domElement.height = this.height
+    const { width, height, dpr } = this.props.proxy
+    const { domElement } = this
+
+    domElement.width = width * dpr
+    domElement.height = height * dpr
+
+    domElement.style.width = width + 'px'
+    domElement.style.height = height + 'px'
   }
 }

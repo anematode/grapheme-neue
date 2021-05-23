@@ -56,12 +56,13 @@ export class Scene extends Group {
   calculateSceneDimensions () {
     const { props } = this
 
-    const { width, height, dpr } = props.proxy
-    const sceneDimensions = new SceneDimensions(width, height, dpr)
+    if (props.haveChanged(["width", "height", "dpr"])) {
+      const { width, height, dpr } = props.proxy
+      const sceneDimensions = new SceneDimensions(width, height, dpr)
 
-    // Equality check of 2 for deep comparison, in case width, height, dpr have not actually changed
-    props.set("sceneDimensions", sceneDimensions, 2)
-    props.setPropertyInheritance("sceneDimensions", true)
+      // Equality check of 2 for deep comparison, in case width, height, dpr have not actually changed
+      props.set("sceneDimensions", sceneDimensions, 2)
+    }
   }
 
   /**

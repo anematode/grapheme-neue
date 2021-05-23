@@ -60,7 +60,7 @@ const builtinTypechecks = {
     else return "Expected number"
   },
   boolean: x => {
-    if (typeof x === "number") return true
+    if (typeof x === "boolean") return true
     else return "Expected boolean"
   }
 }
@@ -178,7 +178,6 @@ export function constructInterface (interfaceDescription) {
       steps = Array.isArray(steps) ? steps : [steps]
 
       for (const step of steps) {
-
           if (step.type === "destructuring") {
             let destructuring = step.destructuring
 
@@ -199,15 +198,12 @@ export function constructInterface (interfaceDescription) {
           } else if (step.type === "typecheck") {
             let typecheck = step.typecheck(value)
             if (typecheck !== true) {
-              return //throw new TypeError(`Failed typecheck on parameter '${name}' on element #${element.id}. Error message: ${typecheck}`)
+              throw new TypeError(`Failed typecheck on parameter '${name}' on element #${element.id}. Error message: ${typecheck}`)
             }
           } else if (step.type === "onSet") {
             step.onSet.bind(element)(value)
           }
       }
-
-      if (!target)
-        element.props.set(name, value)
     }
   }
 

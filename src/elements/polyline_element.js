@@ -3,29 +3,28 @@ import {constructInterface} from "../core/interface"
 import {DefaultStyles, Pen} from "../styles/definitions"
 
 const polylineInterface = constructInterface({
-  pen: { as: "user" },
+  pen: { setAs: "user", getAs: "real" },
   vertices: true
 })
 
 export class PolylineElement extends Element {
-  init (params) {
-
-  }
-
   getInterface () {
     return polylineInterface
   }
 
   _update () {
-    let pen = this.props.getPropertyStore("pen")
+    const { props } = this
 
-    this.props.set("pen", Pen.compose(DefaultStyles.Pen, pen.userValue))
+    if (props.hasChanged("pen")) {
+      let pen = Pen.compose(DefaultStyles.Pen, props.getPropertyStore("pen")?.userValue)
+
+      props.set("pen", pen)
+    }
   }
 
   getRenderingInstructions () {
     let { vertices, pen } = this.props.proxy
-
-    if (!vertices) return
+    if (!vertices || !pen) return
 
     return { type: "polyline", vertices, pen }
   }

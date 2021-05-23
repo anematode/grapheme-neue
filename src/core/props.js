@@ -219,7 +219,7 @@ export class Props {
    * @param propName {string}
    * @returns {boolean}
    */
-  hasPropertyChanged (propName) {
+  hasChanged (propName) {
     return !!(this.getPropertyStore(propName)?.changed)
   }
 
@@ -228,8 +228,8 @@ export class Props {
    * @param propList {string[]}
    * @returns {boolean}
    */
-  havePropertiesChanged (propList) {
-    return this.hasChangedProperties && propList.some(prop => this.hasPropertyChanged(prop))
+  haveChanged (propList) {
+    return this.hasChangedProperties && propList.some(prop => this.hasChanged(prop))
   }
 
   /**
@@ -246,7 +246,7 @@ export class Props {
    * @returns {string[]}
    */
   listChangedProperties () {
-    return this.listProperties().filter(prop => this.hasPropertyChanged(prop))
+    return this.listProperties().filter(prop => this.hasChanged(prop))
   }
 
   /**

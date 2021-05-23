@@ -14,12 +14,19 @@
     const scene = new Grapheme.InteractiveScene({ id: "main", interactivity: true })
 
     document.body.appendChild(scene.domElement)
-    scene.setSize(1000, 1000)
+    scene.setSize(400, 400)
 
-    const polyline = new Grapheme.PolylineElement({ vertices: [2, 3, 100, 20 ], pen: { thickness: 10, color: "blue" } })
+    const polyline = new Grapheme.PolylineElement({ vertices: [20, 350, 100, 20 ], pen: { thickness: 10, color: "blue" } })
     scene.add(polyline)
 
-    renderer.renderDOMScene(scene)
+    function render() {
+        renderer.renderDOMScene(scene)
+        setTimeout(render, 1000)
+
+        polyline.set("pen", { thickness: Math.abs(Math.sin(Date.now() / 500)) * 6 })
+    }
+
+    render()
 </noscript>
 
 
