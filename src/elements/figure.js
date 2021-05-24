@@ -105,7 +105,7 @@ export class Figure extends Group {
   updateBoxes () {
     const { props } = this
 
-    if (props.haveChanged(["sceneDimensions", "marginLeft", "marginRight", "marginTop", "marginBottom", "figureBoundingBox"])) {
+    if (props.haveChanged(["sceneDimensions", "marginLeft", "marginRight",  "marginTop", "marginBottom", "figureBoundingBox"])) {
       const boundingBox = props.set("figureBoundingBox", props.get("sceneDimensions").getBoundingBox(), 2)
       const margins = this.get("margins")
 

@@ -4,8 +4,7 @@ import {constructInterface} from "./interface"
 const interactiveSceneInterface = constructInterface({
   ...Scene.prototype.getInterface().description,
 
-  "interactivity": { onSet: function (value) {
-      console.log("hi"); this._interactivityEnabled(value) }, typecheck: "boolean"},
+  "interactivity": { onSet: function (value) { this._interactivityEnabled(value) }, typecheck: "boolean"},
 
   // When width and height are set we want to immediately adjust the size of the canvas
   "width": { onSet: function () { this.resizeCanvas() }, typecheck: "number" },
