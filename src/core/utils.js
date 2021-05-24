@@ -75,7 +75,7 @@ export function deepEquals (x, y) {
   }
 
   // The only other thing of consequence to us. Could probably handle other weird objects too, but meh.
-  if (ArrayBuffer.isView(x) && ArrayBuffer.isView(y)) {
+  if (isTypedArray(x) && isTypedArray(y)) {
     if (x.length !== y.length) return false
 
     if (x instanceof Float32Array || x instanceof Float64Array) {
@@ -108,6 +108,88 @@ export function deepEquals (x, y) {
   }
 
   return true
+}
+
+/**
+ * Merge two objects, not checking for circularity, not merging arrays, modifying the first object
+ * @param target {{}}
+ * @param source {{}}
+ * @param opts
+ */
+export function deepAssign (target, source, opts={}) {
+  opts.cloneArrays = opts.cloneArrays ?? true
+  opts.assignUndefined = opts.assignUndefined ?? false
+
+  return deepAssignInternal(target, source, opts)
+}
+
+function deepAssignInternal (target, source, opts) {
+  if (typeof source !== "object") return (source !== undefined || opts.assignUndefined) ? source : target
+
+  if (Array.isArray(target) || isTypedArray(target))
+    return opts.cloneArrays ? deepClone(source) : source
+
+  for (const key in source) {
+    if (source.hasOwnProperty(key)) {
+      let sourceVal = source[key]
+
+      if (opts.assignUndefined || sourceVal !== undefined) {
+        let val = target[key]
+        let sourceIsArray = Array.isArray(sourceVal) || isTypedArray(sourceVal)
+
+        if (typeof val === "object" && !Array.isArray(val)) {
+          if (typeof sourceVal === "object" && !sourceIsArray) {
+            deepAssign(val, sourceVal, opts)
+            continue
+          }
+        }
+
+        target[key] = (sourceIsArray && opts.cloneArrays) ? deepClone(sourceVal) : sourceVal
+      }
+    }
+  }
+
+  return target
+}
+
+/**
+ * Same as deepAssign, but creating a copy of the object. Arrays are optionally copied.
+ * @param target {{}}
+ * @param source {{}}
+ * @param opts
+ */
+export function deepMerge (target, source, opts={}) {
+  return deepAssign(deepClone(target, opts), source, opts)
+}
+
+/**
+ * Deep clone an object, not checking for circularity or other weirdness, optionally cloning arrays
+ * @param object
+ * @param opts
+ */
+export function deepClone (object, opts={}) {
+  opts.cloneArrays = opts.cloneArrays ?? true
+
+  return deepCloneInternal(object, opts)
+}
+
+function deepCloneInternal (object, opts={}) {
+  if (typeof object !== "object") return object
+
+  if (Array.isArray(object)) {
+    return opts.cloneArrays ? object.map(val => deepCloneInternal(val, opts)) : object
+  } else if (isTypedArray(object)) {
+    return opts.cloneArrays ? new object.constructor(object) : object
+  }
+
+  let ret = {}
+  for (let key in object) {
+    if (object.hasOwnProperty(key)) {
+      ret[key] = deepClone(object[key], opts)
+    }
+  }
+
+  return ret
 }
 
 export function isTypedArray (arr) {

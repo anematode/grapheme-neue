@@ -13,6 +13,7 @@
 // find a workaround. But even just for me, having this kind of system would help with catching my own errors.
 
 import {Vec2} from "../math/vec/vec2"
+import {flattenVec2Array} from "../algorithm/misc_geometry"
 
 export const SampleInterface = {
   // Define behavior of set(width, value) and get(width). If empty, it directly modifies the property with the same name.
@@ -65,6 +66,13 @@ const builtinTypechecks = {
   }
 }
 
+const builtinConversions = {
+  vec2_array: arr => {
+    return flattenVec2Array(arr)
+  },
+  vec2: Vec2.fromObj
+}
+
 function createTypecheck (description) {
   if (typeof description === "function") {
     return description
@@ -74,6 +82,16 @@ function createTypecheck (description) {
     return typecheck
   } else if (typeof description === "object") {
 
+  }
+}
+
+function createConversion (description) {
+  if (typeof description === "function") {
+    return description
+  } else if (typeof description === "string") {
+    const conversion = builtinConversions[description]
+
+    return conversion
   }
 }
 
@@ -96,7 +114,7 @@ export function constructInterface (interfaceDescription) {
       // Simply map propName to the given targetName
       setters[propName] = getters[propName] = description
     } else if (typeof description === "object") {
-      let { aliases, conversion, target, as, setAs, getAs, equalityCheck, destructuring, readOnly, writeOnly, typecheck, set, get, onSet, setMerge } = description
+      let { aliases, conversion, target, as, setAs, getAs, equalityCheck, destructuring, readOnly, writeOnly, typecheck, set, get, onSet, onGet, setMerge } = description
 
       if (readOnly && writeOnly) continue // lol
       let needsSetter = !readOnly
@@ -104,8 +122,8 @@ export function constructInterface (interfaceDescription) {
 
       if (aliases) {
         for (const alias of Array.from(aliases)) {
-          needsSetter ? setters[propName] = target : 0
-          needsGetter ? getters[propName] = target : 0
+          needsSetter ? setters[alias] = propName : 0
+          needsGetter ? getters[alias] = propName : 0
         }
       }
 
@@ -122,7 +140,7 @@ export function constructInterface (interfaceDescription) {
             if (typecheckFunction)
               steps.push({type: "typecheck", typecheck: typecheckFunction})
           }
-          if (conversion) steps.push({type: "conversion", conversion})
+          if (conversion) steps.push({ type: "conversion", conversion: createConversion(conversion) })
           if (destructuring) steps.push({type: "destructuring", destructuring})
 
           steps.push({ type: "target", target: target ?? propName, as: setAs ?? as ?? "real", equalityCheck: equalityCheck ?? 0, merge: !!setMerge })
@@ -143,8 +161,10 @@ export function constructInterface (interfaceDescription) {
         } else {
           const steps = []
 
-          steps.push({ type: "target", target: target ?? propName, as: getAs ?? as ?? "real" })
+          if (onGet) steps.push({ type: "onGet", onGet })
+
           if (destructuring) steps.push({type: "restructuring", restructuring: invertDestructure(destructuring)})
+          else steps.push({ type: "target", target: target ?? propName, as: getAs ?? as ?? "real" })
 
           if (steps.length === 0) getters[propName] = true
           else if (steps.length === 1) getters[propName] = steps[0]
@@ -182,7 +202,9 @@ export function constructInterface (interfaceDescription) {
 
             for (const [propName, propValue] of Object.entries(value)) {
               let renamed = destructuring[propName]
-              if (typeof renamed !== "string") renamed = propName
+
+              if (renamed === undefined) continue
+              else if (typeof renamed !== "string") renamed = propName
 
               set(element, renamed, propValue)
             }
@@ -226,17 +248,19 @@ export function constructInterface (interfaceDescription) {
         if (step.type === "target") {
           value = element.props.get(step.target, step.as)
         } else if (step.type === "restructuring") {
-            let restructuring = step.restructuring
-            let ret = {}
+          let restructuring = step.restructuring
+          let ret = {}
 
-            for (let [internalName, propName] of Object.entries(restructuring)) {
-              if (typeof internalName !== "string") internalName = propName
+          for (let [internalName, propName] of Object.entries(restructuring)) {
+            if (typeof internalName !== "string") internalName = propName
 
-              ret[propName] = get(element, internalName)
-            }
-
-            return ret
+            ret[propName] = get(element, internalName)
           }
+
+          return ret
+        } else if (step.type === "onGet") {
+          step.onGet.bind(element)(value)
+        }
       }
 
       return value

@@ -667,10 +667,12 @@ function _flattenVec2ArrayInternal(arr) {
   for (let i = 0; i < arr.length; ++i) {
     let item = arr[i]
 
-    if (item === null) {
+    if (item === null || item === undefined) {
       out.push(NaN, NaN)
     } else if (item.x !== undefined && item.y !== undefined) {
       out.push(item.x, item.y)
+    } else if (item[0] !== undefined) {
+      out.push(+item[0], item[1] ?? 0)
     } else {
       if (typeof item === "number") out.push (item)
       else throw new TypeError(`Error when converting array to flattened Vec2 array: Unknown item ${item} at index ${i} in given array`)

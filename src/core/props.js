@@ -370,8 +370,8 @@ export class Props {
 
     if (value === undefined) {
       // Special case of deletion. If the property exists, we set its value to undefined, and if that property is
-      // defined to be inheritable, we set its inherit to 0, and this.hasChangedInheritableProperties to 2. Note that
-      // an inheritED property cannot be deleted, as that would be inconsistent. It can only be overridden.
+      // defined to be inheritable, we set this.hasChangedInheritableProperties to 2. Note that an inheritED property
+      // cannot be deleted, as that would be inconsistent. It can only be overridden.
 
       // trivial case, don't do anything
       if (!store || getStoreValue() === undefined) return undefined
@@ -385,7 +385,7 @@ export class Props {
         setStoreValue(undefined)
         store.version = getVersionID()
 
-        if (markChanged) this.markHasChangedInheritanceSignature()
+        if (markChanged && as === "real") this.markHasChangedInheritanceSignature()
       } else {
         // Typical case of deleting a property. We just set its value to undefined
         setStoreValue(undefined)
@@ -420,7 +420,7 @@ export class Props {
       this.markHasChangedProperties()
 
       // For values to be inherited, store the version of this value. Only for inherit: 2 properties
-      if (store.inherit === 2) {
+      if (store.inherit === 2 && as === "real") {
         store.version = getVersionID()
         this.markHasChangedInheritableProperties()
       }

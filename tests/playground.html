@@ -16,14 +16,21 @@
     document.body.appendChild(scene.domElement)
     scene.setSize(400, 400)
 
-    const polyline = new Grapheme.PolylineElement({ vertices: [20, 350, 100, 20 ], pen: { thickness: 10, color: "blue" } })
+    const polyline = new Grapheme.PolylineElement({ vertices: [ [20, 350], [100, 20], [50, 30], [20, 31] ], pen: { thickness: 10, color: "blue" } })
     scene.add(polyline)
+
+    const axis = new Grapheme.AxisElement()
+    scene.add(axis)
+
+    axis.set("axis", { start: [100, 20], end: [100, 500], graphStart: -2, graphEnd: 2 })
+    axis.set("ticks", { major: [3, 4, 1] })
+    axis.set("ticks", { minor: undefined })
 
     function render() {
         renderer.renderDOMScene(scene)
-        setTimeout(render, 1000)
+        //requestAnimationFrame(render)
 
-        polyline.set("pen", { color: "chartreuse" })
+        polyline.set("pen", { color: (Math.random() < 0.5) ? "chartreuse" : "red", thickness: Math.random() * 5 })
     }
 
     render()

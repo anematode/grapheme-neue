@@ -10,12 +10,21 @@ import {constructInterface} from "../core/interface"
 // tickStyles: dictionary of
 
 const axisInterface = constructInterface({
-  ticks: true,
-  start: true,
-  end: true,
-  startGraphX: true,
-  endGraphX: true
+  ticks: { setAs: "user", getAs: "real", setMerge: true },
+  start: { conversion: "vec2" },
+  end: { conversion: "vec2" },
+  graphStart: true,
+  graphEnd: true,
+  axis: { destructuring: { start: "start", end: "end", graphStart: "graphStart", graphEnd: "graphEnd"} }
 })
+
+function convertTicks (ticks) {
+  if (Array.isArray(ticks)) {
+    return { major: ticks }
+  } else {
+    return ticks
+  }
+}
 
 export class AxisElement extends Element {
   getInterface () {
@@ -23,19 +32,35 @@ export class AxisElement extends Element {
   }
 
   _update () {
-    const { ticks, start, end, startGraphX, endGraphX } = this.props.proxy
+    const { props } = this
 
-    let instructions = this.internal.instructions = []
-    let axisDisplacement = end.sub(start)
-    let axisUnitDisplacement = axisDisplacement.unit()
+    if (props.hasChanged("ticks")) {
+      // Compute ticks from user value
+      let userValue = props.getUserValue("ticks")
 
-    for (const tick of ticks) {
-      let position = axisDisplacement.mul((tick - startGraphX) / (endGraphX - startGraphX)).add(start)
-
-      instructions.push({ type: "polyline", vertices: [ position, position.add(axisUnitDisplacement.rotDeg(90).mul(15)) ], pen: { thickness: 3 } } )
-
-      instructions.push({ type: "text", text: '' + tick, font: "sans-serif", fontSize: 16, position, anchorDir: axisUnitDisplacement.rotDeg(-90), spacing: 8, shadowRadius: 6 })
+      props.set("ticks", convertTicks(userValue), 0)
     }
+
+    if (props.hasChanged("tickStyles")) {
+      // Compute tick styles from user value
+      let userValue = props.getUserValue("tickStyles")
+
+
+    }
+
+    if (props.haveChanged(["ticks", "tickStyles", "start", "end", "graphStart", "graphEnd"])) {
+      const {start, end, graphStart, graphEnd, ticks, tickStyles} = props.proxy
+
+      if ([ticks, start, end, graphStart, graphEnd].some(x => x === undefined)) return
+      let instructions = this.internal.instructions = []
+
+      for (const [style, positions] of Object.entries(ticks)) {
+        console.log(style, positions)
+      }
+
+      instructions.push()
+    }
+
   }
 
   getRenderingInstructions() {

@@ -32,6 +32,7 @@ export * from './renderer/text_renderer'
 export * from './core/interactive_scene'
 export * from './renderer/new_renderer'
 export * from './elements/text_element'
+export * from './elements/axis'
 export * from './core/interface'
 export * from './elements/point_cloud'
 export * from "./algorithm/misc_geometry"

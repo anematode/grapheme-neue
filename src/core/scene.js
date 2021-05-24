@@ -4,10 +4,10 @@ import {attachGettersAndSetters, constructInterface} from "./interface"
 
 // Example interface
 const sceneInterface = constructInterface({
-  "dpr": { typecheck: "number" },
-  "width": { typecheck: "number" },
-  "height": { typecheck: "number" },
-  "sceneDimensions": { readOnly: true, aliases: [ "dimensions" ] }
+  "dpr": { typecheck: "number", description: "The device pixel ratio of the scene." },
+  "width": { typecheck: "number", description: "The width, in CSS pixels, of the scene." },
+  "height": { typecheck: "number", description: "The height, in CSS pixels, of the scene." },
+  "sceneDimensions": { readOnly: true, aliases: [ "dimensions" ], description: "An aggregate of the width, height, canvasWidth, canvasHeight, and dpr of the scene." }
 })
 
 /**

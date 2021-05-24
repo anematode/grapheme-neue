@@ -52,3 +52,7 @@ describe('deepEquals', () => {
     expect(deepEquals(new Set(), new Set())).toBe(false)
   })
 })
+
+describe('deepClone', () => {
+
+})
