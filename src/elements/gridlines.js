@@ -1,5 +1,5 @@
 import {Element} from "../core/element"
-import {Pen} from "../other/pen"
+import {Pen} from "../styles/definitions"
 import {DefaultStyles} from "../styles/definitions"
 import {calculatePolylineVertices} from "../algorithm/polyline_triangulation"
 import {constructInterface} from "../core/interface"

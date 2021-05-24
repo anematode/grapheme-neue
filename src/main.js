@@ -35,6 +35,5 @@ export * from './elements/text_element'
 export * from './core/interface'
 export * from './elements/point_cloud'
 export * from "./algorithm/misc_geometry"
-export * from './other/color'
-export * from'./styles/definitions'
+export * from './styles/definitions'
 export * from './elements/polyline_element'

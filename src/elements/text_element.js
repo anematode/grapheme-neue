@@ -2,7 +2,7 @@
 import {Element} from "../core/element"
 import {Vec2} from "../math/vec/vec2"
 import {constructInterface} from "../core/interface"
-import {Colors} from "../other/color"
+import { Colors } from "../styles/definitions"
 
 const textElementInterface = constructInterface({
   font: true,

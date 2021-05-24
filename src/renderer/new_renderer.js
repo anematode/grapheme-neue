@@ -71,15 +71,11 @@
 
 import {getVersionID} from "../core/utils"
 import {TextRenderer} from "./text_renderer"
-import {
-  combineColoredTriangleStrips,
-  combineTriangleStrips,
-  fillRepeating, flattenVec2Array,
-  generateRectangleTriangleStrip, getActualTextLocation
+import { combineColoredTriangleStrips,  combineTriangleStrips, fillRepeating, flattenVec2Array, generateRectangleTriangleStrip, getActualTextLocation
 } from "../algorithm/misc_geometry"
 import {BoundingBox} from "../math/bounding_box"
 import {calculatePolylineVertices} from "../algorithm/polyline_triangulation"
-import {Pen} from "../other/pen"
+import {Pen} from "../styles/definitions"
 import {Vec2} from "../math/vec/vec2"
 
 // Functions taken from Mozilla docs
@@ -585,7 +581,7 @@ export class GraphemeWebGLRenderer {
 
       // Preprocessing, converting to triangle strip
       if (instruction.type === "polyline") {
-        let pen = instruction.pen ? Pen.fromObj(instruction.pen) : Pen.DefaultPen
+        let pen = instruction.pen ? Pen.fromObj(instruction.pen) : Pen.default
 
         const vertices = calculatePolylineVertices(flattenVec2Array(instruction.vertices), pen, new BoundingBox(0, 0, scene.width, scene.height))
         instruction = { type: "triangle_strip", vertices, color: pen.color }

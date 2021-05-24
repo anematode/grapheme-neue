@@ -96,7 +96,7 @@ export function constructInterface (interfaceDescription) {
       // Simply map propName to the given targetName
       setters[propName] = getters[propName] = description
     } else if (typeof description === "object") {
-      let { aliases, conversion, target, as, setAs, getAs, equalityCheck, destructuring, readOnly, writeOnly, typecheck, set, get, onSet } = description
+      let { aliases, conversion, target, as, setAs, getAs, equalityCheck, destructuring, readOnly, writeOnly, typecheck, set, get, onSet, setMerge } = description
 
       if (readOnly && writeOnly) continue // lol
       let needsSetter = !readOnly
@@ -125,7 +125,7 @@ export function constructInterface (interfaceDescription) {
           if (conversion) steps.push({type: "conversion", conversion})
           if (destructuring) steps.push({type: "destructuring", destructuring})
 
-          steps.push({ type: "target", target: target ?? propName, as: setAs ?? as ?? "real", equalityCheck: equalityCheck ?? 0 })
+          steps.push({ type: "target", target: target ?? propName, as: setAs ?? as ?? "real", equalityCheck: equalityCheck ?? 0, merge: !!setMerge })
 
           if (onSet) steps.push({ type: "onSet", onSet })
 
@@ -174,7 +174,6 @@ export function constructInterface (interfaceDescription) {
     else if (typeof steps === "string") element.props.set(steps, value)
     else if (typeof steps === "function") steps.bind(element)(value)
     else {
-      let target
       steps = Array.isArray(steps) ? steps : [steps]
 
       for (const step of steps) {
@@ -190,7 +189,11 @@ export function constructInterface (interfaceDescription) {
 
             return
           } else if (step.type === "target") {
-            let { target, as, equalityCheck } = step
+            let { target, as, equalityCheck, merge } = step
+
+            if (merge) {
+              value = { ...element.props.get(target, as), ...value }
+            }
 
             element.props.set(target, value, equalityCheck, as)
           } else if (step.type === "conversion") {

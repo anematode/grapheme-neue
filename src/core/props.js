@@ -505,6 +505,14 @@ export class Props {
     }
   }
 
+  getUserValue (propName) {
+    return this.get(propName, "user")
+  }
+
+  getProgramValue (propName) {
+    return this.get(propName, "program")
+  }
+
   /**
    * Get the values of a list of properties.
    * @param propNameList {string[]}

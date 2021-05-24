@@ -5,7 +5,7 @@
 import {Element} from "../core/element"
 import {constructInterface} from "../core/interface"
 import {generateCircleTriangleStrip} from "../algorithm/misc_geometry"
-import {Colors} from "../other/color"
+import {Colors} from "../styles/definitions"
 
 const pointCloudInterface = constructInterface({
   data: true,

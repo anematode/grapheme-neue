@@ -121,3 +121,18 @@ export function mod (n, m) {
 export function nextPowerOfTwo (n) {
   return 1 << (Math.ceil(Math.log2(n)))
 }
+
+/**
+ * Freeze an object and all its children. Does not account for cycles
+ * @param obj
+ */
+export function deepFreeze (obj) {
+  Object.freeze(obj)
+
+  Object.values(obj).forEach(value => {
+    if (typeof value === "function" || typeof value === "object")
+      deepFreeze(value)
+  })
+
+  return obj
+}
