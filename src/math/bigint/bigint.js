@@ -71,8 +71,8 @@ function isValidDigit (base, digitCode) {
  * number. There may be trailing zeroes in the words array.
  */
 export class BigInt {
-  constructor (words = [], sign = 0) {
-    this.words = words
+  constructor (words, sign) {
+    this.words = new Int32Array(words)
     this.sign = sign
   }
 
@@ -164,5 +164,74 @@ export class BigInt {
     { return }
 
     if (num < 0) { return this.shiftLeft(-num) }
+  }
+
+  toString () {
+    // Convert the number to something of the form -?[0-9]+ . We could use some sort of BigDecimal... but meh. Just have
+    // an array of base 10 entries, perform a repeated operation of doubling or adding on those entries
+
+    let str = (this.sign < 0) ? '-' : ''
+    let digits = [0] // an array of base 10000 numbers, in reverse order
+
+    function multiplyByTwo () {
+      // Relatively straightforward; we just multiply each entry by 2 and add it as a carry.
+      let carry = 0
+
+      let i = 0
+      for (; i < digits.length; ++i) {
+        let digit = digits[i]
+
+        let cow = digit * 2 + carry
+
+        if (cow >= 10) {
+          cow = cow - 10
+          carry = 1
+        } else {
+          carry = 0
+        }
+
+        digits[i] = cow
+      }
+
+      if (carry === 1) digits.push(1)
+    }
+
+    function addOne () {
+      let carry = 1
+
+      let i = 0
+      for (; i < digits.length; ++i) {
+        let digit = digits[i]
+
+        let cow = digit + carry
+
+        if (cow >= 10) {
+          cow = cow - 10
+          carry = 1
+          digits[i] = cow
+        } else {
+          carry = 0
+          digits[i] = cow
+          return
+        }
+      }
+
+      if (carry === 1) digits.push(1)
+    }
+
+    let word = 15004002
+
+    for (let i = 0; i < 31; ++i) {
+      multiplyByTwo()
+
+      if (word & 0x40000000) {
+        addOne()
+      }
+
+      word <<= 1
+      word &= 0x7FFFFFFF
+    }
+
+    return digits
   }
 }

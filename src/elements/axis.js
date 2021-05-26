@@ -31,6 +31,10 @@ export class AxisElement extends Element {
     return axisInterface
   }
 
+  init () {
+
+  }
+
   _update () {
     const { props } = this
 
@@ -45,11 +49,11 @@ export class AxisElement extends Element {
       // Compute tick styles from user value
       let userValue = props.getUserValue("tickStyles")
 
-
+      props.set("tickStyles")
     }
 
     if (props.haveChanged(["ticks", "tickStyles", "start", "end", "graphStart", "graphEnd"])) {
-      const {start, end, graphStart, graphEnd, ticks, tickStyles} = props.proxy
+      const { start, end, graphStart, graphEnd, ticks, tickStyles } = props.proxy
 
       if ([ticks, start, end, graphStart, graphEnd].some(x => x === undefined)) return
       let instructions = this.internal.instructions = []

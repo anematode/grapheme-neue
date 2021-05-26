@@ -38,3 +38,4 @@ export * from './elements/point_cloud'
 export * from "./algorithm/misc_geometry"
 export * from './styles/definitions'
 export * from './elements/polyline_element'
+export * from './math/bigint/bigint'
