@@ -40,7 +40,7 @@ class Color {
 
   hex () {
     const rnd = this.rounded()
-    return `#${[rnd.r, rnd.g, rnd.b, rnd.a].map((x) => utils.zeroFill(x.toString(16), 2)).join('')}`
+    return `#${[rnd.r, rnd.g, rnd.b, rnd.a].map((x) => utils.leftZeroPad(x.toString(16), 2)).join('')}`
   }
 
   glColor () {

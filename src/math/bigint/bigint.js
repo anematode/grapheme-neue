@@ -1,12 +1,23 @@
-import {isTypedArray, zeroFill} from "../../core/utils"
+import {isTypedArray, leftZeroPad} from "../../core/utils"
 import {integerExp, rationalExp} from "../real/fp_manip"
 
 const digitsOut = '0123456789abcdefghijklmnopqrstuvwxyz'
 const base10Verify = /^[0-9]+$/
 
 const BIGINT_WORD_BITS = 30
+
+const BIGINT_WORD_BIT_MASK = 0x3FFFFFFF          // get the last 30 bits of a given word
+const BIGINT_WORD_OVERFLOW_BIT_MASK = 0x40000000 // get the overflow bit of a given word (aka the 31st bit)
+
 const BIGINT_WORD_SIZE = 2 ** BIGINT_WORD_BITS
 const MAX_BIGINT_WORD = BIGINT_WORD_SIZE - 1
+
+/**
+ * Return the number of bits a given word uses.
+ */
+function wordBitCount (word) {
+  return 32 - Math.clz32(word)
+}
 
 function fromStringBase10 (str) {
   // Verify the string is okay
@@ -115,7 +126,7 @@ export class BigInt {
 
     integer = integer * sign
 
-    this.initFromWords([ integer % MAX_BIGINT_WORD, Math.floor(integer / MAX_BIGINT_WORD) ], sign)
+    this.initFromWords([ integer % BIGINT_WORD_SIZE, Math.floor(integer / BIGINT_WORD_SIZE) ], sign)
     this.leftShiftInPlace(exponent)
   }
 
@@ -127,7 +138,9 @@ export class BigInt {
     if (!Number.isInteger(count) || count < 0) throw new RangeError("Left shift count must be a nonnegative integer")
     if (count === 0) return
 
-    this.allocateBits(this.bitCount() + count)
+    // Number of bits after shifting
+    let newBitCount = this.bitCount() + count
+    this.allocateBits(newBitCount)
 
     let { words, wordCount } = this
 
@@ -135,10 +148,10 @@ export class BigInt {
     let shifts = count % BIGINT_WORD_BITS
 
     if (count >= BIGINT_WORD_BITS) {
-      let wordShifts = Math.floor(count / 30)
+      let wordShifts = Math.floor(count / BIGINT_WORD_BITS)
 
       // We use copyWithin to shift the current words from [0, wordCount - 1] to [wordShifts, wordShifts + wordCount - 1]
-      words.copyWithin(wordShifts, 0, wordCount - 1)
+      words.copyWithin(wordShifts, 0, wordCount)
 
       // Fill [0, wordShifts - 1] with 0s
       words.fill(0, 0, wordShifts)
@@ -146,18 +159,35 @@ export class BigInt {
       wordCount += wordShifts
     }
 
-    // We now perform a smaller shift in which we iterate from [wordCount - 1] down to 0 and shift the current value of
-    // the cell up by <shifts>. We know that shifts is less than 30. The algorithm here is to take the word value, right
-    // shift it by (30 - shift value), and add that to the larger word. Then, shift the word value to the left by
-    // (shift value), remove the extra 31st and 32nd bits with & 0x40000000, and rewrite the word.
+    if (shifts !== 0) {
+      // We now perform a smaller shift in which we iterate from [wordCount - 1] down to 0 and shift the current value of
+      // the cell up by <shifts>. We know that shifts is less than 30. The algorithm here is to take the word value, right
+      // shift it by (30 - shift value), and add that to the larger word. Then, shift the word value to the left by
+      // (shift value), remove the extra 31st and 32nd bits with & 0x3FFFFFFF, and rewrite the word.
+      let rightShift = BIGINT_WORD_BITS - shifts
 
-    let rightShift = BIGINT_WORD_BITS - shifts
+      for (let i = wordCount - 1; i >= 0; --i) {
+        let word = words[i]
+        let carry = word >> rightShift
 
-    for (let i = wordCount - 1; i >= 0; --i) {
-      let word = words[i]
+        if (carry) words[i + 1] += carry
 
-
+        word <<= shifts
+        words[i] = word & BIGINT_WORD_BIT_MASK
+      }
     }
+
+    // Should be reliable
+    this.wordCount = Math.ceil(newBitCount / BIGINT_WORD_BITS)
+  }
+
+  rightShiftInPlace (count) {
+    count = +count
+
+    if (!Number.isInteger(count) || count < 0) throw new RangeError("Right shift count must be a nonnegative integer")
+    if (count === 0) return
+
+    let { words, wordCount } = this
   }
 
   /**
@@ -210,9 +240,10 @@ export class BigInt {
    * the preceding words
    */
   bitCount () {
-    const lastWord = this.words[this.wordCount - 1]
+    let lastIndex = this.wordCount - 1
+    const lastWord = this.words[lastIndex]
 
-    return (32 - Math.clz32(lastWord)) + (this.wordCount - 1) * BIGINT_WORD_BITS
+    return (32 - Math.clz32(lastWord)) + lastIndex * BIGINT_WORD_BITS
   }
 
   /**
@@ -292,12 +323,13 @@ export class BigInt {
    * Returns an array of integers corresponding to the digits in the expansion of a given radix. For example, converting
    * the BigInt corresponding to 5002 (20212021 base 3) to radix 3 will give [1, 2, 0, 2, 1, 2, 0, 2]. 0 gives an empty
    * array for all inputs.
-   * @param radix {number} Base for the conversion; should be an integer between 2 and 1073741824.
+   * @param radix {number} Base for the conversion; should be an integer between 2 and 1073741824. Technically
+   * you could have MAX_SAFE_INTEGER as a limit, but eh.
    */
   toRadixInternal (radix) {
     radix = +radix
 
-    if (!Number.isInteger(radix) || radix <= 1 || radix >= 1073741824) throw new RangeError("Base of radix conversion must be an integer between 2 and 1073741824, inclusive.")
+    if (!Number.isInteger(radix) || radix <= 1 || radix >= MAX_BIGINT_WORD) throw new RangeError("Base of radix conversion must be an integer between 2 and 1073741824, inclusive.")
 
     // We construct the output via decomposing the integer into a series of operations of either x * 2 or x + 1,
     // applying each to the digitsOut array. These operations correspond to the bits of the BigInt in reverse order.
@@ -347,40 +379,43 @@ export class BigInt {
 
     const { words } = this
 
+    // For each word, starting at the most significant word...
     for (let i = words.length - 1; i >= 0; --i) {
       let word = words[i]
 
-      for (let i = 0; i < 31; ++i) {
+      for (let j = 0; j < 30; ++j) {
         multiplyByTwo()
 
-        if (word & 0x40000000) {
-          addOne()
-        }
-
         word <<= 1
-        word &= 0x7FFFFFFF
+
+        // For each bit in the word, from most to least significant
+        if (word & 0x40000000) addOne()
       }
     }
 
     return digitsOut
   }
 
-  toString () {
-    let NEW_BASE_EXPONENT = 8
-    let NEW_BASE = 10 ** NEW_BASE_EXPONENT
+  toString (radix=10) {
+    // We *could* convert to base 10, but it's more efficient to convert to base 1000000000 and then zero pad and concat
+    // the results. That way we can take advantage of the internal, very quick int -> string function
 
-    // Convert the number to something of the form -?[0-9]+ . We could use some sort of BigDecimal... but meh. Just have
-    // an array of base 10 entries, perform a repeated operation of doubling or adding on those entries
+    if (!Number.isInteger(radix) || radix <= 2 || radix > 36) throw new RangeError("Base of radix conversion must be an integer between 2 and 36, inclusive.")
 
-    const sign = (this.sign < 0) ? '-' : ''
-    let digits = [0] // an array of base 100000000 numbers, in reverse order
+    if (radix === 10) {
+      const digits = this.toRadixInternal(1e9)
 
+      let out = (this.sign < 0 ? '-' : '') + digits[digits.length - 1]
+      for (let i = digits.length - 2; i >= 0; --i) {
+        out += leftZeroPad('' + digits[i], 9, '0')
+      }
 
-    f
+      return out
+    } else {
+      // May optimize later
 
-    // Combine all the words as a base-100000000 number by converting each to a string, zero padding them to the left,
-    // and rejoicing
+      return (this.sign < 0 ? '-' : '') + this.toRadixInternal(radix).reverse().map(digit => digit.toString(radix)).join('')
+    }
 
-    return digits.reverse().map(digit => zeroFill(digit + '', NEW_BASE_EXPONENT)).join()
   }
 }
