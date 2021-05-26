@@ -318,28 +318,46 @@ export function frExp (x) {
 /**
  * Converts a floating-point number into a numerator, denominator and exponent such that it is equal to n/d * 2^e. n and
  * d are guaranteed to be less than or equal to 2^53 and greater than or equal to 0 (unless the number is ±0, Infinity,
- * or NaN, at which point [x, 1, 0] is returned). See Grapheme Theory for details.
+ * or NaN, at which point [x, 1, 0] is returned). See Grapheme Theory for details. n/d is between 0.5 and 1.
  * @param x {number} Any floating-point number
  * @returns {number[]} [numerator, denominator, exponent]
  * @function rationalExp
  * @memberOf FP
  */
 export function rationalExp (x) {
+  const [ frac, denExponent, exp ] = rationalExpInternal(x)
+
+  let den = pow2(denExponent)
+
+  return [ frac * den, den, exp ]
+}
+
+function rationalExpInternal (x) {
   if (x < 0) {
-    const [ num, den, exp ] = rationalExp(-x)
+    const [ num, den, exp ] = rationalExpInternal(-x)
 
     return [ -num, den, exp ]
   }
 
-  if (x === 0 || !Number.isFinite(x)) return [ x, 1, 0 ]
+  if (x === 0 || !Number.isFinite(x)) return [ x, 0, 0 ]
 
   // Decompose into frac * 2 ^ exp
   const [ frac, exp ] = frExp(x)
 
   // This tells us the smallest power of two which frac * (2 ** shift) is an integer, which is the denominator
   // of the dyadic rational corresponding to x
-  const den = pow2(53 - mantissaCtz(frac))
-  const num = frac * den
+  const denExponent = 53 - mantissaCtz(frac)
 
-  return [ num, den, exp ]
+  return [ frac, denExponent, exp ]
+}
+
+/**
+ * Converts a floating-point number into an integer and exponent [i, e], so that i * 2^e gives the original number. i
+ * will be within the bounds of Number.MAX_SAFE_INTEGER.
+ * @param x
+ */
+export function integerExp (x) {
+  const [ frac, denExponent, exp ] = rationalExpInternal(x)
+
+  return [ frac * pow2(denExponent), exp - denExponent]
 }

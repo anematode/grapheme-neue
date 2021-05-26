@@ -218,3 +218,9 @@ export function deepFreeze (obj) {
 
   return obj
 }
+
+export function zeroFill (str, len, char='0') {
+  if (str.length >= len) return str
+
+  return char.repeat(len - str.length) + str
+}
