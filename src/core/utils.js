@@ -224,3 +224,20 @@ export function leftZeroPad (str, len, char='0') {
 
   return char.repeat(len - str.length) + str
 }
+
+/**
+ * Simple performance testing function
+ * @param callback {Function}
+ * @param iterations {number}
+ */
+export function performance (callback, iterations=100000) {
+  let timeStart = Date.now()
+
+  for (let i = 0; i < iterations; ++i) {
+    callback(i)
+  }
+
+  let timeEnd = Date.now()
+
+  console.log(`Function "${callback.name}" took an average of ${(timeEnd - timeStart) / iterations} ms per iteration.`)
+}

@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "description": "JavaScript graphing library",
   "main": "build/grapheme.js",
+  "module": "build/main.js",
   "scripts": {
-    "test": "jest",
+    "test": "npx mocha --reporter spec",
     "start": "http-server -a localhost -p 8000 --ext js",
     "lint": "eslint . --fix",
     "build": "rollup -c",
@@ -27,22 +28,17 @@
     "@babel/plugin-proposal-optional-chaining": "^7.11.0",
     "@babel/plugin-transform-modules-commonjs": "^7.12.1",
     "@babel/preset-env": "^7.11.5",
+    "@babel/register": "^7.13.16",
     "@rollup/plugin-babel": "^5.2.1",
+    "chai": "^4.3.4",
     "eslint": "^7.10.0",
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^4.2.1",
     "eslint-plugin-standard": "^4.0.1",
-    "jest": "^26.5.2",
-    "jest-expect-message": "^1.0.2",
     "jsdoc": "^3.6.6",
+    "mocha": "^8.4.0",
     "rollup": "^2.30.0"
-  },
-  "jest": {
-    "setupFilesAfterEnv": [
-      "jest-expect-message",
-      "./jest.setup.js"
-    ]
   },
   "babel": {
     "env": {
@@ -52,5 +48,10 @@
         ]
       }
     }
+  },
+  "type": "module",
+  "directories": {
+    "doc": "docs",
+    "test": "test"
   }
 }
