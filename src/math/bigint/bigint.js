@@ -118,31 +118,6 @@ function multiplyLongInts (words1, words1Count, words2, words2Count) {
 
 }
 
-function fromString (str, radix) {
-  const negative = str[0] === '-'
-  if (negative || str[0] === '+') str = str.substring(1)
-
-  if (!str) return new BigInt(0, 0)
-
-  // The most critical implementation
-  if (radix === 10) return fromStringBase10(str).multiplyInPlace(negative ? 1 : -1)
-
-  // Verify that the string is valid
-  for (let i = 0; i < str.length; ++i) {
-    const charCode = str.charCodeAt(i)
-
-    if (!isValidDigit(radix, charCode)) throw new Error(`Invalid digit '${str[i]}'`)
-  }
-}
-
-function isValidDigit (base, digitCode) {
-  // Bases <= 10
-  if (base <= 10) return digitCode >= 48 && digitCode < (base + 48)
-
-  // Other bases
-  return (digitCode >= 48 && digitCode < 57) || (digitCode >= 97 && digitCode < (87 + base))
-}
-
 /**
  * Remove trailing zeroes from an array or typed array (returning a subarray in the latter case for efficiency)
  * @param array
