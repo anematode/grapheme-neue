@@ -62,10 +62,8 @@ function fromStringBase10 (str) {
   }
 }
 
-// Multiply two 30-bit words and return the low and high part of the result. Somewhat hacky, but faster than bit-level
-// manipulations. Ah, the joys of JS.
 export function mulWords (word1, word2) {
-  return [ Math.imul(word1, word2) & BIGINT_WORD_BIT_MASK, Math.floor(word1 * word2 / BIGINT_WORD_SIZE)]
+  return [ Math.imul(word1, word2) & BIGINT_WORD_BIT_MASK, Math.floor(word1 * word2 / BIGINT_WORD_SIZE) ]
 }
 
 // Multiply and add three 30-bit words and return the low and high part of the result. (word1 * word2 + word3)
@@ -94,7 +92,30 @@ export function leftShiftWordsInPlace (words, wordCount, shift) {
 function multiplyBigInts(int1, int2) {
   let out = new Int32Array(int1.wordCount + int2.wordCount + 1)
 
+  const { words: int1words, wordCount: int1wordCount, sign: int1sign } = int1
+  const { words: int2words, wordCount: int2wordCount, sign: int2sign } = int2
 
+  // Textbook multiplication, go through each word of int1 and multiply by each word of int2
+  for (let int1wordIndex = 0; int1wordIndex < int1wordCount; ++int1wordIndex) {
+    let word1 = int1words[int1wordIndex]
+    let carry = 0
+
+    for (let int2wordIndex = 0; int2wordIndex < int2wordCount; ++int2wordIndex) {
+      let word2 = int2words[int2wordIndex]
+
+      let lo = Math.imul(word1, word2) & BIGINT_WORD_BIT_MASK
+      let hi = Math.floor(word1 * word2 / BIGINT_WORD_SIZE)
+
+      lo += carry
+      if ((carry & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
+        lo &= BIGINT_WORD_BIT_MASK
+        hi += 1
+      }
+
+      out[int1wordIndex]
+    }
+
+  }
 }
 
 /**
@@ -146,7 +167,7 @@ export class BigInt {
   }
 
   addInPlace (num) {
-    if (num <= BIGINT_WORD_MAX) {
+    if (typeof num === "number" && num <= BIGINT_WORD_MAX) {
       // For small nums, we just add and carry. It's super similar to the longer case, but we have this for speed since
       // incrementing and such is a very common operation
       const {words, wordCount} = this
@@ -195,7 +216,9 @@ export class BigInt {
           words[i] = word & BIGINT_WORD_BIT_MASK
           carry = 1
         } else {
+          words[i] = word
           carry = 0
+
           if (i >= checkCarryCount) break
         }
       }
@@ -205,6 +228,8 @@ export class BigInt {
     } else {
       this.addInPlace(new BigInt(num))
     }
+
+    return this
   }
 
   /**
@@ -241,30 +266,6 @@ export class BigInt {
   }
 
   /**
-   * Get a 30-bit word starting at a specific bit (which may not be a multiple of 30) where bit 0 is the HIGHEST bit
-   */
-  getWordAtBit (b) {
-    let bc = this.bitCount()
-    let offset = bc - b
-
-    if (offset < 0) return 0
-
-    if (offset % BIGINT_WORD_BITS === 0) {
-
-    }
-
-
-
-  }
-
-  getWordsAtBit (b, count) {
-    let arr = []
-    for (let i = 0; i < count; ++i) {
-      arr.push(this.getWordAtBit(b))
-    }
-  }
-
-  /**
    * Init from another Grapheme bigint
    * @param int
    */
@@ -276,6 +277,89 @@ export class BigInt {
     this.wordCount = wordCount
 
     return this
+  }
+
+  equals (bigint) {
+    return this._compare(bigint, true, true, true)
+  }
+
+  /**
+   * Internal function comparing this integer to another integer.
+   * @param bigint {BigInt|number}
+   * @param lessThan {boolean} Whether to test as less than (<) or greater than (>)
+   * @param orEqual {boolean} Whether to return true if the integers are equal
+   * @param onlyEqual {boolean} Whether to only return true if the integers are equal
+   * @returns {boolean}
+   * @private
+   */
+  _compare (bigint, lessThan=true, orEqual=false, onlyEqual=false) {
+    if (bigint instanceof BigInt) {
+      let sign = this.sign, otherSign = bigint.sign
+
+      if (sign < otherSign) return lessThan && !onlyEqual
+      if (sign > otherSign) return !lessThan && !onlyEqual
+      if (sign === 0) return orEqual
+
+      let bitcount = this.bitCount(), otherBitcount = bigint.bitCount()
+
+      if (bitcount < otherBitcount) return ((sign === 1) === lessThan) && !onlyEqual
+      if (bitcount > otherBitcount) return ((sign === 1) !== lessThan) && !onlyEqual
+
+      let wordCount = this.wordCount, words = this.words, otherWords = bigint.words
+
+      for (let i = wordCount; i >= 0; --i) {
+        let word = words[i], otherWord = otherWords[i]
+        if (word > otherWord) return ((sign === 1) !== lessThan) && !onlyEqual
+        if (word < otherWord) return ((sign === 1) === lessThan) && !onlyEqual
+      }
+
+      return orEqual
+    } else if (typeof bigint === "number") {
+      if (!Number.isFinite(bigint)) return false
+      let sign = this.sign, otherSign = Math.sign(bigint)
+
+      if (sign < otherSign) return lessThan && !onlyEqual
+      if (sign > otherSign) return !lessThan && !onlyEqual
+      if (sign === 0) return orEqual
+
+      bigint *= otherSign
+
+      if (bigint <= BIGINT_WORD_MAX) {
+        if (this.wordCount > 1) return false
+        let diff = this.words[0] - bigint
+
+        if (diff > 0) return ((sign === 1) !== lessThan) && !onlyEqual
+        if (diff < 0) return ((sign === 1) === lessThan) && !onlyEqual
+        return orEqual
+      }
+
+      let bitCount = this.bitCount()
+      let givenBitCount = Math.log2(bigint) + 1
+
+      // Give some leniency in case of rounding errors (which shouldn't technically happen, but ehh)
+      if (bitCount < Math.floor(givenBitCount) - 1) return ((sign === 1) === lessThan) && !onlyEqual
+      else if (bitCount > Math.ceil(givenBitCount) + 1) return ((sign === 1) !== lessThan) && !onlyEqual
+    }
+
+
+    // Fallback
+    return this._compare(new BigInt(bigint), lessThan, orEqual, onlyEqual)
+  }
+
+  lessThan (bigint) {
+    return this._compare(bigint, true, false)
+  }
+
+  lessThanOrEqual (bigint) {
+    return this._compare(bigint, true, true)
+  }
+
+  greaterThan (bigint) {
+    return this._compare(bigint, false, false)
+  }
+
+  greaterThanOrEqual (bigint) {
+    return this._compare(bigint, false, true)
   }
 
   /**
@@ -344,7 +428,9 @@ export class BigInt {
   }
 
   initFromSingleWord (word, sign=1) {
-    this.words = new Int32Array(word, sign)
+    this.words = new Int32Array([word])
+    this.sign = Math.sign(word) + 0
+    this.wordCount = 1
   }
 
   /**
@@ -360,13 +446,13 @@ export class BigInt {
     }
 
     const CHUNKING_EXPONENTS = [
-      30, 1073741824,
+      29, 536870912,
       18, 387420489,
-      15, 1073741824,
+      14, 268435456,
       12, 244140625,
       11, 362797056,
       10, 282475249,
-      10, 1073741824,
+      9, 134217728,
       9, 387420489,
       9, 1000000000,
       8, 214358881,
@@ -390,7 +476,7 @@ export class BigInt {
       6, 594823321,
       6, 729000000,
       6, 887503681,
-      6, 1073741824,
+      5, 33554432,
       5, 39135393,
       5, 45435424,
       5, 52521875,
@@ -406,6 +492,8 @@ export class BigInt {
     if (str[0] === '-') {
       this.sign = -1
       startIndex = 1
+    } else {
+      this.sign = 1
     }
 
     const digits = []
@@ -420,7 +508,7 @@ export class BigInt {
       } else if (digit <= 0x39) {
         val = digit - 0x30
       } else if (digit >= 0x61) {
-        val = digit - 0x61 + 26
+        val = digit - 0x61 + 10
       } else {
         throwInvalidDigitError(digit, i)
       }
@@ -431,6 +519,8 @@ export class BigInt {
       digits.push(val)
     }
 
+    this.allocateBits(Math.ceil(Math.log2(radix) * digits.length))
+
     // Initial word
     let initialGroupSize = (digits.length - 1) % CHUNKING_EXPONENT + 1, i = 0, chunk = 0
     for (; i < initialGroupSize; ++i) {
@@ -438,7 +528,6 @@ export class BigInt {
       chunk += digits[i]
     }
 
-    this.allocateBits(Math.ceil(Math.log2(radix) * digits.length))
     this.addInPlace(chunk)
 
     for (let j = i; j < digits.length; j += CHUNKING_EXPONENT) {
@@ -532,18 +621,36 @@ export class BigInt {
   }
 
   /**
-   * Multiply the bigint in place by a number or biginteger val
+   * Multiply the bigint in place by a number or biginteger val. Hard to optimize it more than this, sadly. If only JS
+   * had 64-bit multiplication... :(
    * @param val
    */
   multiplyInPlace (val) {
-    if (val <= BIGINT_WORD_MAX) {
+    if (typeof val === "number" && Math.abs(val) <= BIGINT_WORD_MAX) {
+      if (val === 0) {
+        this.setZero()
+        return
+      }
+
+      if (val === 1) return
+      if (val === -1) this.sign *= -1
+
       this.allocateBits(wordBitCount(val) + this.bitCount())
 
       const { words, wordCount } = this
 
       let carry = 0
       for (let i = 0; i < wordCount; ++i) {
-        const [ lo, hi ] = mulAddWords(words[i], val, carry)
+        let word = words[i]
+
+        // Isn't she lovely...
+        let lo = (Math.imul(word, val) & BIGINT_WORD_BIT_MASK) + carry
+        let hi = Math.floor(word * val / BIGINT_WORD_SIZE) | 0
+
+        if (lo >= BIGINT_WORD_OVERFLOW_BIT_MASK) {
+          lo &= BIGINT_WORD_BIT_MASK
+          hi += 1
+        }
 
         words[i] = lo
         carry = hi
@@ -553,6 +660,8 @@ export class BigInt {
         words[wordCount] = carry
         this.wordCount += 1
       }
+
+      this.sign *= Math.sign(val)
     }
   }
 
@@ -684,6 +793,7 @@ export class BigInt {
 
     return digitsOut
   }
+
 
   /**
    * Convert the bigint to its closest double representation with the given rounding mode. We do this by abstracting a
@@ -911,7 +1021,7 @@ export class BigInt {
     const CHUNK_EXPONENT = CHUNKING_EXPONENTS[2 * radix - 4]
     const digits = this.toLargeRadixInternal(CHUNKING_EXPONENTS[2 * radix - 3])
 
-    let out = (this.sign < 0 ? '-' : '') + digits[digits.length - 1]
+    let out = (this.sign < 0 ? '-' : '') + digits[digits.length - 1].toString(radix)
     for (let i = digits.length - 2; i >= 0; --i) {
       out += leftZeroPad(digits[i].toString(radix), CHUNK_EXPONENT, '0')
     }

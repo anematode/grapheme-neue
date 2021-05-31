@@ -25,7 +25,7 @@ const randomBigInts = [ 0n, -100n, -329n, 1000000000n, 999999999n, BigInt(1e100)
 
 let words = [...new Array(1000).keys()].map(() => Math.random()*(2**30) | 0)
 let giantInt = new GraphemeBigInt().initFromWords(words)
-
+let radixes = [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36]
 
 describe('mulWords', function() {
   it('should return the same results as the corresponding native bigint calculation', function() {
@@ -54,12 +54,41 @@ describe('BigInt', function() {
   })
 
   it('should return correct values for toString', function () {
-    for (const bigint of randomBigInts) {
-      expect(new GraphemeBigInt(bigint).toString(), `Result on bigint ${bigint}`).to.equal(bigint.toString())
+    for (const radix of radixes) {
+      for (const bigint of randomBigInts) {
+        expect(new GraphemeBigInt(bigint).toString(radix), `Result on bigint ${bigint} for radix ${radix}`).to.equal(bigint.toString(radix))
+      }
     }
   })
 
   it('should return correct values for addInPlace', function () {
     const tests = [ [0, 1], [100, 101], [501,30]]
+  })
+
+  it('should be created correctly from strings', function () {
+    for (const radix of radixes) {
+      for (const bigint of randomBigInts) {
+        expect(new GraphemeBigInt(bigint.toString(radix), radix).toString(), `Result on bigint ${bigint} for radix ${radix}`).to.equal(bigint.toString())
+      }
+    }
+  })
+
+  it('should compare equality with itself correctly', function () {
+    for (const bigint of randomBigInts) {
+      for (const bigint2 of randomBigInts) {
+        expect(new GraphemeBigInt(bigint).equals(new GraphemeBigInt(bigint2))).to.equal(bigint === bigint2)
+      }
+    }
+  })
+
+  it('should obey inequalities', function () {
+    for (const bigint of randomBigInts) {
+      for (const bigint2 of randomBigInts) {
+        expect(new GraphemeBigInt(bigint).lessThan(new GraphemeBigInt(bigint2))).to.equal(bigint < bigint2)
+        expect(new GraphemeBigInt(bigint).lessThanOrEqual(new GraphemeBigInt(bigint2))).to.equal(bigint <= bigint2)
+        expect(new GraphemeBigInt(bigint).greaterThan(new GraphemeBigInt(bigint2))).to.equal(bigint > bigint2)
+        expect(new GraphemeBigInt(bigint).greaterThanOrEqual(new GraphemeBigInt(bigint2))).to.equal(bigint >= bigint2)
+      }
+    }
   })
 })

@@ -10,6 +10,7 @@
 <script src="https://cdn.jsdelivr.net/npm/jsbi@3.1.4/dist/jsbi-umd.min.js"></script>
 
 <noscript id="setup">
+    let BI = Grapheme.BigInt
     let grapheme_int, native_int
 
     let words = [...new Array(1000).keys()].map(() => Math.random()*(2**30) | 0)
@@ -27,7 +28,7 @@
 
     Grapheme.utils.performance(() => {
         native_res = native_int.toString()
-    }, 100, "Native bigint toString")*/
+    }, 100, "Native bigint toString")
 
     Grapheme.utils.performance(() => {
     grapheme_res = new Grapheme.BigInt(str)
@@ -40,7 +41,7 @@
 
     Grapheme.utils.performance(() => {
     native_res = BigInt(str)
-    }, 100, "Native bigint from string")
+    }, 100, "Native bigint from string")*/
 
     let a = 2 ** 30 - 1, b = 2 ** 30 - 9
     console.log(Grapheme.mulWords(a, b))
