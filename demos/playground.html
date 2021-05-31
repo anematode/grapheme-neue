@@ -30,7 +30,7 @@
     let grapheme_res, jsbi_res, native_res
     Grapheme.utils.performance(() => {
        grapheme_res = grapheme_int.toString()
-    }, 100000, "Grapheme bigint toString")
+    }, 1, "Grapheme bigint toString")
 
     Grapheme.utils.performance(() => {
         jsbi_res = jsbi_int.toString()

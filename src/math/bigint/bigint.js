@@ -467,63 +467,110 @@ export class BigInt {
 
     // We construct the output via decomposing the integer into a series of operations of either x * 2 or x + 1,
     // applying each to the digitsOut array. These operations correspond to the bits of the BigInt in reverse order.
-    const digitsOut = [0]
-
-    function multiplyByTwo () {
-      // Relatively straightforward; we just multiply each entry by 2 and add it as a carry.
-      let carry = 0, i = 0
-
-      for (; i < digitsOut.length; ++i) {
-        let currentDigit = digitsOut[i]
-        let newDigit = currentDigit * 2 + carry
-
-        if (newDigit >= radix) {
-          newDigit -= radix
-          carry = 1
-        } else {
-          carry = 0
-        }
-
-        digitsOut[i] = newDigit
-      }
-
-      if (carry === 1) digitsOut[i] = 1
-    }
-
-    function addOne () {
-      // Also quite straightforward; we carry 1 to the end
-      let carry = 1, i = 0
-      for (; i < digitsOut.length; ++i) {
-        let currentDigit = digitsOut[i]
-        let newDigit = currentDigit + carry
-
-        if (newDigit >= radix) {
-          newDigit = newDigit - radix
-          carry = 1
-        } else {
-          carry = 0
-        }
-
-        digitsOut[i] = newDigit
-        if (carry === 0) return // early exit condition
-      }
-
-      if (carry === 1) digitsOut[i] = 1
-    }
-
+    const digitsOut = []
     const { words } = this
 
+    let queuedMultiplications = 0
+
     // For each word, starting at the most significant word...
-    for (let i = words.length - 1; i >= 0; --i) {
-      let word = words[i]
+    for (let wordIndex = words.length - 1; wordIndex >= 0; --wordIndex) {
+      let word = words[wordIndex]
 
-      for (let j = 0; j < 30; ++j) {
-        multiplyByTwo()
-
+      for (let j = 0; j < BIGINT_WORD_BITS; ++j) {
+        queuedMultiplications++
         word <<= 1
 
         // For each bit in the word, from most to least significant
-        if (word & BIGINT_WORD_OVERFLOW_BIT_MASK) addOne()
+        if ((word & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
+          // Run the queued multiplications
+          for (let k = 0; k < queuedMultiplications; ++k) {
+            let carry = 0, i = 0
+            for (; i < digitsOut.length; ++i) {
+              let currentDigit = digitsOut[i]
+              let newDigit = (currentDigit * 2) + carry
+
+              if (newDigit >= radix) {
+                newDigit -= radix
+                carry = 1
+              } else {
+                carry = 0
+              }
+
+              digitsOut[i] = newDigit
+            }
+            if (carry === 1) digitsOut[i] = 1
+          }
+
+          queuedMultiplications = 0
+
+          let carry = 1, i = 0
+          for (; i < digitsOut.length; ++i) {
+            let currentDigit = digitsOut[i]
+            let newDigit = currentDigit + carry
+
+            if (newDigit >= radix) {
+              newDigit = newDigit - radix
+              carry = 1
+            } else {
+              carry = 0
+            }
+
+            digitsOut[i] = newDigit
+            if (carry === 0) break // early exit condition
+          }
+
+          if (carry === 1) digitsOut[i] = 1
+        }
+      }
+    }
+
+    while (queuedMultiplications > 0) {
+      if (queuedMultiplications > 1) {
+        let carry = 0, i = 0
+        for (; i < digitsOut.length; ++i) {
+          let currentDigit = digitsOut[i]
+          let newDigit = (currentDigit * 4) + carry
+
+          if (newDigit >= radix) {
+            newDigit -= radix
+            if (newDigit >= radix) {
+              newDigit -= radix
+              if (newDigit >= radix) {
+                newDigit -= radix
+                carry = 3
+              } else {
+                carry = 2
+              }
+            } else {
+              carry = 1
+            }
+          } else {
+            carry = 0
+          }
+
+          digitsOut[i] = newDigit
+        }
+        if (carry !== 0) digitsOut[i] = carry
+
+        queuedMultiplications -= 2
+      } else {
+        let carry = 0, i = 0
+        for (; i < digitsOut.length; ++i) {
+          let currentDigit = digitsOut[i]
+          let newDigit = (currentDigit * 2) + carry
+
+          if (newDigit >= radix) {
+            newDigit -= radix
+            carry = 1
+          } else {
+            carry = 0
+          }
+
+          digitsOut[i] = newDigit
+        }
+        if (carry === 1) digitsOut[i] = 1
+
+        queuedMultiplications--
       }
     }
 
