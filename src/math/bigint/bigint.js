@@ -66,8 +66,10 @@ export function mulWords (word1, word2) {
   return mulAddWords(word1, word2, 0)
 }
 
+let mulAddWords
+
 // Multiply and add three 30-bit words and return the low and high part of the result. (word1 * word2 + word3)
-export function mulAddWords (word1, word2, word3) {
+export function mulAddWords__ (word1, word2, word3) {
   let word1Lo = word1 & BIGINT_WORD_LOW_PART_BIT_MASK
   let word2Lo = word2 & BIGINT_WORD_LOW_PART_BIT_MASK
   let word1Hi = word1 >> BIGINT_WORD_PART_BITS
@@ -76,22 +78,30 @@ export function mulAddWords (word1, word2, word3) {
   let low = Math.imul(word1Lo, word2Lo), high = Math.imul(word1Hi, word2Hi)
   let middle = Math.imul(word2Lo, word1Hi) + Math.imul(word1Lo, word2Hi)
 
-  low += (middle & BIGINT_WORD_LOW_PART_BIT_MASK) << BIGINT_WORD_PART_BITS
+  low += ((middle & BIGINT_WORD_LOW_PART_BIT_MASK) << BIGINT_WORD_PART_BITS) + word3
+  low >>>= 0
 
-  if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
+  if (low > BIGINT_WORD_OVERFLOW_BIT_MASK) {
+    high += low >>> BIGINT_WORD_BITS
     low &= BIGINT_WORD_BIT_MASK
-    high += 1
-  }
-
-  low += word3
-
-  if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
-    low &= BIGINT_WORD_BIT_MASK
-    high += 1
   }
 
   high += middle >> BIGINT_WORD_PART_BITS // add the high part of middle
 
+  return [ low, high ]
+}
+
+function mulWords_ (word1, word2) {
+  return [ Math.imul(word1, word2) & BIGINT_WORD_BIT_MASK, Math.floor(word1 * word2 / BIGINT_WORD_SIZE) ]
+}
+
+function mulAddWords_ (word1, word2, word3) {
+  let [ low, high ] = mulWords(word1, word2)
+  low += word3
+  if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
+    low &= BIGINT_WORD_BIT_MASK
+    high += 1
+  }
   return [ low, high ]
 }
 
@@ -109,28 +119,35 @@ export function multiplyBigInts(int1, int2) {
     let word1 = int1words[int1wordIndex]
     let carry = 0
 
+    let word1Lo = word1 & BIGINT_WORD_LOW_PART_BIT_MASK
+    let word1Hi = word1 >> BIGINT_WORD_PART_BITS
+
     for (let int2wordIndex = 0; int2wordIndex < end; ++int2wordIndex) {
       if (int2wordIndex >= int2wordCount && carry === 0) break
-
       let word2 = int2wordIndex < int2wordCount ? int2words[int2wordIndex] : 0
 
-      let [ lo, hi ] = mulAddWords(word1, word2, carry)
+      let outIndex = int1wordIndex + int2wordIndex
 
-      console.log(lo, hi)
+      let word2Lo = word2 & BIGINT_WORD_LOW_PART_BIT_MASK
+      let word2Hi = word2 >> BIGINT_WORD_PART_BITS
 
-      lo += out[int1wordIndex + int2wordIndex]
+      let low = Math.imul(word1Lo, word2Lo), high = Math.imul(word1Hi, word2Hi)
+      let middle = Math.imul(word2Lo, word1Hi) + Math.imul(word1Lo, word2Hi)
 
-      if ((lo & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
-        lo &= BIGINT_WORD_BIT_MASK
-        hi += 1
+      low += ((middle & BIGINT_WORD_LOW_PART_BIT_MASK) << BIGINT_WORD_PART_BITS) + carry + out[outIndex]
+      low >>>= 0
+
+      if (low > BIGINT_WORD_OVERFLOW_BIT_MASK) {
+        high += low >>> BIGINT_WORD_BITS
+        low &= BIGINT_WORD_BIT_MASK
       }
 
-      out[int1wordIndex + int2wordIndex] = lo
-      carry = hi
+      high += middle >> BIGINT_WORD_PART_BITS
+
+      out[outIndex] = low
+      carry = high
     }
   }
-
-  console.log(out)
 
   return new BigInt().initFromWords(out, int1sign * int2sign)
 }
@@ -1082,3 +1099,185 @@ export class BigInt {
     return out
   }
 }
+
+
+const BigIntASM = function (stdlib, foreign, buffer) {
+  "use asm"
+
+  var imul = stdlib.Math.imul
+  var int32view = new stdlib.Int32Array(buffer)
+
+  function mulAddWords (word1, word2, word3) {
+    word1 = word1 | 0
+    word2 = word2 | 0
+    word3 = word3 | 0
+
+    var word1Lo = 0, word2Lo = 0, word1Hi = 0, word2Hi = 0, low = 0, high = 0, middle = 0
+
+    word1Lo = word1 & 0x7FFF
+    word2Lo = word2 & 0x7FFF
+    word1Hi = word1 >> 15
+    word2Hi = word2 >> 15
+
+    low = imul(word1Lo, word2Lo)
+    high = imul(word1Hi, word2Hi)
+    middle = (imul(word2Lo, word1Hi) + imul(word1Lo, word2Hi)) | 0
+
+    low = (low + (((middle & 0x7FFF) << 15) + word3)) >>> 0
+
+    if ((low >>> 0) > 0x40000000) {
+      high = (high + (low >>> 30)) | 0
+      low = (low & 0x3FFFFFFF) | 0
+    }
+
+    high = (high + (middle >> 15)) | 0
+
+    int32view[0] = low | 0
+    int32view[1] = high | 0
+  }
+
+  function test () {
+    var i = 0
+    for (; (i | 0) < 1000000; i = (i + 1) | 0) {
+      mulAddWords(1000000000, 1000000000, 1000000000)
+    }
+  }
+
+  /*
+  let end = int1wordCount + int2wordCount + 1
+  let out = new Int32Array(end)
+
+  // Textbook multiplication, go through each word of int1 and multiply by each word of int2
+  for (let int1wordIndex = 0; int1wordIndex < int1wordCount; ++int1wordIndex) {
+    let word1 = int1words[int1wordIndex]
+    let carry = 0
+
+    let word1Lo = word1 & BIGINT_WORD_LOW_PART_BIT_MASK
+    let word1Hi = word1 >> BIGINT_WORD_PART_BITS
+
+    for (let int2wordIndex = 0; int2wordIndex < end; ++int2wordIndex) {
+      if (int2wordIndex >= int2wordCount && carry === 0) break
+      let word2 = int2wordIndex < int2wordCount ? int2words[int2wordIndex] : 0
+
+      let outIndex = int1wordIndex + int2wordIndex
+
+      let word2Lo = word2 & BIGINT_WORD_LOW_PART_BIT_MASK
+      let word2Hi = word2 >> BIGINT_WORD_PART_BITS
+
+      let low = Math.imul(word1Lo, word2Lo), high = Math.imul(word1Hi, word2Hi)
+      let middle = Math.imul(word2Lo, word1Hi) + Math.imul(word1Lo, word2Hi)
+
+      low += ((middle & BIGINT_WORD_LOW_PART_BIT_MASK) << BIGINT_WORD_PART_BITS) + carry + out[outIndex]
+      low >>>= 0
+
+      if (low > BIGINT_WORD_OVERFLOW_BIT_MASK) {
+        high += low >>> BIGINT_WORD_BITS
+        low &= BIGINT_WORD_BIT_MASK
+      }
+
+      high += middle >> BIGINT_WORD_PART_BITS
+
+      out[outIndex] = low
+      carry = high
+    }
+  }
+   */
+
+  function multiplyBigints (ptr1, len1, ptr2, len2, dstptr) {
+    ptr1 = ptr1 | 0
+    len1 = len1 | 0
+    ptr2 = ptr2 | 0
+    len2 = len2 | 0
+    dstptr = dstptr | 0
+
+    var end = 0, word1 = 0, word1Lo = 0, word1Hi = 0, carry = 0, int1wordIndex = 0, int2wordIndex = 0, word2 = 0,
+      word2Lo = 0, word2Hi = 0, low = 0, high = 0, middle = 0, outIndex = 0
+
+    end = ((len1 + len2 + 1) << 2) | 0
+
+    for (; (int1wordIndex | 0) < ((len1 << 2) | 0); int1wordIndex = (int1wordIndex + 4) | 0) {
+      word1 = int32view[(int1wordIndex + ptr1) >> 2] | 0
+      word1Lo = word1 & 0x7FFF
+      word1Hi = word1 >> 15
+
+      carry = 0
+
+      inner: for (int2wordIndex = 0; (int2wordIndex | 0) < (end | 0); int2wordIndex = (int2wordIndex + 4) | 0) {
+        if ((int2wordIndex | 0) >= ((len2 << 2) | 0)) {
+          if ((carry | 0) == 0) {
+            break inner
+          }
+
+          word2 = 0
+        } else {
+          word2 = int32view[(int2wordIndex + ptr2) >> 2] | 0
+        }
+
+        outIndex = (dstptr + int1wordIndex + int2wordIndex) | 0
+
+        word2Lo = word2 & 0x7FFF
+        word2Hi = word2 >> 15
+
+        low = imul(word1Lo, word2Lo)
+        high = imul(word1Hi, word2Hi)
+        middle = (imul(word2Lo, word1Hi) + imul(word1Lo, word2Hi)) | 0
+
+        low = (low + (((middle & 0x7FFF) << 15) + carry + int32view[outIndex >> 2])) >>> 0
+
+        if ((low >>> 0) > 0x40000000) {
+          high = (high + (low >>> 30)) | 0
+          low = (low & 0x3FFFFFFF) | 0
+        }
+
+        high = (high + (middle >> 15)) | 0
+
+        int32view[outIndex >> 2] = low | 0
+        carry = high | 0
+      }
+    }
+  }
+
+  return { mulAddWords: mulAddWords, test: test, multiplyBigints: multiplyBigints }
+}
+
+let heap = new ArrayBuffer(0x200000)
+let stdlib = {
+  Math,
+  Int32Array,
+  Infinity
+}
+
+let heaps = {
+  i32: new Int32Array(heap)
+}
+
+const ASM = BigIntASM (stdlib, null, heap)
+
+const Test = {
+  mulAddWords: (a, b, c) => {
+    ASM.mulAddWords(a, b, c)
+    return [ heaps.i32[0], heaps.i32[1] ]
+  },
+  multiplyBigints: (int1, int2) => {
+    let int1ptr = 2
+    let int1len = int1.wordCount
+    let int2ptr = int1ptr + int1len
+    let int2len = int2.wordCount
+    let dstptr = int2ptr + int2len
+    let dstend = dstptr + int1len + int2len + 1
+
+    heaps.i32.set(int1.words.subarray(0, int1.wordCount), int1ptr)
+    heaps.i32.set(int2.words.subarray(0, int2.wordCount), int2ptr)
+    heaps.i32.fill(0, dstptr, dstend) // Fill the output array with 0s
+
+    ASM.multiplyBigints(4 * int1ptr, int1len, 4 * int2ptr, int2len, 4 * dstptr)
+
+    return new BigInt().initFromWords(heaps.i32.subarray(dstptr, dstend), int1.sign * int2.sign)
+  }
+}
+
+mulAddWords = Test.mulAddWords
+
+export { mulAddWords }
+
+export { Test, heap }

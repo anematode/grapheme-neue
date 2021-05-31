@@ -11,11 +11,30 @@
 
 <noscript id="setup">
     let BI = Grapheme.BigInt
+    let grapheme_int, native_int
 
-    let a = new BI(1e20)
-    let b = new BI(1e21)
+    let words = [...new Array(1000).keys()].map(() => Math.random()*(2**30) | 0)
 
+    grapheme_int = new Grapheme.BigInt().initFromWords(words)
+    native_int = grapheme_int.toBigint()
+    jsbi_int = JSBI.BigInt(native_int.toString())
 
+    let str = native_int.toString()
+
+    console.log("Created Grapheme int: ", grapheme_int)
+
+    let grapheme_res, jsbi_res, native_res
+    Grapheme.utils.performance(() => {
+    grapheme_res = Grapheme.Test.multiplyBigints(grapheme_int, grapheme_int)
+    }, 100, "Grapheme bigint from string")
+
+    Grapheme.utils.performance(() => {
+    jsbi_res = JSBI.multiply(jsbi_int, jsbi_int)
+    }, 100, "JSBI bigint from string")
+
+    Grapheme.utils.performance(() => {
+    native_res = native_int * native_int
+    }, 100, "Native bigint from string")
 </noscript>
 
 

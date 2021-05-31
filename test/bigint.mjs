@@ -1,5 +1,5 @@
 import { assert, expect } from "chai"
-import { mulWords, BigInt as GraphemeBigInt } from "../src/math/bigint/bigint.js"
+import { mulAddWords, BigInt as GraphemeBigInt } from "../src/math/bigint/bigint.js"
 
 const troublesomeWords = []
 
@@ -29,20 +29,21 @@ let words = [...new Array(1000).keys()].map(() => Math.random()*(2**30) | 0)
 let giantInt = new GraphemeBigInt().initFromWords(words)
 let radixes = [2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36]
 
-describe('mulWords', function() {
+describe('mulAddWords', function() {
   it('should return the same results as the corresponding native bigint calculation', function() {
-    function testWordCombination (word1, word2) {
-      let res = mulWords(word1, word2)
-      let trueResult = BigInt(word1) * BigInt(word2)
+    function testWordCombination (word1, word2, word3) {
+      let res = mulAddWords(word1, word2, word3)
+      let trueResult = BigInt(word1) * BigInt(word2) + BigInt(word3)
 
       trueResult = [ Number(trueResult & 0x3FFFFFFFn), Number(trueResult >> 30n) ]
 
-      expect(res, `Result on ${word1} and ${word2} should be ${trueResult}`).to.deep.equal(trueResult)
+      expect(res, `Result on ${word1}, ${word2}, ${word3} should be ${trueResult}`).to.deep.equal(trueResult)
     }
 
     for (const word1 of allTestWords) {
       for (const word2 of allTestWords) {
-        testWordCombination(word1, word2)
+        for (const word3 of [0, 1e9, 50158181])
+          testWordCombination(word1, word2, word3)
       }
     }
   })
@@ -102,3 +103,5 @@ describe('BigInt', function() {
     }
   })
 })
+
+
