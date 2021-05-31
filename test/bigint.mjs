@@ -21,6 +21,11 @@ const randomWords = [
 ]
 
 const allTestWords = [ ...troublesomeWords, ...randomWords ]
+const randomBigInts = [ 0n, -100n, -329n, 1000000000n, 999999999n, BigInt(1e100), 14091824019820481203819281n, 10000040204182018n, 92103901710491203981059817023981705981720398750981703928123n, BigInt(2 ** 1022) ]
+
+let words = [...new Array(1000).keys()].map(() => Math.random()*(2**30) | 0)
+let giantInt = new GraphemeBigInt().initFromWords(words)
+
 
 describe('mulWords', function() {
   it('should return the same results as the corresponding native bigint calculation', function() {
@@ -46,5 +51,15 @@ describe('BigInt', function() {
     expect(() => new GraphemeBigInt(NaN)).to.throw();
     expect(() => new GraphemeBigInt(Infinity)).to.throw();
     expect(() => new GraphemeBigInt(-Infinity)).to.throw();
+  })
+
+  it('should return correct values for toString', function () {
+    for (const bigint of randomBigInts) {
+      expect(new GraphemeBigInt(bigint).toString(), `Result on bigint ${bigint}`).to.equal(bigint.toString())
+    }
+  })
+
+  it('should return correct values for addInPlace', function () {
+    const tests = [ [0, 1], [100, 101], [501,30]]
   })
 })

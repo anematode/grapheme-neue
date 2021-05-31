@@ -106,30 +106,8 @@ export function leftShiftWordsInPlace (words, wordCount, shift) {
 
 }
 
-/**
- * Add the given words to the targetWords array, doing the carries, etc. in place; if the
- * @param targetWords
- * @param words
- * @param wordCount
- * @param shift
- */
-function addLongIntsInPlace (targetWords, words, wordCount, shift=0) {
-
-}
-
-/**
- * Multiply two 30-bit word arrays, each with words1Count and words2Count words respectively, returning an Int32Array
- * and wordCount pair
- * @param words1 {Int32Array}
- * @param words1Count {number}
- * @param words2 {Int32Array}
- * @param words2Count {number}
- */
-function multiplyLongInts (words1, words1Count, words2, words2Count) {
-  const outWords = new Int32Array(words1Count + words2Count)
-
-  // Textbook multiplication! We start with each word of words1, multiply it by words2 and shift it the appropriate
-  // amount, and add the result to outWords
+function multiplyBigInts(int1, int2) {
+  let out = new Int32Array(int1.wordCount + int2.wordCount + 1)
 
 
 }
@@ -183,10 +161,91 @@ export class BigInt {
   }
 
   addInPlace (num) {
-    // We just add num to the starting number and carry, allocating more space if needed
+    if (num <= BIGINT_WORD_MAX) {
+      // For small nums, we just add and carry. It's super similar to the longer case, but we have this for speed since
+      // incrementing and such is a very common operation
+      const {words, wordCount} = this
 
-    const { words } = this
+      let carry = num, i = 0
+      for (; i < wordCount; ++i) {
+        let word = words[i] + carry
 
+        if ((word & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
+          words[i] = word & BIGINT_WORD_BIT_MASK
+          carry = 1
+        } else {
+          words[i] = word
+          carry = 0
+          break
+        }
+      }
+
+      // Happens when we increment from 2^30-1 to 2^30
+      if (carry !== 0) {
+        this.allocateWords(i + 1)
+        this.words[i] = carry
+        this.wordCount = i + 1
+      }
+    } else if (num instanceof BigInt) {
+      // We'll need at most this many bits
+      this.allocateBits(Math.max(num.bitCount(), this.bitCount()) + 1)
+
+      const { words: otherWords, wordCount: otherWordCount } = num
+      const { words, wordCount } = this
+
+      // Add the other bigint's words to this one
+      for (let i = 0; i < otherWordCount; ++i) {
+        words[i] += otherWords[i]
+      }
+
+      // We need to check the words between [0, i] for carries
+      let checkCarryCount = Math.min(otherWordCount, wordCount)
+
+      let carry = 0, i = 0
+      for (; i < words.length; ++i) {
+        let word = words[i] + carry
+
+        // Do carries
+        if ((word & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
+          words[i] = word & BIGINT_WORD_BIT_MASK
+          carry = 1
+        } else {
+          carry = 0
+          if (i >= checkCarryCount) break
+        }
+      }
+
+      // Update word count
+      this.wordCount = Math.max(i, wordCount, otherWordCount)
+    } else {
+      this.addInPlace(new BigInt(num))
+    }
+  }
+
+  subtractInPlace (num) {
+    if (num <= BIGINT_WORD_MAX) {
+      // We just add num to the starting number and carry, allocating more space if needed
+      const {words, wordCount} = this
+
+      let carry = num, i = 0
+      for (; i < wordCount; ++i) {
+        let word = words[i] + carry
+
+        if (word & BIGINT_WORD_OVERFLOW_BIT_MASK !== 0) {
+          words[i] = word & BIGINT_WORD_BIT_MASK
+          carry = 1
+        } else {
+          words[i] = word
+          carry = 0
+          break
+        }
+      }
+
+      if (carry !== 0) {
+        this.allocateWords(i)
+        this.words[i] = carry
+      }
+    }
   }
 
   /**
@@ -238,7 +297,7 @@ export class BigInt {
 
     val *= sign
 
-    if (val < BIGINT_WORD_MAX) { // can initialize directly=
+    if (val <= BIGINT_WORD_MAX) { // can initialize directly=
       this.initFromWords( [ val ], sign)
       return
     }
@@ -256,6 +315,8 @@ export class BigInt {
 
     this.initFromWords([ integer % BIGINT_WORD_SIZE, Math.floor(integer / BIGINT_WORD_SIZE) ], sign)
     this.leftShiftInPlace(exponent)
+
+    return this
   }
 
   clone () {
@@ -305,6 +366,7 @@ export class BigInt {
     }
 
     this.initFromWords(words, sign)
+    return this
   }
 
   /**
@@ -317,6 +379,8 @@ export class BigInt {
     this.words = new Int32Array(words.subarray(0, wordCount))
     this.sign = sign
     this.wordCount = wordCount
+
+    return this
   }
 
   /**
@@ -330,6 +394,8 @@ export class BigInt {
     this.words = new Int32Array(words)
     this.wordCount = words.length
     this.sign = sign
+
+    return this
   }
 
   initFromSingleWord (word, sign=1) {
@@ -410,8 +476,12 @@ export class BigInt {
     this.wordCount = Math.ceil(newBitCount / BIGINT_WORD_BITS)
   }
 
+  /**
+   * Multiply the bigint in place by a number or biginteger val
+   * @param val
+   */
   multiplyInPlace (val) {
-    if (val < BIGINT_WORD_MAX) {
+    if (val <= BIGINT_WORD_MAX) {
       this.allocateBits(wordBitCount(val) + this.bitCount())
 
       const { words, wordCount } = this
@@ -446,29 +516,166 @@ export class BigInt {
 
   setZero () {
     this.words = new Int32Array(1)
-    this.wordCount = 0
+    this.wordCount = 1
     this.sign = 0
 
     return this
   }
 
   /**
+   * Here, we abuse floats a little bit to get a quick expansion for large radixes, as is used for base-10 conversion
+   * when we chunk the number into base 10^15. The concept is quite simple; we start with the highest word, add it,
+   * multiply everything by 2^30, and repeat.
+   * @param radix
+   * @returns {number[]}
+   */
+  toLargeRadixInternal (radix) {
+    radix = +radix
+
+    if (!Number.isInteger(radix) || radix <= 4294967296 || radix >= 4503599627370496) throw new RangeError("Base of radix conversion must be an integer between 4294967296 and 4503599627370496, inclusive.")
+
+    const digitsOut = [0]
+    const { words } = this
+
+    for (let wordIndex = words.length - 1; wordIndex >= 0; --wordIndex) {
+      let carry = 0, i = 0
+      for (; i < digitsOut.length; ++i) {
+        let digit = digitsOut[i] * BIGINT_WORD_SIZE // Because we're working with floats, this operation is exact
+
+        // The low part, before adding the carry; this is exact
+        let remainder = digit % radix
+
+        // floor(digit / radix) is sus because the division might round up and thus be incorrect, so we nudge it
+        // in the right direction. floor(x + 0.5) is slightly faster than round(x)
+        let nextCarry = Math.floor((digit - remainder) / radix + 0.5)
+
+        // Need to add the carry
+        digit = remainder + carry
+
+        // If the digit has gone beyond the radix, we need to update the next carry
+        if (digit >= radix) {
+          nextCarry++
+          digit -= radix
+        }
+
+        digitsOut[i] = digit
+        carry = nextCarry
+      }
+
+      if (carry) digitsOut[i] = carry
+
+      let word = words[wordIndex]
+      digitsOut[0] += word
+    }
+
+    return digitsOut
+  }
+
+  /**
    * Returns an array of integers corresponding to the digits in the expansion of a given radix. For example, converting
    * the BigInt corresponding to 5002 (20212021 base 3) to radix 3 will give [1, 2, 0, 2, 1, 2, 0, 2]. 0 gives an empty
    * array for all inputs. This function is relatively important to optimize, especially for radix=10, because it is
-   * expensive but important.
-   * @param radix {number} Base for the conversion; should be an integer between 2 and 1073741824. Technically
-   * you could have MAX_SAFE_INTEGER as a limit, but eh.
+   * expensive but important. I will do some digging later, but currently it averages between 2 to 10 times slower than
+   * native for some reason.
+   * @param radix {number} Base for the conversion; should be an integer between 2 and 1125899906842600.
    */
   toRadixInternal (radix) {
     radix = +radix
 
-    if (!Number.isInteger(radix) || radix <= 1 || radix >= Number.MAX_SAFE_INTEGER) throw new RangeError("Base of radix conversion must be an integer between 2 and 2^53 - 1, inclusive.")
+    if (!Number.isInteger(radix) || radix <= 1 || radix >= 1125899906842600) throw new RangeError("Base of radix conversion must be an integer between 2 and 1125899906842600, inclusive.")
 
     // We construct the output via decomposing the integer into a series of operations of either x * 2 or x + 1,
     // applying each to the digitsOut array. These operations correspond to the bits of the BigInt in reverse order.
     const digitsOut = []
     const { words } = this
+
+    // Is the radix large enough for these optimizations
+    let canMultiplyBy8 = radix >= 8
+    let canMultiplyBy4 = radix >= 4
+
+    function doMultiplications () {
+      while (queuedMultiplications > 0) {
+        if (queuedMultiplications > 2 && canMultiplyBy8) {
+          let carry = 0, i = 0
+          for (; i < digitsOut.length; ++i) {
+            let currentDigit = digitsOut[i]
+            let newDigit = (currentDigit * 8) + carry
+
+            if (newDigit < radix) {
+              carry = 0
+            } else if (newDigit < 2 * radix) {
+              carry = 1
+              newDigit -= radix
+            } else if (newDigit < 3 * radix) {
+              carry = 2
+              newDigit -= 2 * radix
+            } else if (newDigit < 4 * radix) {
+              carry = 3
+              newDigit -= 3 * radix
+            } else if (newDigit < 5 * radix) {
+              carry = 4
+              newDigit -= 4 * radix
+            } else if (newDigit < 6 * radix) {
+              carry = 5
+              newDigit -= 5 * radix
+            } else if (newDigit < 7 * radix) {
+              carry = 6
+              newDigit -= 6 * radix
+            } else {
+              carry = 7
+              newDigit -= 7 * radix
+            }
+
+            digitsOut[i] = newDigit
+          }
+          if (carry !== 0) digitsOut[i] = carry
+
+          queuedMultiplications -= 3
+        } else if (queuedMultiplications > 1 && canMultiplyBy4) {
+          let carry = 0, i = 0
+          for (; i < digitsOut.length; ++i) {
+            let currentDigit = digitsOut[i]
+            let newDigit = (currentDigit * 4) + carry
+
+            if (newDigit < radix) {
+              carry = 0
+            } else if (newDigit < 2 * radix) {
+              carry = 1
+              newDigit -= radix
+            } else if (newDigit < 3 * radix) {
+              carry = 2
+              newDigit -= 2 * radix
+            } else {
+              carry = 3
+              newDigit -= 3 * radix
+            }
+
+            digitsOut[i] = newDigit
+          }
+          if (carry !== 0) digitsOut[i] = carry
+
+          queuedMultiplications -= 2
+        } else {
+          let carry = 0, i = 0
+          for (; i < digitsOut.length; ++i) {
+            let currentDigit = digitsOut[i]
+            let newDigit = (currentDigit * 2) + carry
+
+            if (newDigit >= radix) {
+              newDigit -= radix
+              carry = 1
+            } else {
+              carry = 0
+            }
+
+            digitsOut[i] = newDigit
+          }
+          if (carry === 1) digitsOut[i] = 1
+
+          queuedMultiplications--
+        }
+      }
+    }
 
     let queuedMultiplications = 0
 
@@ -483,25 +690,7 @@ export class BigInt {
         // For each bit in the word, from most to least significant
         if ((word & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
           // Run the queued multiplications
-          for (let k = 0; k < queuedMultiplications; ++k) {
-            let carry = 0, i = 0
-            for (; i < digitsOut.length; ++i) {
-              let currentDigit = digitsOut[i]
-              let newDigit = (currentDigit * 2) + carry
-
-              if (newDigit >= radix) {
-                newDigit -= radix
-                carry = 1
-              } else {
-                carry = 0
-              }
-
-              digitsOut[i] = newDigit
-            }
-            if (carry === 1) digitsOut[i] = 1
-          }
-
-          queuedMultiplications = 0
+          doMultiplications()
 
           let carry = 1, i = 0
           for (; i < digitsOut.length; ++i) {
@@ -524,69 +713,20 @@ export class BigInt {
       }
     }
 
-    while (queuedMultiplications > 0) {
-      if (queuedMultiplications > 1) {
-        let carry = 0, i = 0
-        for (; i < digitsOut.length; ++i) {
-          let currentDigit = digitsOut[i]
-          let newDigit = (currentDigit * 4) + carry
+    doMultiplications()
 
-          if (newDigit >= radix) {
-            newDigit -= radix
-            if (newDigit >= radix) {
-              newDigit -= radix
-              if (newDigit >= radix) {
-                newDigit -= radix
-                carry = 3
-              } else {
-                carry = 2
-              }
-            } else {
-              carry = 1
-            }
-          } else {
-            carry = 0
-          }
-
-          digitsOut[i] = newDigit
-        }
-        if (carry !== 0) digitsOut[i] = carry
-
-        queuedMultiplications -= 2
-      } else {
-        let carry = 0, i = 0
-        for (; i < digitsOut.length; ++i) {
-          let currentDigit = digitsOut[i]
-          let newDigit = (currentDigit * 2) + carry
-
-          if (newDigit >= radix) {
-            newDigit -= radix
-            carry = 1
-          } else {
-            carry = 0
-          }
-
-          digitsOut[i] = newDigit
-        }
-        if (carry === 1) digitsOut[i] = 1
-
-        queuedMultiplications--
-      }
-    }
-
-    return digitsOut
+    return digitsOut.length === 0 ? [0] : digitsOut
   }
 
   toString (radix=10) {
     // We *could* convert to base 10, but it's more efficient to convert to base 10^15 and then zero pad and concat
     // the results. That way we can take advantage of the internal, very quick int -> string function
 
-    const CHUNK_EXPONENT = 15
-
     if (!Number.isInteger(radix) || radix < 2 || radix > 36) throw new RangeError("Base of radix conversion must be an integer between 2 and 36, inclusive.")
 
     if (radix === 10) {
-      const digits = this.toRadixInternal(10 ** CHUNK_EXPONENT)
+      const CHUNK_EXPONENT = 15
+      const digits = this.toLargeRadixInternal(10 ** CHUNK_EXPONENT)
 
       let out = (this.sign < 0 ? '-' : '') + digits[digits.length - 1]
       for (let i = digits.length - 2; i >= 0; --i) {
@@ -599,14 +739,49 @@ export class BigInt {
 
       return (this.sign < 0 ? '-' : '') + this.toRadixInternal(radix).reverse().map(digit => digit.toString(radix)).join('')
     }
-
   }
 
   /**
-   * Convert the bigint to its closest double representation with the given rounding mode.
+   * Get a 30-bit word starting at a specific bit (which may not be a multiple of 30) where bit 0 is the HIGHEST bit
    */
-  toNumber () {
+  getWordAtBit (b) {
+    let bc = this.bitCount()
+    let offset = bc - b
 
+    if (offset < 0) return 0
+
+    if (offset % BIGINT_WORD_BITS === 0) {
+
+    }
+
+
+
+  }
+
+  getWordsAtBit (b, count) {
+    let arr = []
+    for (let i = 0; i < count; ++i) {
+      arr.push(this.getWordAtBit(b))
+    }
+  }
+
+  /**
+   * Convert the bigint to its closest double representation with the given rounding mode. We do this by abstracting a
+   * double as basically a number of the form
+   *
+   *    .... 0 0 0 0 0 1 0 1 0 0 0 0 1 0 1 0 0 1 0 1 0 0 0 1 1 0 0 1 0 0 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ....
+   *      ...  zeroes |                             53 bits                                  |  zeroes ...
+   *
+   * The closest number thus begins with the first bit of the integer, wherever that is, then either agrees or disagrees
+   * with the rest of the integer. Having constructed the mantissa, we round in the correct direction and multiply by
+   * the exponent.
+   */
+  toNumber (roundingMode) {
+    // Example: 17 = 0b10001
+
+    let exponent = this.bitCount() - 1 // bitCount is 5, so the float will be of the form m * 2^4
+    let word1 = this.getWordsAtBit(0, 2)
+    let word2 = this.getWordAtBit(30)
   }
 
   toBigint () { // Not too hard, we just construct it from the words in order
