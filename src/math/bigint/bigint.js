@@ -62,36 +62,21 @@ function fromStringBase10 (str) {
   }
 }
 
-// Multiply two 30-bit words and return the low and high part of the result
+// Multiply two 30-bit words and return the low and high part of the result. Somewhat hacky, but faster than bit-level
+// manipulations. Ah, the joys of JS.
 export function mulWords (word1, word2) {
-  return mulAddWords(word1, word2, 0)
+  return [ Math.imul(word1, word2) & BIGINT_WORD_BIT_MASK, Math.floor(word1 * word2 / BIGINT_WORD_SIZE)]
 }
 
 // Multiply and add three 30-bit words and return the low and high part of the result. (word1 * word2 + word3)
 export function mulAddWords (word1, word2, word3) {
-  let word1Lo = word1 & BIGINT_WORD_LOW_PART_BIT_MASK
-  let word2Lo = word2 & BIGINT_WORD_LOW_PART_BIT_MASK
-  let word1Hi = word1 >> BIGINT_WORD_PART_BITS
-  let word2Hi = word2 >> BIGINT_WORD_PART_BITS
-
-  let low = Math.imul(word1Lo, word2Lo), high = Math.imul(word1Hi, word2Hi)
-  let middle = Math.imul(word2Lo, word1Hi) + Math.imul(word1Lo, word2Hi)
-
-  low += (middle & BIGINT_WORD_LOW_PART_BIT_MASK) << BIGINT_WORD_PART_BITS
-
-  if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
-    low &= BIGINT_WORD_BIT_MASK
-    high += 1
-  }
-
+  let [ low, high ] = mulWords(word1, word2)
   low += word3
 
   if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
     low &= BIGINT_WORD_BIT_MASK
     high += 1
   }
-
-  high += middle >> BIGINT_WORD_PART_BITS // add the high part of middle
 
   return [ low, high ]
 }
@@ -222,32 +207,6 @@ export class BigInt {
     }
   }
 
-  subtractInPlace (num) {
-    if (num <= BIGINT_WORD_MAX) {
-      // We just add num to the starting number and carry, allocating more space if needed
-      const {words, wordCount} = this
-
-      let carry = num, i = 0
-      for (; i < wordCount; ++i) {
-        let word = words[i] + carry
-
-        if (word & BIGINT_WORD_OVERFLOW_BIT_MASK !== 0) {
-          words[i] = word & BIGINT_WORD_BIT_MASK
-          carry = 1
-        } else {
-          words[i] = word
-          carry = 0
-          break
-        }
-      }
-
-      if (carry !== 0) {
-        this.allocateWords(i)
-        this.words[i] = carry
-      }
-    }
-  }
-
   /**
    * Increase the size of the backing Int32Array to allow bitCount bits to be stored
    * @param bitCount
@@ -277,10 +236,75 @@ export class BigInt {
     return getBitCount(this.words, this.wordCount)
   }
 
-  initZero () {
-    this.words = new Int32Array(1)
-    this.wordCount = 1
-    this.sign = 0
+  clone () {
+    return new BigInt(this)
+  }
+
+  /**
+   * Get a 30-bit word starting at a specific bit (which may not be a multiple of 30) where bit 0 is the HIGHEST bit
+   */
+  getWordAtBit (b) {
+    let bc = this.bitCount()
+    let offset = bc - b
+
+    if (offset < 0) return 0
+
+    if (offset % BIGINT_WORD_BITS === 0) {
+
+    }
+
+
+
+  }
+
+  getWordsAtBit (b, count) {
+    let arr = []
+    for (let i = 0; i < count; ++i) {
+      arr.push(this.getWordAtBit(b))
+    }
+  }
+
+  /**
+   * Init from another Grapheme bigint
+   * @param int
+   */
+  initFromBigint (int) {
+    let { words, sign, wordCount } = int
+
+    this.words = new Int32Array(words.subarray(0, wordCount))
+    this.sign = sign
+    this.wordCount = wordCount
+
+    return this
+  }
+
+  /**
+   * Create Grapheme bigint from native bigint
+   * @param int {bigint}
+   */
+  initFromNativeBigint (int) {
+    // We basically just use repeated bit shifts to get all the words we want.
+    let words = []
+    let sign = 1
+
+    if (int === 0n) {
+      this.initZero()
+    } else if (int < 0n) {
+      sign = -1
+      int = -int
+    }
+
+    const mask = NativeBigInt(BIGINT_WORD_BIT_MASK)
+    const wordBits = NativeBigInt(BIGINT_WORD_BITS)
+
+    while (int) {
+      words.push(Number(int & mask))
+
+      int >>= wordBits
+    }
+
+    this.initFromWords(words, sign)
+    return this
   }
 
   /**
@@ -319,68 +343,115 @@ export class BigInt {
     return this
   }
 
-  clone () {
-    return new BigInt(this)
+  initFromSingleWord (word, sign=1) {
+    this.words = new Int32Array(word, sign)
   }
 
-  initFromString (val, radix=10) {
-    // Exciting! There are a few ideas I have about converting decimal to binary. The obvious solution is to just
-    // repeatedly multiply by 10 and add various digits. Not that efficient though. Probably the first thing to do is
-    // chunk it, as with the conversion from binary to decimal from earlier. I'm not sure whether a chunk size of an
-    // int32 size or a safe f64 integral size will be better; if I do ever use asm.js then obviously the first will be
-    // used. Anyway, the input is given in some radix, then chunked into components of some max size. Suppose we have
-    // a chunking size of 1 million, for example, and we want to convert the number 1,234,567,891,011,121,314,151 into
-    // our 30-bit word format. Then we first chunk it up into [1234, 567891, 11121, 314151]. Then we add 1234, then
-    // multiply by 1000000, then add 567891, then multiply by 1000000, then add 314151, to get the final answer. We do
-    // these operations on a 30-bit word. As to whether a bigint should be used... why not, I guess? We'll implement
-    // some addInPlace, multiplyInPlace functions that accept numerical constants as well as other BigInts.
-
+  /**
+   * TODO: optimize
+   * @param str
+   * @param radix
+   */
+  initFromString (str, radix=10) {
     if (!Number.isInteger(radix) || radix < 2 || radix > 36) throw new RangeError("Radix must be an integer between 2 and 36")
 
-
-  }
-
-  /**
-   * Create Grapheme bigint from native bigint
-   * @param int {bigint}
-   */
-  initFromNativeBigint (int) {
-    // We basically just use repeated bit shifts to get all the words we want.
-    let words = []
-    let sign = 1
-
-    if (int === 0n) {
-      this.initZero()
-    } else if (int < 0n) {
-      sign = -1
-      int = -int
+    function throwInvalidDigitError(digit, index) {
+      throw new RangeError(`Invalid digit '${String.fromCharCode(digit)}' in base-${radix} string at index ${index}`)
     }
 
-    const mask = NativeBigInt(BIGINT_WORD_BIT_MASK)
-    const wordBits = NativeBigInt(BIGINT_WORD_BITS)
+    const CHUNKING_EXPONENTS = [
+      30, 1073741824,
+      18, 387420489,
+      15, 1073741824,
+      12, 244140625,
+      11, 362797056,
+      10, 282475249,
+      10, 1073741824,
+      9, 387420489,
+      9, 1000000000,
+      8, 214358881,
+      8, 429981696,
+      8, 815730721,
+      7, 105413504,
+      7, 170859375,
+      7, 268435456,
+      7, 410338673,
+      7, 612220032,
+      7, 893871739,
+      6, 64000000,
+      6, 85766121,
+      6, 113379904,
+      6, 148035889,
+      6, 191102976,
+      6, 244140625,
+      6, 308915776,
+      6, 387420489,
+      6, 481890304,
+      6, 594823321,
+      6, 729000000,
+      6, 887503681,
+      6, 1073741824,
+      5, 39135393,
+      5, 45435424,
+      5, 52521875,
+      5, 60466176
+    ]
 
-    while (int) {
-      words.push(Number(int & mask))
+    const CHUNKING_EXPONENT = CHUNKING_EXPONENTS[2 * radix - 4]
+    const CHUNK_SIZE = CHUNKING_EXPONENTS[2 * radix - 3]
 
-      int >>= wordBits
+    this.setZero()
+
+    let startIndex = 0
+    if (str[0] === '-') {
+      this.sign = -1
+      startIndex = 1
     }
 
-    this.initFromWords(words, sign)
-    return this
-  }
+    const digits = []
 
-  /**
-   * Init from another Grapheme bigint
-   * @param int
-   */
-  initFromBigint (int) {
-    let { words, sign, wordCount } = int
+    for (let i = startIndex; i < str.length; ++i) {
+      let digit = str.charCodeAt(i)
 
-    this.words = new Int32Array(words.subarray(0, wordCount))
-    this.sign = sign
-    this.wordCount = wordCount
+      // 0x30 - 0; 0x39 - 9; 0x61 - a; 0x7a - z
+      let val = 0
+      if (digit < 0x30 || digit > 0x7a) {
+        throwInvalidDigitError(digit, i)
+      } else if (digit <= 0x39) {
+        val = digit - 0x30
+      } else if (digit >= 0x61) {
+        val = digit - 0x61 + 26
+      } else {
+        throwInvalidDigitError(digit, i)
+      }
 
-    return this
+      if (val >= radix)
+        throwInvalidDigitError(digit, i)
+
+      digits.push(val)
+    }
+
+    // Initial word
+    let initialGroupSize = (digits.length - 1) % CHUNKING_EXPONENT + 1, i = 0, chunk = 0
+    for (; i < initialGroupSize; ++i) {
+      chunk *= radix
+      chunk += digits[i]
+    }
+
+    this.allocateBits(Math.ceil(Math.log2(radix) * digits.length))
+    this.addInPlace(chunk)
+
+    for (let j = i; j < digits.length; j += CHUNKING_EXPONENT) {
+      this.multiplyInPlace(CHUNK_SIZE)
+
+      let chunk = 0, jEnd = j + CHUNKING_EXPONENT
+      for (let k = j; k < jEnd; ++k) {
+        chunk *= radix
+        chunk += digits[k]
+      }
+
+      this.addInPlace(chunk)
+    }
   }
 
   /**
@@ -398,8 +469,10 @@ export class BigInt {
     return this
   }
 
-  initFromSingleWord (word, sign=1) {
-    this.words = new Int32Array(word, sign)
+  initZero () {
+    this.words = new Int32Array(1)
+    this.wordCount = 1
+    this.sign = 0
   }
 
   /**
@@ -458,24 +531,6 @@ export class BigInt {
     this.wordCount = Math.ceil(newBitCount / BIGINT_WORD_BITS)
   }
 
-  rightShiftInPlace (count) {
-    count = count | 0
-
-    if (!Number.isInteger(count) || count < 0) throw new RangeError("Right shift count must be a nonnegative integer")
-    if (count === 0) return
-
-    // Number of bits after shifting
-    let newBitCount = this.bitCount() - count
-    if (newBitCount <= 0) {
-      this.setZero()
-      return
-    }
-
-
-
-    this.wordCount = Math.ceil(newBitCount / BIGINT_WORD_BITS)
-  }
-
   /**
    * Multiply the bigint in place by a number or biginteger val
    * @param val
@@ -494,7 +549,10 @@ export class BigInt {
         carry = hi
       }
 
-      if (carry !== 0) words[wordCount] = carry
+      if (carry !== 0) {
+        words[wordCount] = carry
+        this.wordCount += 1
+      }
     }
   }
 
@@ -514,12 +572,68 @@ export class BigInt {
     this.wordCount = 1 // There is always at least one word, even if the bigint has value 0
   }
 
+  rightShiftInPlace (count) {
+    count = count | 0
+
+    if (!Number.isInteger(count) || count < 0) throw new RangeError("Right shift count must be a nonnegative integer")
+    if (count === 0) return
+
+    // Number of bits after shifting
+    let newBitCount = this.bitCount() - count
+    if (newBitCount <= 0) {
+      this.setZero()
+      return
+    }
+
+    this.wordCount = Math.ceil(newBitCount / BIGINT_WORD_BITS)
+  }
+
   setZero () {
     this.words = new Int32Array(1)
     this.wordCount = 1
     this.sign = 0
 
     return this
+  }
+
+  subtractInPlace (num) {
+    if (num <= BIGINT_WORD_MAX) {
+      // We just add num to the starting number and carry, allocating more space if needed
+      const {words, wordCount} = this
+
+      let carry = num, i = 0
+      for (; i < wordCount; ++i) {
+        let word = words[i] + carry
+
+        if (word & BIGINT_WORD_OVERFLOW_BIT_MASK !== 0) {
+          words[i] = word & BIGINT_WORD_BIT_MASK
+          carry = 1
+        } else {
+          words[i] = word
+          carry = 0
+          break
+        }
+      }
+
+      if (carry !== 0) {
+        this.allocateWords(i)
+        this.words[i] = carry
+      }
+    }
+  }
+
+  toBigint () { // Not too hard, we just construct it from the words in order
+    const { words } = this
+
+    let out = 0n
+    let wordBits = NativeBigInt(BIGINT_WORD_BITS)
+
+    for (let i = this.wordCount - 1; i >= 0; --i) {
+      out <<= wordBits
+      out += NativeBigInt(words[i])
+    }
+
+    return out
   }
 
   /**
@@ -569,6 +683,32 @@ export class BigInt {
     }
 
     return digitsOut
+  }
+
+  /**
+   * Convert the bigint to its closest double representation with the given rounding mode. We do this by abstracting a
+   * double as basically a number of the form
+   *
+   *    .... 0 0 0 0 0 1 0 1 0 0 0 0 1 0 1 0 0 1 0 1 0 0 0 1 1 0 0 1 0 0 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ....
+   *      ...  zeroes |                             53 bits                                  |  zeroes ...
+   *
+   * The closest number thus begins with the first bit of the integer, wherever that is, then either agrees or disagrees
+   * with the rest of the integer. Having constructed the mantissa, we round in the correct direction and multiply by
+   * the exponent.
+   */
+  toNumber (roundingMode) {
+    // Example: 17 = 0b10001
+
+    let exponent = this.bitCount() - 1 // bitCount is 5, so the float will be of the form m * 2^4
+    let word1 = this.getWordsAtBit(0, 2)
+    let word2 = this.getWordAtBit(30)
+  }
+
+  toPow2RadixInternal (radix) {
+    radix = +radix
+
+    if (radix === 1073741824) return this.words.subarray(0, this.wordCount)
+    else return this.toRadixInternal(radix) // TODO
   }
 
   /**
@@ -718,81 +858,62 @@ export class BigInt {
     return digitsOut.length === 0 ? [0] : digitsOut
   }
 
+  /**
+   * Convert this BigInt to a string with a base between 2 and 36, inclusive. Formatting options are included.
+   * @param radix {number}
+   * @returns {string}
+   */
   toString (radix=10) {
-    // We *could* convert to base 10, but it's more efficient to convert to base 10^15 and then zero pad and concat
-    // the results. That way we can take advantage of the internal, very quick int -> string function
+    // The algorithm is as follows: We calculate the digits of the integer in a base (radix)^n, where n is chosen so that
+    // the base fits nicely into a JS number. We then go chunk by chunk and convert to string, then concatenate
+    // everything into a single output
 
     if (!Number.isInteger(radix) || radix < 2 || radix > 36) throw new RangeError("Base of radix conversion must be an integer between 2 and 36, inclusive.")
 
-    if (radix === 10) {
-      const CHUNK_EXPONENT = 15
-      const digits = this.toLargeRadixInternal(10 ** CHUNK_EXPONENT)
+    const CHUNKING_EXPONENTS = [
+      50, 1125899906842624,
+      31, 617673396283947,
+      25, 1125899906842624,
+      21, 476837158203125,
+      19, 609359740010496,
+      17, 232630513987207,
+      16, 281474976710656,
+      15, 205891132094649,
+      15, 1000000000000000,   // for example, we convert to base 10^15 instead of 10 first
+      14, 379749833583241,
+      13, 106993205379072,
+      13, 302875106592253,
+      13, 793714773254144,
+      12, 129746337890625,
+      12, 281474976710656,
+      12, 582622237229761,
+      11, 64268410079232,
+      11, 116490258898219,
+      11, 204800000000000,
+      11, 350277500542221,
+      11, 584318301411328,
+      11, 952809757913927,
+      10, 63403380965376,
+      10, 95367431640625,
+      10, 141167095653376,
+      10, 205891132094649,
+      10, 296196766695424,
+      10, 420707233300201,
+      10, 590490000000000,
+      10, 819628286980801,
+      10, 1125899906842624,
+      9, 46411484401953,
+      9, 60716992766464,
+      9, 78815638671875,
+      9, 101559956668416
+    ]
 
-      let out = (this.sign < 0 ? '-' : '') + digits[digits.length - 1]
-      for (let i = digits.length - 2; i >= 0; --i) {
-        out += leftZeroPad('' + digits[i], CHUNK_EXPONENT, '0')
-      }
+    const CHUNK_EXPONENT = CHUNKING_EXPONENTS[2 * radix - 4]
+    const digits = this.toLargeRadixInternal(CHUNKING_EXPONENTS[2 * radix - 3])
 
-      return out
-    } else {
-      // May optimize later
-
-      return (this.sign < 0 ? '-' : '') + this.toRadixInternal(radix).reverse().map(digit => digit.toString(radix)).join('')
-    }
-  }
-
-  /**
-   * Get a 30-bit word starting at a specific bit (which may not be a multiple of 30) where bit 0 is the HIGHEST bit
-   */
-  getWordAtBit (b) {
-    let bc = this.bitCount()
-    let offset = bc - b
-
-    if (offset < 0) return 0
-
-    if (offset % BIGINT_WORD_BITS === 0) {
-
-    }
-
-
-
-  }
-
-  getWordsAtBit (b, count) {
-    let arr = []
-    for (let i = 0; i < count; ++i) {
-      arr.push(this.getWordAtBit(b))
-    }
-  }
-
-  /**
-   * Convert the bigint to its closest double representation with the given rounding mode. We do this by abstracting a
-   * double as basically a number of the form
-   *
-   *    .... 0 0 0 0 0 1 0 1 0 0 0 0 1 0 1 0 0 1 0 1 0 0 0 1 1 0 0 1 0 0 1 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 ....
-   *      ...  zeroes |                             53 bits                                  |  zeroes ...
-   *
-   * The closest number thus begins with the first bit of the integer, wherever that is, then either agrees or disagrees
-   * with the rest of the integer. Having constructed the mantissa, we round in the correct direction and multiply by
-   * the exponent.
-   */
-  toNumber (roundingMode) {
-    // Example: 17 = 0b10001
-
-    let exponent = this.bitCount() - 1 // bitCount is 5, so the float will be of the form m * 2^4
-    let word1 = this.getWordsAtBit(0, 2)
-    let word2 = this.getWordAtBit(30)
-  }
-
-  toBigint () { // Not too hard, we just construct it from the words in order
-    const { words } = this
-
-    let out = 0n
-    let wordBits = NativeBigInt(BIGINT_WORD_BITS)
-
-    for (let i = this.wordCount - 1; i >= 0; --i) {
-      out <<= wordBits
-      out += NativeBigInt(words[i])
+    let out = (this.sign < 0 ? '-' : '') + digits[digits.length - 1]
+    for (let i = digits.length - 2; i >= 0; --i) {
+      out += leftZeroPad(digits[i].toString(radix), CHUNK_EXPONENT, '0')
     }
 
     return out
