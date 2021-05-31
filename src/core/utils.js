@@ -229,8 +229,9 @@ export function leftZeroPad (str, len, char='0') {
  * Simple performance testing function
  * @param callback {Function}
  * @param iterations {number}
+ * @param msg {string}
  */
-export function performance (callback, iterations=100000) {
+export function performance (callback, iterations=100000, msg) {
   let timeStart = Date.now()
 
   for (let i = 0; i < iterations; ++i) {
@@ -239,5 +240,5 @@ export function performance (callback, iterations=100000) {
 
   let timeEnd = Date.now()
 
-  console.log(`Function "${callback.name}" took an average of ${(timeEnd - timeStart) / iterations} ms per iteration.`)
+  console.log(`Process ${msg} took an average of ${(timeEnd - timeStart) / iterations} ms per iteration (${iterations} iterations).`)
 }

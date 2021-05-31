@@ -13,7 +13,7 @@ const BIGINT_WORD_OVERFLOW_BIT_MASK = 0x40000000 // get the overflow bit of a gi
 
 
 const BIGINT_WORD_SIZE = 2 ** BIGINT_WORD_BITS
-const MAX_BIGINT_WORD = BIGINT_WORD_SIZE - 1
+const BIGINT_WORD_MAX = BIGINT_WORD_SIZE - 1
 
 const ROUNDING_MODE = {
   TOWARD_ZERO: 0,    // Go toward zero from either direction (0.5 -> 0), (-0.9 -> 0)
@@ -62,32 +62,48 @@ function fromStringBase10 (str) {
   }
 }
 
-// Multiply two 30-bit words and return the low and high part of the result. This function oughta be rather fast.
+// Multiply two 30-bit words and return the low and high part of the result
 export function mulWords (word1, word2) {
-  // We basically split each word into two 15-bit parts [w1lo, w1hi], [w2lo, w2hi], then compute the resulting words.
+  return mulAddWords(word1, word2, 0)
+}
 
+// Multiply and add three 30-bit words and return the low and high part of the result. (word1 * word2 + word3)
+export function mulAddWords (word1, word2, word3) {
   let word1Lo = word1 & BIGINT_WORD_LOW_PART_BIT_MASK
   let word2Lo = word2 & BIGINT_WORD_LOW_PART_BIT_MASK
   let word1Hi = word1 >> BIGINT_WORD_PART_BITS
   let word2Hi = word2 >> BIGINT_WORD_PART_BITS
 
-  // The sum is 2 ** 30 * (w1hi * w2hi) + 2 ** 15 * (w2lo * w1hi + w1lo * w2hi) + (w1lo * w2lo).
+  let low = Math.imul(word1Lo, word2Lo), high = Math.imul(word1Hi, word2Hi)
+  let middle = Math.imul(word2Lo, word1Hi) + Math.imul(word1Lo, word2Hi)
 
-  let low = word1Lo * word2Lo, high = word1Hi * word2Hi
-  let middle = word2Lo * word1Hi + word1Lo * word2Hi // Will be 31 bits at most! That's why we did 30 bits in the first place
-
-  // Add the low part of middle, shifted to the left by 15
   low += (middle & BIGINT_WORD_LOW_PART_BIT_MASK) << BIGINT_WORD_PART_BITS
 
-  if (low & BIGINT_WORD_OVERFLOW_BIT_MASK !== 0) { // carry
+  if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
     low &= BIGINT_WORD_BIT_MASK
+    high += 1
+  }
 
+  low += word3
+
+  if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
+    low &= BIGINT_WORD_BIT_MASK
     high += 1
   }
 
   high += middle >> BIGINT_WORD_PART_BITS // add the high part of middle
 
   return [ low, high ]
+}
+
+// Left shift a set of words, assuming there is enough space
+export function leftShiftWordsInPlace (words, wordCount, shift) {
+  shift = shift | 0
+  wordCount = wordCount | 0
+
+  if (shift === 0) return [ words, wordCount ]
+
+
 }
 
 /**
@@ -217,16 +233,12 @@ export class BigInt {
   initFromNumber (val) {
     if (!Number.isFinite(val)) throw new RangeError("Numeric value passed to BigInt constructor must be finite")
 
-    // Truncate the number so that it is guaranteed to be an integer
-    val = Math.trunc(val)
-    const sign = Math.sign(val)
+    val = Math.trunc(val)           // Guaranteed to be an integer
+    const sign = Math.sign(val) + 0 // convert -0 to +0 :D
 
     val *= sign
 
-    if (val < MAX_BIGINT_WORD) { // can initialize directly
-      this.words = new Int32Array(1)
-      this.words[0] = val
-
+    if (val < BIGINT_WORD_MAX) { // can initialize directly=
       this.initFromWords( [ val ], sign)
       return
     }
@@ -242,13 +254,15 @@ export class BigInt {
     // left shift the bits by the exponent e times.
     let [ integer, exponent ] = integerExp(val)
 
-    integer = integer * sign
-
     this.initFromWords([ integer % BIGINT_WORD_SIZE, Math.floor(integer / BIGINT_WORD_SIZE) ], sign)
     this.leftShiftInPlace(exponent)
   }
 
-  initFromString (val) {
+  clone () {
+    return new BigInt(this)
+  }
+
+  initFromString (val, radix=10) {
     // Exciting! There are a few ideas I have about converting decimal to binary. The obvious solution is to just
     // repeatedly multiply by 10 and add various digits. Not that efficient though. Probably the first thing to do is
     // chunk it, as with the conversion from binary to decimal from earlier. I'm not sure whether a chunk size of an
@@ -259,6 +273,8 @@ export class BigInt {
     // multiply by 1000000, then add 567891, then multiply by 1000000, then add 314151, to get the final answer. We do
     // these operations on a 30-bit word. As to whether a bigint should be used... why not, I guess? We'll implement
     // some addInPlace, multiplyInPlace functions that accept numerical constants as well as other BigInts.
+
+    if (!Number.isInteger(radix) || radix < 2 || radix > 36) throw new RangeError("Radix must be an integer between 2 and 36")
 
 
   }
@@ -329,7 +345,7 @@ export class BigInt {
   }
 
   leftShiftInPlace (count) {
-    count = +count
+    count = count | 0
 
     if (!Number.isInteger(count) || count < 0) throw new RangeError("Left shift count must be a nonnegative integer")
     if (count === 0) return
@@ -365,7 +381,7 @@ export class BigInt {
         let word = words[i]
         let carry = word >> rightShift
 
-        if (carry) words[i + 1] += carry
+        if (carry !== 0) words[i + 1] += carry
 
         word <<= shifts
         words[i] = word & BIGINT_WORD_BIT_MASK
@@ -374,6 +390,42 @@ export class BigInt {
 
     // Should be reliable
     this.wordCount = Math.ceil(newBitCount / BIGINT_WORD_BITS)
+  }
+
+  rightShiftInPlace (count) {
+    count = count | 0
+
+    if (!Number.isInteger(count) || count < 0) throw new RangeError("Right shift count must be a nonnegative integer")
+    if (count === 0) return
+
+    // Number of bits after shifting
+    let newBitCount = this.bitCount() - count
+    if (newBitCount <= 0) {
+      this.setZero()
+      return
+    }
+
+
+
+    this.wordCount = Math.ceil(newBitCount / BIGINT_WORD_BITS)
+  }
+
+  multiplyInPlace (val) {
+    if (val < BIGINT_WORD_MAX) {
+      this.allocateBits(wordBitCount(val) + this.bitCount())
+
+      const { words, wordCount } = this
+
+      let carry = 0
+      for (let i = 0; i < wordCount; ++i) {
+        const [ lo, hi ] = mulAddWords(words[i], val, carry)
+
+        words[i] = lo
+        carry = hi
+      }
+
+      if (carry !== 0) words[wordCount] = carry
+    }
   }
 
   /**
@@ -392,17 +444,9 @@ export class BigInt {
     this.wordCount = 1 // There is always at least one word, even if the bigint has value 0
   }
 
-  rightShiftInPlace (count) {
-    count = +count
-
-    if (!Number.isInteger(count) || count < 0) throw new RangeError("Right shift count must be a nonnegative integer")
-    if (count === 0) return
-
-    let { words, wordCount } = this
-  }
-
   setZero () {
-    this.words = []
+    this.words = new Int32Array(1)
+    this.wordCount = 0
     this.sign = 0
 
     return this
@@ -492,7 +536,7 @@ export class BigInt {
 
     const CHUNK_EXPONENT = 15
 
-    if (!Number.isInteger(radix) || radix <= 2 || radix > 36) throw new RangeError("Base of radix conversion must be an integer between 2 and 36, inclusive.")
+    if (!Number.isInteger(radix) || radix < 2 || radix > 36) throw new RangeError("Base of radix conversion must be an integer between 2 and 36, inclusive.")
 
     if (radix === 10) {
       const digits = this.toRadixInternal(10 ** CHUNK_EXPONENT)

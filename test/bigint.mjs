@@ -1,5 +1,5 @@
 import { assert, expect } from "chai"
-import { mulWords } from "../src/math/bigint/bigint.js"
+import { mulWords, BigInt as GraphemeBigInt } from "../src/math/bigint/bigint.js"
 
 const troublesomeWords = []
 
@@ -22,7 +22,6 @@ const randomWords = [
 
 const allTestWords = [ ...troublesomeWords, ...randomWords ]
 
-
 describe('mulWords', function() {
   it('should return the same results as the corresponding native bigint calculation', function() {
     function testWordCombination (word1, word2) {
@@ -39,5 +38,13 @@ describe('mulWords', function() {
         testWordCombination(word1, word2)
       }
     }
+  })
+})
+
+describe('BigInt', function() {
+  it('should throw on non-finite numeric values', function () {
+    expect(() => new GraphemeBigInt(NaN)).to.throw();
+    expect(() => new GraphemeBigInt(Infinity)).to.throw();
+    expect(() => new GraphemeBigInt(-Infinity)).to.throw();
   })
 })

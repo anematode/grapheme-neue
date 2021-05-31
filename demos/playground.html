@@ -7,36 +7,42 @@
 <body>
 
 <script src="test_setup.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbi@3.1.4/dist/jsbi-umd.min.js"></script>
 
 <noscript id="setup">
 
-    const renderer = new Grapheme.GraphemeWebGLRenderer()
-    const scene = new Grapheme.InteractiveScene({ id: "main", interactivity: true })
 
-    document.body.appendChild(scene.domElement)
-    scene.setSize(400, 400)
+    let grapheme_int, jsbi_int, native_int
 
-    const polyline = new Grapheme.PolylineElement({ vertices: [ [20, 350], [100, 20], [50, 30], [20, 31] ], pen: { thickness: 10, color: "blue" } })
-    scene.add(polyline)
+    Grapheme.utils.performance(() => {
+        grapheme_int = new Grapheme.BigInt(5e100)
+    }, 100000, "Grapheme bigint creation")
+    Grapheme.utils.performance(() => {
+        jsbi_int = JSBI.BigInt(5e100)
+    }, 100000, "JSBI bigint creation")
+    Grapheme.utils.performance(() => {
+        native_int = BigInt(5e100)
+    }, 100000, "Native bigint creation")
 
-    const axis = new Grapheme.AxisElement()
-    scene.add(axis)
+    console.log("Created Grapheme int: ", grapheme_int)
+    console.log("Created JSBI int: ", jsbi_int)
 
-    axis.set("axis", { start: [100, 20], end: [100, 500], graphStart: -2, graphEnd: 2 })
-    axis.set("ticks", { major: [3, 4, 1] })
-    axis.set("ticks", { minor: undefined })
+    let grapheme_res, jsbi_res, native_res
+    Grapheme.utils.performance(() => {
+       grapheme_res = grapheme_int.toString()
+    }, 100000, "Grapheme bigint toString")
 
-    function render() {
-        renderer.renderDOMScene(scene)
-        //requestAnimationFrame(render)
+    Grapheme.utils.performance(() => {
+        jsbi_res = jsbi_int.toString()
+    }, 1000, "JSBI bigint toString")
 
-        polyline.set("pen", { color: (Math.random() < 0.5) ? "chartreuse" : "red", thickness: Math.random() * 5 })
-    }
+    Grapheme.utils.performance(() => {
+        native_res = native_int.toString()
+    }, 100000, "Native bigint toString")
 
-    render()
-
-    let int = new Grapheme.BigInt(1e307)
-    //int.leftShiftInPlace(24)
+    console.log("Grapheme result: ", grapheme_res)
+    console.log("JSBI result: ", jsbi_res)
+    console.log("Native result: ", native_res)
 </noscript>
 
 
