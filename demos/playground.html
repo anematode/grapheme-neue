@@ -12,8 +12,10 @@
 <noscript id="setup">
     let BI = Grapheme.BigInt
     let grapheme_int, native_int
+    let choo = 1
+    let chicken
 
-    let words = [...new Array(1000).keys()].map(() => Math.random()*(2**30) | 0)
+    let words = [...new Array(5000).keys()].map(() => Math.random()*(2**30) | 0)
     grapheme_int = new Grapheme.BigInt().initFromWords(words)
     native_int = grapheme_int.toBigint()
 
@@ -21,14 +23,14 @@
 
     console.log("Created Grapheme int: ", grapheme_int)
 
-    /*let grapheme_res, jsbi_res, native_res
-    Grapheme.utils.performance(() => {
+    let grapheme_res, jsbi_res, native_res
+    /*Grapheme.utils.performance(() => {
        grapheme_res = grapheme_int.toString()
     }, 100, "Grapheme bigint toString")
 
     Grapheme.utils.performance(() => {
         native_res = native_int.toString()
-    }, 100, "Native bigint toString")
+    }, 100, "Native bigint toString")*/
 
     Grapheme.utils.performance(() => {
     grapheme_res = new Grapheme.BigInt(str)
@@ -41,11 +43,7 @@
 
     Grapheme.utils.performance(() => {
     native_res = BigInt(str)
-    }, 100, "Native bigint from string")*/
-
-    let a = 2 ** 30 - 1, b = 2 ** 30 - 9
-    console.log(Grapheme.mulWords(a, b))
-    console.log(Math.imul(a, b) & 0x4FFFFFFF, Math.floor(a * b / 2**30))
+    }, 100, "Native bigint from string")
 </noscript>
 
 

@@ -62,13 +62,7 @@ function fromStringBase10 (str) {
   }
 }
 
-// Multiply two 30-bit words and return the low and high part of the result
-export function mulWords (word1, word2) {
-  return mulAddWords(word1, word2, 0)
-}
-
-// Multiply and add three 30-bit words and return the low and high part of the result. (word1 * word2 + word3)
-export function mulAddWords (word1, word2, word3) {
+function getHighWord (word1, word2) {
   let word1Lo = word1 & BIGINT_WORD_LOW_PART_BIT_MASK
   let word2Lo = word2 & BIGINT_WORD_LOW_PART_BIT_MASK
   let word1Hi = word1 >> BIGINT_WORD_PART_BITS
@@ -80,30 +74,33 @@ export function mulAddWords (word1, word2, word3) {
   low += (middle & BIGINT_WORD_LOW_PART_BIT_MASK) << BIGINT_WORD_PART_BITS
 
   if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
-    low &= BIGINT_WORD_BIT_MASK
-    high += 1
-  }
-
-  low += word3
-
-  if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
-    low &= BIGINT_WORD_BIT_MASK
     high += 1
   }
 
   high += middle >> BIGINT_WORD_PART_BITS // add the high part of middle
 
-  return [ low, high ]
+  return high
 }
 
-// Left shift a set of words, assuming there is enough space
-export function leftShiftWordsInPlace (words, wordCount, shift) {
-  shift = shift | 0
-  wordCount = wordCount | 0
+export function mulWords (word1, word2) {
+  let high = word1 * word2 / BIGINT_WORD_SIZE
 
-  if (shift === 0) return [ words, wordCount ]
+  if (Number.isInteger(high)) high = getHighWord(word1, word2)
+  else high = Math.floor(high)
 
+  return [ Math.imul(word1, word2) & BIGINT_WORD_BIT_MASK, high ]
+}
 
+export function mulAddWords (word1, word2, word3) {
+  let [ low, high ] = mulWords(word1, word2)
+
+  low += word3
+  if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
+    low &= BIGINT_WORD_BIT_MASK
+    high += 1
+  }
+
+  return [ low, high ]
 }
 
 function multiplyBigInts(int1, int2) {
@@ -659,11 +656,22 @@ export class BigInt {
       let carry = 0
       for (let i = 0; i < wordCount; ++i) {
         let word = words[i]
+        let high = word * val / BIGINT_WORD_SIZE
+        let floor = Math.floor(high)
 
-        let [ lo, hi ] = mulAddWords(word, val, carry)
+        if (high === floor) { // extremely rare case
+          floor = getHighWord(word, val) | 0
+        }
 
-        words[i] = lo
-        carry = hi
+        let low = (Math.imul(word, val) & BIGINT_WORD_BIT_MASK) + carry
+
+        if (low > BIGINT_WORD_BIT_MASK) {
+          low &= BIGINT_WORD_BIT_MASK
+          floor += 1
+        }
+
+        words[i] = low
+        carry = floor
       }
 
       if (carry !== 0) {
