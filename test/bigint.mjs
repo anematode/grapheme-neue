@@ -23,7 +23,7 @@ const randomWords = [
 ]
 
 const allTestWords = [ ...troublesomeWords, ...randomWords ]
-const randomBigInts = [ 0n, -100n, -329n, 1000000000n, 999999999n, BigInt(1e100), 14091824019820481203819281n, 10000040204182018n, 92103901710491203981059817023981705981720398750981703928123n, BigInt(2 ** 1022) ]
+const randomBigInts = [ 0n, -100n, -329n, 1000000000n, 999999999n, 1000000000000000000n, BigInt(1e100), 14091824019820481203819281n, 10000040204182018n, 92103901710491203981059817023981705981720398750981703928123n, BigInt(2 ** 1022) ]
 
 let words = [...new Array(1000).keys()].map(() => Math.random()*(2**30) | 0)
 let giantInt = new GraphemeBigInt().initFromWords(words)
@@ -90,6 +90,14 @@ describe('BigInt', function() {
         expect(new GraphemeBigInt(bigint).lessThanOrEqual(new GraphemeBigInt(bigint2))).to.equal(bigint <= bigint2)
         expect(new GraphemeBigInt(bigint).greaterThan(new GraphemeBigInt(bigint2))).to.equal(bigint > bigint2)
         expect(new GraphemeBigInt(bigint).greaterThanOrEqual(new GraphemeBigInt(bigint2))).to.equal(bigint >= bigint2)
+      }
+    }
+  })
+
+  it('should multiply correctly', function () {
+    for (const bigint of randomBigInts) {
+      for (const bigint2 of randomBigInts) {
+        expect(new GraphemeBigInt(bigint).multiply(new GraphemeBigInt(bigint2)).toString()).to.equal((bigint * bigint2).toString())
       }
     }
   })

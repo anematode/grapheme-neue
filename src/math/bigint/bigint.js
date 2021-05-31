@@ -62,7 +62,12 @@ function fromStringBase10 (str) {
   }
 }
 
-function getHighWord (word1, word2) {
+export function mulWords (word1, word2) {
+  return mulAddWords(word1, word2, 0)
+}
+
+// Multiply and add three 30-bit words and return the low and high part of the result. (word1 * word2 + word3)
+export function mulAddWords (word1, word2, word3) {
   let word1Lo = word1 & BIGINT_WORD_LOW_PART_BIT_MASK
   let word2Lo = word2 & BIGINT_WORD_LOW_PART_BIT_MASK
   let word1Hi = word1 >> BIGINT_WORD_PART_BITS
@@ -74,62 +79,60 @@ function getHighWord (word1, word2) {
   low += (middle & BIGINT_WORD_LOW_PART_BIT_MASK) << BIGINT_WORD_PART_BITS
 
   if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
+    low &= BIGINT_WORD_BIT_MASK
     high += 1
   }
 
-  high += middle >> BIGINT_WORD_PART_BITS // add the high part of middle
-
-  return high
-}
-
-export function mulWords (word1, word2) {
-  let high = word1 * word2 / BIGINT_WORD_SIZE
-
-  if (Number.isInteger(high)) high = getHighWord(word1, word2)
-  else high = Math.floor(high)
-
-  return [ Math.imul(word1, word2) & BIGINT_WORD_BIT_MASK, high ]
-}
-
-export function mulAddWords (word1, word2, word3) {
-  let [ low, high ] = mulWords(word1, word2)
-
   low += word3
+
   if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
     low &= BIGINT_WORD_BIT_MASK
     high += 1
   }
 
+  high += middle >> BIGINT_WORD_PART_BITS // add the high part of middle
+
   return [ low, high ]
 }
 
-function multiplyBigInts(int1, int2) {
-  let out = new Int32Array(int1.wordCount + int2.wordCount + 1)
+export function multiplyBigInts(int1, int2) {
+  if (int1.isZero() || int2.isZero()) return new BigInt(0)
 
   const { words: int1words, wordCount: int1wordCount, sign: int1sign } = int1
   const { words: int2words, wordCount: int2wordCount, sign: int2sign } = int2
+
+  let end = int1wordCount + int2wordCount + 1
+  let out = new Int32Array(end)
 
   // Textbook multiplication, go through each word of int1 and multiply by each word of int2
   for (let int1wordIndex = 0; int1wordIndex < int1wordCount; ++int1wordIndex) {
     let word1 = int1words[int1wordIndex]
     let carry = 0
 
-    for (let int2wordIndex = 0; int2wordIndex < int2wordCount; ++int2wordIndex) {
-      let word2 = int2words[int2wordIndex]
+    for (let int2wordIndex = 0; int2wordIndex < end; ++int2wordIndex) {
+      if (int2wordIndex >= int2wordCount && carry === 0) break
 
-      let lo = Math.imul(word1, word2) & BIGINT_WORD_BIT_MASK
-      let hi = Math.floor(word1 * word2 / BIGINT_WORD_SIZE)
+      let word2 = int2wordIndex < int2wordCount ? int2words[int2wordIndex] : 0
 
-      lo += carry
-      if ((carry & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
+      let [ lo, hi ] = mulAddWords(word1, word2, carry)
+
+      console.log(lo, hi)
+
+      lo += out[int1wordIndex + int2wordIndex]
+
+      if ((lo & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
         lo &= BIGINT_WORD_BIT_MASK
         hi += 1
       }
 
-      out[int1wordIndex]
+      out[int1wordIndex + int2wordIndex] = lo
+      carry = hi
     }
-
   }
+
+  console.log(out)
+
+  return new BigInt().initFromWords(out, int1sign * int2sign)
 }
 
 /**
@@ -447,6 +450,10 @@ export class BigInt {
     this.wordCount = 1
   }
 
+  multiply (bigint) {
+    return multiplyBigInts(this, bigint)
+  }
+
   /**
    * TODO: optimize
    * @param str
@@ -653,25 +660,37 @@ export class BigInt {
 
       const { words, wordCount } = this
 
+      let word2Lo = val & BIGINT_WORD_LOW_PART_BIT_MASK
+      let word2Hi = val >> BIGINT_WORD_PART_BITS
+
       let carry = 0
       for (let i = 0; i < wordCount; ++i) {
         let word = words[i]
-        let high = word * val / BIGINT_WORD_SIZE
-        let floor = Math.floor(high)
 
-        if (high === floor) { // extremely rare case
-          floor = getHighWord(word, val) | 0
-        }
+        let word1Lo = word & BIGINT_WORD_LOW_PART_BIT_MASK
+        let word1Hi = word >> BIGINT_WORD_PART_BITS
 
-        let low = (Math.imul(word, val) & BIGINT_WORD_BIT_MASK) + carry
+        let low = Math.imul(word1Lo, word2Lo), high = Math.imul(word1Hi, word2Hi)
+        let middle = Math.imul(word2Lo, word1Hi) + Math.imul(word1Lo, word2Hi)
 
-        if (low > BIGINT_WORD_BIT_MASK) {
+        low += (middle & BIGINT_WORD_LOW_PART_BIT_MASK) << BIGINT_WORD_PART_BITS
+
+        if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
           low &= BIGINT_WORD_BIT_MASK
-          floor += 1
+          high += 1
         }
+
+        low += carry
+
+        if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
+          low &= BIGINT_WORD_BIT_MASK
+          high += 1
+        }
+
+        high += middle >> BIGINT_WORD_PART_BITS // add the high part of middle
 
         words[i] = low
-        carry = floor
+        carry = high
       }
 
       if (carry !== 0) {
@@ -808,6 +827,22 @@ export class BigInt {
       let word = words[wordIndex]
       digitsOut[0] += word
     }
+
+    // Carry any remaining stuff
+    let carry = 0, i = 0
+    for (; i < digitsOut.length; ++i) {
+      digitsOut[i] += carry
+
+      if (digitsOut[i] >= radix) {
+        carry = 1
+        digitsOut[i] -= radix
+      } else {
+        carry = 0
+        break
+      }
+    }
+
+    if (carry) digitsOut[i] = carry
 
     return digitsOut
   }
