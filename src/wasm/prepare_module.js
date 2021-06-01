@@ -1,0 +1,1 @@
+Module.locateFile = console.log

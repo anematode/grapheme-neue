@@ -39,3 +39,4 @@ export * from "./algorithm/misc_geometry"
 export * from './styles/definitions'
 export * from './elements/polyline_element'
 export * from './math/bigint/bigint'
+export * from './wasm/test'
