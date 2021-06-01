@@ -1,9 +1,5 @@
 import {isTypedArray, leftZeroPad} from "../../core/utils.js"
 import {integerExp, rationalExp} from "../real/fp_manip.js"
-import { loadBigInt, readBigInt, freeBigInt} from "./bigint_wasm.js"
-import {addBigIntInPlace, createBigIntPtr, hintAllocateWords, multiplyBigIntInPlace} from "./bigint_wasm"
-
-export { loadBigInt, readBigInt, freeBigInt }
 
 const digitsOut = '0123456789abcdefghijklmnopqrstuvwxyz'
 const base10Verify = /^[0-9]+$/
@@ -541,8 +537,7 @@ export class BigInt {
     const CHUNKING_EXPONENT = CHUNKING_EXPONENTS[2 * radix - 4]
     const CHUNK_SIZE = CHUNKING_EXPONENTS[2 * radix - 3]
 
-    let wasmBigInt = createBigIntPtr()
-    //this.setZero()
+    this.setZero()
 
     let startIndex = 0
     if (str[0] === '-') startIndex = 1
@@ -570,7 +565,7 @@ export class BigInt {
       digits.push(val)
     }
 
-    hintAllocateWords(wasmBigInt, Math.ceil(Math.log2(radix) * digits.length / BIGINT_WORD_BITS))
+    this.allocateBits(Math.ceil(Math.log2(radix) * digits.length))
 
     // Initial word
     let initialGroupSize = (digits.length - 1) % CHUNKING_EXPONENT + 1, i = 0, chunk = 0
@@ -579,9 +574,10 @@ export class BigInt {
       chunk += digits[i]
     }
 
-    addBigIntInPlace(wasmBigInt, chunk)
+    this.addInPlace(chunk)
+
     for (let j = i; j < digits.length; j += CHUNKING_EXPONENT) {
-      multiplyBigIntInPlace(wasmBigInt, CHUNK_SIZE)
+      this.multiplyInPlace(CHUNK_SIZE)
 
       let chunk = 0, jEnd = j + CHUNKING_EXPONENT
       for (let k = j; k < jEnd; ++k) {
@@ -589,11 +585,10 @@ export class BigInt {
         chunk += digits[k]
       }
 
-      addBigIntInPlace(wasmBigInt, chunk)
+      this.addInPlace(chunk)
     }
 
-    this.initFromBigint(readBigInt(wasmBigInt))
-    freeBigInt(wasmBigInt)
+    this.recomputeWordCount()
 
     if (str[0] === '-') {
       this.sign = -1
