@@ -7,36 +7,34 @@
 <body>
 
 <script src="test_setup.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsbi@3.1.4/dist/jsbi-umd.min.js"></script>
 
 <noscript id="setup">
+    let BI = Grapheme.BigInt
+    let grapheme_int, native_int
 
-    const renderer = new Grapheme.GraphemeWebGLRenderer()
-    const scene = new Grapheme.InteractiveScene({ id: "main", interactivity: true })
+    let words = [...new Array(1000).keys()].map(() => Math.random()*(2**30) | 0)
 
-    document.body.appendChild(scene.domElement)
-    scene.setSize(400, 400)
+    grapheme_int = new Grapheme.BigInt().initFromWords(words)
+    native_int = grapheme_int.toBigint()
+    jsbi_int = JSBI.BigInt(native_int.toString())
 
-    const polyline = new Grapheme.PolylineElement({ vertices: [ [20, 350], [100, 20], [50, 30], [20, 31] ], pen: { thickness: 10, color: "blue" } })
-    scene.add(polyline)
+    let str = native_int.toString()
 
-    const axis = new Grapheme.AxisElement()
-    scene.add(axis)
+    console.log("Created Grapheme int: ", grapheme_int)
 
-    axis.set("axis", { start: [100, 20], end: [100, 500], graphStart: -2, graphEnd: 2 })
-    axis.set("ticks", { major: [3, 4, 1] })
-    axis.set("ticks", { minor: undefined })
+    let grapheme_res, jsbi_res, native_res
+    Grapheme.utils.performance(() => {
+    grapheme_res = grapheme_int.multiply(grapheme_int)
+    }, 100, "Grapheme bigint from string")
 
-    function render() {
-        renderer.renderDOMScene(scene)
-        //requestAnimationFrame(render)
+    Grapheme.utils.performance(() => {
+    jsbi_res = JSBI.multiply(jsbi_int, jsbi_int)
+    }, 100, "JSBI bigint from string")
 
-        polyline.set("pen", { color: (Math.random() < 0.5) ? "chartreuse" : "red", thickness: Math.random() * 5 })
-    }
-
-    render()
-
-    let int = new Grapheme.BigInt(1e307)
-    //int.leftShiftInPlace(24)
+    Grapheme.utils.performance(() => {
+    native_res = native_int * native_int
+    }, 100, "Native bigint from string")
 </noscript>
 
 

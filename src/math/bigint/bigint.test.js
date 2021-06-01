@@ -1,2 +1,0 @@
-import { mulWords } from "./bigint"
-

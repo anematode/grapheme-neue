@@ -359,7 +359,7 @@ let stdlib = {
 
 let ASMViews = { f64: new Float64Array(heap) }
 let BufferSizes = { f64: ASMViews.f64.length }
-var GeometryASMFunctions = GeometryASMFunctionsCreate(stdlib, null, heap)
+//var GeometryASMFunctions = GeometryASMFunctionsCreate(stdlib, null, heap)
 
 /**
  * Test whether three points are in counterclockwise order
