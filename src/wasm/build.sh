@@ -14,5 +14,5 @@ EXPORTED_FUNCTIONS+=']'
 
 echo "Exporting: ${EXPORTED_FUNCTIONS}"
 
-emcc ./grapheme_wasm.c -o grapheme.js --pre-js prepare_module.js --post-js impl.js -s EXPORT_ES6=1 -s MODULARIZE=1 -s EXPORTED_FUNCTIONS="${EXPORTED_FUNCTIONS}"
+emcc ./grapheme_wasm.c -o grapheme.js -s EXPORT_ES6=1 -s MODULARIZE=1 -s EXPORTED_FUNCTIONS="${EXPORTED_FUNCTIONS}"
 mv grapheme.js module.js

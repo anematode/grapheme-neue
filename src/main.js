@@ -39,6 +39,4 @@ export * from "./algorithm/misc_geometry"
 export * from './styles/definitions.js'
 export * from './elements/polyline_element.js'
 export * from './math/bigint/bigint.js'
-
-import WASM from './wasm/grapheme_wasm.js'
-export { WASM }
+export * from './wasm/wasm.js'

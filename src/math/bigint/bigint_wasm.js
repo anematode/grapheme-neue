@@ -1,4 +1,4 @@
-import WASM from "../../wasm/grapheme_wasm.js"
+import { WASM } from "../../wasm/wasm.js"
 import { BigInt } from "./bigint.js"
 
 /**
