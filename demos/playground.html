@@ -25,7 +25,7 @@
 
     let grapheme_res, jsbi_res, native_res
     Grapheme.utils.performance(() => {
-    grapheme_res = Grapheme.Test.multiplyBigints(grapheme_int, grapheme_int)
+    grapheme_res = grapheme_int.multiply(grapheme_int)
     }, 100, "Grapheme bigint from string")
 
     Grapheme.utils.performance(() => {
