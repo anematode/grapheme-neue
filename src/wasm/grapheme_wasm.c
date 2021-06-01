@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <emscripten.h>
 
 #define BIGINT_WORD_BITS 30
 #define BIGINT_WORD_PART_BITS 15
@@ -34,6 +35,19 @@ grapheme_bigint* grapheme_bigint_external_init(int sign, int word_count, int all
         return NULL;
     }
 
+    return bigint;
+}
+
+grapheme_bigint* grapheme_bigint_init_from_single_word(int sign, int value) {
+    grapheme_bigint* bigint = (grapheme_bigint*) malloc(sizeof(grapheme_bigint));
+
+    if (!bigint) return NULL;
+
+    bigint->sign = sign;
+    bigint->word_count = 1;
+    bigint->words = (int*) malloc(sizeof(int));
+
+    bigint->words[0] = value & BIGINT_WORD_BIT_MASK;
     return bigint;
 }
 
@@ -81,17 +95,50 @@ void grapheme_bigint_multiply_in_place(grapheme_bigint* bigint, int multiplicand
 
     int* words = bigint->words;
     int word_count = bigint->word_count;
-    int allocated_words = word_count;
 
-    long multiplicand_long = multiplicand, carry = 0;
+    // Use 64-bit integers to prevent overflow
+    long long multiplicand_long = multiplicand, carry = 0, word, result;
     int i = 0;
 
-    for (; i < bigint->word_count; ++i) {
-        long word = words[i];
-        long result = word * multiplicand_long + carry;
+    for (; i < word_count; ++i) {
+        word = words[i];
+        result = word * multiplicand_long + carry;
 
         carry = result >> BIGINT_WORD_BITS;
         words[i] = result & BIGINT_WORD_BIT_MASK;
+    }
+
+    if (carry != 0) {
+        word_count += 1;
+        grapheme_bigint_allocate_words(bigint, word_count);
+
+        bigint->word_count = word_count;
+        bigint->words[i] = carry;
+    }
+
+    if (multiplicand < 0) {
+        bigint->sign *= -1;
+    }
+}
+
+void grapheme_bigint_add_in_place(grapheme_bigint* bigint, int add) {
+    if (add == 0) return;
+
+    int* words = bigint->words;
+    int word_count = bigint->word_count;
+
+    int carry = add, i=0;
+    for (; i < word_count; ++i) {
+        int word = words[i];
+        int result = word + carry;
+
+        if (result > BIGINT_WORD_BIT_MASK) {
+            carry = 1;
+            words[i] = result & BIGINT_WORD_BIT_MASK;
+        } else {
+            carry = 0;
+            words[i] = result;
+        }
     }
 
     if (carry != 0) {

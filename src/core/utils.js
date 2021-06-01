@@ -1,3 +1,4 @@
+import { WASM } from "../wasm/wasm.js"
 
 let version = 0
 
@@ -241,4 +242,13 @@ export function performance (callback, iterations=100000, msg) {
   let timeEnd = Date.now()
 
   console.log(`Process ${msg} took an average of ${(timeEnd - timeStart) / iterations} ms per iteration (${iterations} iterations).`)
+}
+
+const onReadyCallbacks = []
+export function onReady (callback) {
+  onReadyCallbacks.push(callback)
+}
+
+WASM.onRuntimeInitialized = () => {
+  for (const callback of onReadyCallbacks) callback()
 }
