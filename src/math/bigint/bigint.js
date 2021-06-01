@@ -2,6 +2,8 @@ import {isTypedArray, leftZeroPad} from "../../core/utils.js"
 import {integerExp, rationalExp} from "../real/fp_manip.js"
 import { loadBigInt, readBigInt, freeBigInt} from "./bigint_wasm.js"
 
+export { loadBigInt, readBigInt, freeBigInt }
+
 const digitsOut = '0123456789abcdefghijklmnopqrstuvwxyz'
 const base10Verify = /^[0-9]+$/
 

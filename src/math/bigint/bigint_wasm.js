@@ -14,7 +14,7 @@ export function loadBigInt (bigint) {
   let wordsPtr = WASM.asm._grapheme_bigint_get_words(ptr) >> 2
   WASM.HEAP32.set(bigint.words.subarray(0, bigint.wordCount), wordsPtr)
 
-  return ptr;
+  return ptr
 }
 
 export function readBigInt (ptr) {

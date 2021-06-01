@@ -1,4 +1,13 @@
 #include <stdlib.h>
+#include <string.h>
+
+#define BIGINT_WORD_BITS 30
+#define BIGINT_WORD_PART_BITS 15
+#define BIGINT_WORD_BIT_MASK 0x3FFFFFFF
+#define BIGINT_WORD_OVERFLOW_BIT_MASK 0x40000000
+
+#define BIGINT_WORD_SIZE 1073741824
+#define BIGINT_WORD_MAX 1073741823
 
 typedef struct grapheme_bigint {
     int sign; // -1, 0 or 1
@@ -18,6 +27,7 @@ grapheme_bigint* grapheme_bigint_external_init(int sign, int word_count, int all
 
     if (allocated_words == -1) allocated_words = word_count;
     bigint->words = (int*) malloc(sizeof(int) * allocated_words);
+    bigint->allocated_words = allocated_words;
 
     if (!bigint->words) {
         free(bigint);
@@ -42,4 +52,51 @@ int grapheme_bigint_get_word_count(grapheme_bigint* bigint) {
 void grapheme_free_bigint(grapheme_bigint* bigint) {
     free(bigint->words);
     free(bigint);
+}
+
+void grapheme_bigint_allocate_words(grapheme_bigint* bigint, int allocate_words) {
+    if (allocate_words <= bigint->allocated_words) return;
+
+    bigint->words = realloc(bigint->words, sizeof(int) * allocate_words);
+
+    int new_words = allocate_words - bigint->allocated_words;
+    memset(bigint->words + bigint->allocated_words, 0, sizeof(int) * new_words); // fill new words with 0
+
+    bigint->allocated_words = allocate_words;
+}
+
+void grapheme_bigint_set_zero(grapheme_bigint* bigint) {
+    bigint->word_count = 1;
+    bigint->sign = 0;
+
+    memset(bigint->words, 0, sizeof(int) * (bigint->allocated_words));
+}
+
+// Multiply by a single word in-place
+void grapheme_bigint_multiply_in_place(grapheme_bigint* bigint, int multiplicand) {
+    if (multiplicand == 0) {
+        grapheme_bigint_set_zero(bigint);
+        return;
+    }
+
+    int* words = bigint->words;
+    int word_count = bigint->word_count;
+    int allocated_words = word_count;
+
+    long multiplicand_long = multiplicand, carry = 0;
+    int i = 0;
+
+    for (; i < bigint->word_count; ++i) {
+        long word = words[i];
+        long result = word * multiplicand_long + carry;
+
+        carry = result >> BIGINT_WORD_BITS;
+        words[i] = result & BIGINT_WORD_BIT_MASK;
+    }
+
+    if (carry != 0) {
+        grapheme_bigint_allocate_words(bigint, word_count + 1);
+        words = bigint->words;
+        words[i] = carry;
+    }
 }

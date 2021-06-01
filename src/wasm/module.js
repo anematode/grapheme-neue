@@ -2103,6 +2103,12 @@ var _grapheme_bigint_get_words = Module["_grapheme_bigint_get_words"] = function
   return Module["asm"]["_grapheme_bigint_get_words"].apply(null, arguments)
 };
 
+var _grapheme_bigint_multiply_in_place = Module["_grapheme_bigint_multiply_in_place"] = function() {
+  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
+  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
+  return Module["asm"]["_grapheme_bigint_multiply_in_place"].apply(null, arguments)
+};
+
 var _grapheme_free_bigint = Module["_grapheme_free_bigint"] = function() {
   assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
   assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-EXPORTS="bigint_external_init bigint_get_words bigint_get_sign bigint_get_word_count free_bigint"
+EXPORTS="bigint_external_init bigint_get_words bigint_get_sign bigint_get_word_count free_bigint bigint_multiply_in_place"
 
 EXPORTS=' ' read -r -a array <<< ${EXPORTS}
 EXPORTED_FUNCTIONS='['
