@@ -1,5 +1,6 @@
 import {isTypedArray, leftZeroPad} from "../../core/utils.js"
 import {integerExp, rationalExp} from "../real/fp_manip.js"
+import { loadBigInt, readBigInt, freeBigInt} from "./bigint_wasm.js"
 
 const digitsOut = '0123456789abcdefghijklmnopqrstuvwxyz'
 const base10Verify = /^[0-9]+$/
@@ -708,18 +709,12 @@ export class BigInt {
         let low = Math.imul(word1Lo, word2Lo), high = Math.imul(word1Hi, word2Hi)
         let middle = Math.imul(word2Lo, word1Hi) + Math.imul(word1Lo, word2Hi)
 
-        low += (middle & BIGINT_WORD_LOW_PART_BIT_MASK) << BIGINT_WORD_PART_BITS
+        low += ((middle & BIGINT_WORD_LOW_PART_BIT_MASK) << BIGINT_WORD_PART_BITS) + carry
+        low >>>= 0
 
-        if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
+        if (low > BIGINT_WORD_OVERFLOW_BIT_MASK) {
+          high += low >>> BIGINT_WORD_BITS
           low &= BIGINT_WORD_BIT_MASK
-          high += 1
-        }
-
-        low += carry
-
-        if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
-          low &= BIGINT_WORD_BIT_MASK
-          high += 1
         }
 
         high += middle >> BIGINT_WORD_PART_BITS // add the high part of middle

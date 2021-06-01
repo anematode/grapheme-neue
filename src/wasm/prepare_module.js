@@ -1,1 +1,4 @@
-Module.locateFile = console.log
+/*Module['locateFile'] = () => {
+  import.meta.url + '.wasm'
+}
+*/
