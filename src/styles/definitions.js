@@ -4,8 +4,7 @@
 // the case of colors on elements, but that can be dealt with via caching if REALLY needed. We basically define a shared
 // common style system that allows composition of common things. We'll start with a line style.
 
-import * as utils from '../core/utils'
-import {deepFreeze} from "../core/utils"
+import * as utils from '../core/utils.js'
 
 // Implementation of basic color functions
 // Could use a library, but... good experience for me too
@@ -622,7 +621,7 @@ export const Pen = {
     color: "color",
     thickness: "number"
   },
-  default: deepFreeze({
+  default: utils.deepFreeze({
     color: { r: 0, g: 0, b: 0, a: 255},
     thickness: 2,
     dashPattern: [],

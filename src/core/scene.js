@@ -1,6 +1,6 @@
-import { Group } from "./group"
-import {BoundingBox} from "../math/bounding_box"
-import {attachGettersAndSetters, constructInterface} from "./interface"
+import { Group } from "./group.js"
+import {BoundingBox} from "../math/bounding_box.js"
+import {attachGettersAndSetters, constructInterface} from "./interface.js"
 
 // Example interface
 const sceneInterface = constructInterface({

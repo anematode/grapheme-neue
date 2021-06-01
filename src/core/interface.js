@@ -12,8 +12,8 @@
 // update function, which should be optimized first. If the property system turns out to be a serious drag, then I'll
 // find a workaround. But even just for me, having this kind of system would help with catching my own errors.
 
-import {Vec2} from "../math/vec/vec2"
-import {flattenVec2Array} from "../algorithm/misc_geometry"
+import {Vec2} from "../math/vec/vec2.js"
+import {flattenVec2Array} from "../algorithm/misc_geometry.js"
 
 export const SampleInterface = {
   // Define behavior of set(width, value) and get(width). If empty, it directly modifies the property with the same name.

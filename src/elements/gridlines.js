@@ -1,8 +1,8 @@
-import {Element} from "../core/element"
-import {Pen} from "../styles/definitions"
-import {DefaultStyles} from "../styles/definitions"
-import {calculatePolylineVertices} from "../algorithm/polyline_triangulation"
-import {constructInterface} from "../core/interface"
+import {Element} from "../core/element.js"
+import {Pen} from "../styles/definitions.js"
+import {DefaultStyles} from "../styles/definitions.js"
+import {calculatePolylineVertices} from "../algorithm/polyline_triangulation.js"
+import {constructInterface} from "../core/interface.js"
 
 // A relatively primitive element that simply takes in a list of gridline types and gridline styles for each type, then
 // gridline positions.

@@ -2,10 +2,10 @@
 
 // Sort of a test object for now so that I can figure out the rest of Grapheme's internals
 
-import {Element} from "../core/element"
-import {constructInterface} from "../core/interface"
-import {generateCircleTriangleStrip} from "../algorithm/misc_geometry"
-import {Colors} from "../styles/definitions"
+import {Element} from "../core/element.js"
+import {constructInterface} from "../core/interface.js"
+import {generateCircleTriangleStrip} from "../algorithm/misc_geometry.js"
+import {Colors} from "../styles/definitions.js"
 
 const pointCloudInterface = constructInterface({
   data: true,

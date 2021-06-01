@@ -2,8 +2,8 @@
  * Represents a linear transformation by storing two bounding boxes: one for the plot in CSS pixels, and one for the
  * actual elements in the graph. Some parts of this should be highly optimized, but it needn't be complicated.
  */
-import {BoundingBox} from "./bounding_box"
-import { Vec2 } from "./vec/vec2"
+import {BoundingBox} from "./bounding_box.js"
+import { Vec2 } from "./vec/vec2.js"
 
 export class LinearPlot2DTransform {
   /**

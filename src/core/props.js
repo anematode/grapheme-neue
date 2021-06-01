@@ -1,7 +1,7 @@
 
 // The general form of a prop store is { value: , changed: , userValue: , }
 
-import {deepEquals, getVersionID} from "./utils"
+import {deepEquals, getVersionID} from "./utils.js"
 
 const proxyHandlers = {
   get: (target, propName) => {

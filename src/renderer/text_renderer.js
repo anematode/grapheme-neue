@@ -1,5 +1,5 @@
-import {packRectangles, potpack} from "../algorithm/rectangle_packing"
-import {getVersionID, nextPowerOfTwo} from "../core/utils"
+import {packRectangles, potpack} from "../algorithm/rectangle_packing.js"
+import {getVersionID, nextPowerOfTwo} from "../core/utils.js"
 
 // There will eventually be multiple ways to draw text in Grapheme. For now, we will use a 2D canvas that essentially
 // draws text to be copied into a WebGL texture which is then rendered.

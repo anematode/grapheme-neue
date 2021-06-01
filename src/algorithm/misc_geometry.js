@@ -1,6 +1,6 @@
-import {isTypedArray, mod} from "../core/utils"
-import {Vec2} from "../math/vec/vec2"
-import {BoundingBox} from "../math/bounding_box"
+import {isTypedArray, mod} from "../core/utils.js"
+import {Vec2} from "../math/vec/vec2.js"
+import {BoundingBox} from "../math/bounding_box.js"
 
 function GeometryASMFunctionsCreate (stdlib, foreign, buffer) {
   'use asm'

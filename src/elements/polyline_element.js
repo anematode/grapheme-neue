@@ -1,6 +1,6 @@
-import {Element} from "../core/element"
-import {constructInterface} from "../core/interface"
-import {DefaultStyles, Pen} from "../styles/definitions"
+import {Element} from "../core/element.js"
+import {constructInterface} from "../core/interface.js"
+import {DefaultStyles, Pen} from "../styles/definitions.js"
 
 const polylineInterface = constructInterface({
   pen: { setAs: "user", setMerge: true, getAs: "real", description: "The pen used to draw the polyline." },

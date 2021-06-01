@@ -1,9 +1,9 @@
-import {Group} from "../core/group"
-import {BoundingBox} from "../math/bounding_box"
-import {PlotBaubles} from "./plot_baubles"
-import {Vec2} from "../math/vec/vec2"
-import { LinearPlot2DTransform } from "../math/plot_transforms"
-import {constructInterface} from "../core/interface"
+import {Group} from "../core/group.js"
+import {BoundingBox} from "../math/bounding_box.js"
+import {PlotBaubles} from "./plot_baubles.js"
+import {Vec2} from "../math/vec/vec2.js"
+import { LinearPlot2DTransform } from "../math/plot_transforms.js"
+import {constructInterface} from "../core/interface.js"
 
 const figureInterface = constructInterface({
   figureBoundingBox: true,

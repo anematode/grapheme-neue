@@ -1,8 +1,8 @@
 
-import {Element} from "../core/element"
-import {Vec2} from "../math/vec/vec2"
-import {constructInterface} from "../core/interface"
-import { Colors } from "../styles/definitions"
+import {Element} from "../core/element.js"
+import {Vec2} from "../math/vec/vec2.js"
+import {constructInterface} from "../core/interface.js"
+import { Colors } from "../styles/definitions.js"
 
 const textElementInterface = constructInterface({
   font: true,

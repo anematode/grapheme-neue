@@ -5,10 +5,10 @@
  * An Element has properties, which may be explicitly specified, inherited
  */
 
-import {Eventful} from "./eventful"
-import {getStringID, getVersionID} from "./utils"
-import {Props} from "./props"
-import {NullInterface} from "./interface"
+import {Eventful} from "./eventful.js"
+import {getStringID, getVersionID} from "./utils.js"
+import {Props} from "./props.js"
+import {NullInterface} from "./interface.js"
 
 /**
  * The element class.

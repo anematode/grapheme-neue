@@ -1,4 +1,4 @@
-import { lineSegmentIntersectsBox } from './misc_geometry'
+import { lineSegmentIntersectsBox } from './misc_geometry.js'
 
 /**
  * Compute Math.hypot(x, y), but since all the values of x and y we're using here are not extreme, we don't have to

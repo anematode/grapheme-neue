@@ -1,5 +1,5 @@
-import {Element} from "../core/element"
-import {generateRectangleCycle} from "../algorithm/misc_geometry"
+import {Element} from "../core/element.js"
+import {generateRectangleCycle} from "../algorithm/misc_geometry.js"
 
 
 export class PlotBoxOutline extends Element {

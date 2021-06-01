@@ -1,5 +1,5 @@
-import {Scene} from "./scene"
-import {constructInterface} from "./interface"
+import {Scene} from "./scene.js"
+import {constructInterface} from "./interface.js"
 
 const interactiveSceneInterface = constructInterface({
   ...Scene.prototype.getInterface().description,

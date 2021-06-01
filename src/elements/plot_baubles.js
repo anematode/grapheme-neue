@@ -1,10 +1,10 @@
-import {GridlineAllocators} from "../algorithm/tick_allocator"
-import {GridlinesElement} from "./gridlines"
-import {Group} from "../core/group"
-import {PlotBoxOutline} from "./plot_box_outline"
-import {AxisElement} from "./axis"
-import {Vec2} from "../math/vec/vec2"
-import {constructInterface} from "../core/interface"
+import {GridlineAllocators} from "../algorithm/tick_allocator.js"
+import {GridlinesElement} from "./gridlines.js"
+import {Group} from "../core/group.js"
+import {PlotBoxOutline} from "./plot_box_outline.js"
+import {AxisElement} from "./axis.js"
+import {Vec2} from "../math/vec/vec2.js"
+import {constructInterface} from "../core/interface.js"
 
 // Somewhat temporary class for the combination of axes, axis labels, and gridlines, in all their various modes. This
 // will be a good test of the "child definition" side of Grapheme that I've been dreading. A lot of properties, several

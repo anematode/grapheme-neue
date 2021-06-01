@@ -1,5 +1,5 @@
-import {Vec2} from "./vec/vec2"
-import * as utils from "../core/utils"
+import {Vec2} from "./vec/vec2.js"
+import * as utils from "../core/utils.js"
 
 /**
  * Given some parameters describing a line segment, find a line segment that is consistent with at least two of them.

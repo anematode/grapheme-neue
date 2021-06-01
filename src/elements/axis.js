@@ -1,5 +1,5 @@
-import {Element} from "../core/element"
-import {constructInterface} from "../core/interface"
+import {Element} from "../core/element.js"
+import {constructInterface} from "../core/interface.js"
 
 // An axis is relatively general. It simply abstracts the concept of a start and end and allows a bunch of other
 // baubles like ticks, labels, etc. For now we'll just do text.

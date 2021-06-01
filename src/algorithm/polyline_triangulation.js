@@ -1,5 +1,5 @@
-import {mod} from '../core/utils'
-import {getDashedPolyline, fastHypot} from "./dashed_polyline"
+import {mod} from '../core/utils.js'
+import {getDashedPolyline, fastHypot} from "./dashed_polyline.js"
 
 const ENDCAP_TYPES = {
   'butt': 0,

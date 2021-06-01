@@ -2,7 +2,7 @@
 
 // CREDIT to the authors of https://github.com/mapbox/tiny-sdf. I made some modifications.
 
-import {packRectangles} from "../algorithm/rectangle_packing"
+import {packRectangles} from "../algorithm/rectangle_packing.js"
 
 const INF = 1e20
 
