@@ -2,8 +2,6 @@ import {isTypedArray, leftZeroPad} from "../../core/utils.js"
 import {integerExp, rationalExp} from "../real/fp_manip.js"
 import { ROUNDING_MODE } from "../rounding_modes.js"
 
-const base10Verify = /^[0-9]+$/
-
 const BIGINT_WORD_BITS = 30
 const BIGINT_WORD_PART_BITS = BIGINT_WORD_BITS / 2
 

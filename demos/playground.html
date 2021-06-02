@@ -12,6 +12,16 @@
 
 <noscript id="setup">
     let BI = Grapheme.BigInt
+    let BF = Grapheme.BigFloat
+
+    function testBigFloat () {
+        test1 = BF.fromNumber(100)
+        test2 = BF.fromNumber(100.0000001)
+        test3 = BF.fromNumber(100.00001)
+    }
+
+    testBigFloat()
+
 
     Decimal.precision = 3000
 
