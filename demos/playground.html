@@ -8,32 +8,29 @@
 
 <script src="test_setup.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbi@3.1.4/dist/jsbi-umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/decimal.js/9.0.0/decimal.js"></script>
 
 <noscript id="setup">
     let BI = Grapheme.BigInt
 
-    let words = [...new Array(1000).keys()].map(() => Math.random()*(2**30) | 0)
+    Decimal.precision = 3000
 
-    grapheme_int = new Grapheme.BigInt().initFromWords(words)
-    native_int = grapheme_int.toBigint()
-    jsbi_int = JSBI.BigInt(native_int.toString())
+    let str = "123455678910111213141516171819".repeat(40)
+    let m = new Decimal(str)
+    let i = new BI(str)
+    let res1, res2
 
-    let str = native_int.toString()
-
-    let grapheme_res, jsbi_res, native_res
-    Grapheme.utils.performance(() => {
-    grapheme_res = new BI(str)
-    }, 100, "Grapheme bigint from string")
+    /*Grapheme.utils.performance(() => {
+    res1 = Decimal.mul(m, m)
+    }, 1e4, "decimal.js")
 
     Grapheme.utils.performance(() => {
-    jsbi_res = JSBI.BigInt(str)
-    }, 100, "JSBI bigint from string")
+    res2 = i.multiply(i)
+    }, 1e4, "grapheme")*/
 
-    Grapheme.utils.performance(() => {
-    native_res = BigInt(str)
-    }, 100, "Native bigint from string" )
 </noscript>
 
 
 </body>
 </html>
+w

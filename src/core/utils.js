@@ -1,4 +1,4 @@
-import { WASM } from "../wasm/wasm.js"
+// import { WASM } from "../wasm/wasm.js"
 
 let version = 0
 
@@ -249,6 +249,6 @@ export function onReady (callback) {
   onReadyCallbacks.push(callback)
 }
 
-WASM.onRuntimeInitialized = () => {
+setTimeout(() => {
   for (const callback of onReadyCallbacks) callback()
-}
+}, 0)

@@ -1,7 +1,7 @@
 import {isTypedArray, leftZeroPad} from "../../core/utils.js"
 import {integerExp, rationalExp} from "../real/fp_manip.js"
+import { ROUNDING_MODE } from "../rounding_modes.js"
 
-const digitsOut = '0123456789abcdefghijklmnopqrstuvwxyz'
 const base10Verify = /^[0-9]+$/
 
 const BIGINT_WORD_BITS = 30
@@ -11,16 +11,8 @@ const BIGINT_WORD_BIT_MASK = 0x3FFFFFFF          // get the last 30 bits of a gi
 const BIGINT_WORD_LOW_PART_BIT_MASK = 0x7FFF     // get the last 15 bits of a given word. Getting the high part is just >> 15
 const BIGINT_WORD_OVERFLOW_BIT_MASK = 0x40000000 // get the overflow bit of a given word (aka the 31st bit)
 
-
 const BIGINT_WORD_SIZE = 2 ** BIGINT_WORD_BITS
 const BIGINT_WORD_MAX = BIGINT_WORD_SIZE - 1
-
-const ROUNDING_MODE = {
-  TOWARD_ZERO: 0,    // Go toward zero from either direction (0.5 -> 0), (-0.9 -> 0)
-  TOWARD_INF: 1,     // Go away from zero in either direction. (0.1 -> 1), (-0.1 -> -1)
-  UP: 2,             // Round up (-0.9 -> 0), (1.1 -> 2)
-
-}
 
 /**
  * Return the number of bits a given word uses.
@@ -40,26 +32,6 @@ function getBitCount (words, wordCount) {
   const lastWord = words[lastIndex]
 
   return wordBitCount(lastWord) + lastIndex * BIGINT_WORD_BITS
-}
-
-function fromStringBase10 (str) {
-  // Verify the string is okay
-  if (!str.match(base10Verify)) {
-    str.forEach(char => {
-      if (!isValidDigit(char.charCodeAt(0), 10)) { throw new Error(`Invalid digit '${char}'`) }
-    })
-  }
-
-  // We operate on the words themselves for extra optimizations
-  const pow10Words = []
-  const ret = BigInt.one()
-
-  for (let i = str.length - 1; i >= 0; --i) {
-    // 0 through 9
-    const v = str.charCodeAt(i) - 48
-
-    ret.multiplyAddInPlace(base, 10)
-  }
 }
 
 export function mulWords (word1, word2) {
@@ -86,20 +58,6 @@ export function mulAddWords (word1, word2, word3) {
 
   high += middle >> BIGINT_WORD_PART_BITS // add the high part of middle
 
-  return [ low, high ]
-}
-
-function mulWords_ (word1, word2) {
-  return [ Math.imul(word1, word2) & BIGINT_WORD_BIT_MASK, Math.floor(word1 * word2 / BIGINT_WORD_SIZE) ]
-}
-
-function mulAddWords_ (word1, word2, word3) {
-  let [ low, high ] = mulWords(word1, word2)
-  low += word3
-  if ((low & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
-    low &= BIGINT_WORD_BIT_MASK
-    high += 1
-  }
   return [ low, high ]
 }
 
@@ -198,11 +156,57 @@ export class BigInt {
     }
   }
 
-  addInPlace (num) {
-    if (typeof num === "number" && num <= BIGINT_WORD_MAX) {
-      if (num === 0) return this
-      // if (Math.sign(num) !== this.sign) return this.subtractInPlace(num)
+  /**
+   * Add bigint with same sign in place
+   * @param num {BigInt}
+   * @returns {BigInt}
+   * @private
+   */
+  _addSameSignInPlace (num) {
+    if (num.isZero()) return this
 
+    // We'll need at most this many bits
+    this.allocateBits(Math.max(num.bitCount(), this.bitCount()) + 1)
+
+    const { words: otherWords, wordCount: otherWordCount } = num
+    const { words, wordCount } = this
+
+      // Add the other bigint's words to this one
+    for (let i = 0; i < otherWordCount; ++i) {
+      words[i] += otherWords[i]
+    }
+
+    // We need to check the words between [0, i] for carries
+    let checkCarryCount = Math.min(otherWordCount, wordCount)
+
+    let carry = 0, i = 0
+    for (; i < words.length; ++i) {
+      let word = words[i] + carry
+
+      // Do carries
+      if ((word & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
+        words[i] = word & BIGINT_WORD_BIT_MASK
+        carry = 1
+      } else {
+        words[i] = word
+        carry = 0
+
+        if (i >= checkCarryCount) break
+      }
+    }
+
+    // Update word count
+    this.wordCount = Math.max(i, wordCount, otherWordCount)
+  }
+
+  /**
+   * Adds the number in place, IGNORING SIGN
+   * @param num
+   */
+  _addNumberSameSignInPlace (num) {
+    if (num === 0) return
+
+    if (num <= BIGINT_WORD_MAX) {
       // For small nums, we just add and carry. It's super similar to the longer case, but we have this for speed since
       // incrementing and such is a very common operation
       const {words, wordCount} = this
@@ -227,44 +231,141 @@ export class BigInt {
         this.words[i] = carry
         this.wordCount = i + 1
       }
-    } else if (num instanceof BigInt) {
-      if (num.isZero()) return this
-      if (num.si)
+    } else {
+      this._addSameSignInPlace(new BigInt(num))
+    }
+  }
 
-      // We'll need at most this many bits
-      this.allocateBits(Math.max(num.bitCount(), this.bitCount()) + 1)
+  /**
+   * Subtracts the number in place, IGNORING SIGN
+   * @param num
+   */
+  _subtractNumberSameSignInPlace (num) {
+    if (num === 0) return this
 
-      const { words: otherWords, wordCount: otherWordCount } = num
+    if (num <= BIGINT_WORD_MAX) {
       const { words, wordCount } = this
+      if (wordCount === 1) {
+        let firstWord = words[0]
 
-      // Add the other bigint's words to this one
-      for (let i = 0; i < otherWordCount; ++i) {
-        words[i] += otherWords[i]
+        firstWord -= num
+        if (firstWord === 0) {
+          this.sign = 0
+        } else if (firstWord < 0) {
+          this.sign *= -1
+          firstWord = -firstWord
+        }
+
+        words[0] = firstWord
+        return this
       }
 
-      // We need to check the words between [0, i] for carries
-      let checkCarryCount = Math.min(otherWordCount, wordCount)
+      let carry = num, i = 0
+      for (; i < wordCount; ++i) {
+        let word = words[i] - carry
 
-      let carry = 0, i = 0
-      for (; i < words.length; ++i) {
-        let word = words[i] + carry
-
-        // Do carries
-        if ((word & BIGINT_WORD_OVERFLOW_BIT_MASK) !== 0) {
-          words[i] = word & BIGINT_WORD_BIT_MASK
+        if (word < 0) {
+          word = word + BIGINT_WORD_SIZE
+          words[i] = word
           carry = 1
         } else {
           words[i] = word
-          carry = 0
+          break
+        }
+      }
+      // Carry should never equal 1
+    } else {
+      this._subtractSameSignInPlace(new BigInt(num))
+    }
+  }
 
-          if (i >= checkCarryCount) break
+  _subtractSameSignInPlace(num) {
+    if (num instanceof BigInt) {
+      this.allocateBits(Math.max(this.bitCount(), num.bitCount()))
+      let spaceship = this.magnitudeSpaceship(num) // -1 if we're less than num, 0 if equal, 1 if greater
+
+      if (spaceship === 0) {
+        this.setZero()
+        return
+      }
+
+      const { words, wordCount } = this
+      const { words: otherWords, wordCount: otherWordCount } = num
+
+      let maxCarryIndex = 0
+
+      if (spaceship === 1) { // If we're greater, just subtract from our words
+        for (let i = 0; i < otherWordCount; ++i) {
+          if ((words[i] -= otherWords[i]) < 0) {
+            maxCarryIndex = i
+          }
+        }
+      } else {
+        for (let i = 0; i < otherWordCount; ++i) {
+          if ((words[i] = otherWords[i] - words[i]) < 0) {
+            maxCarryIndex = i
+          }
         }
       }
 
-      // Update word count
-      this.wordCount = Math.max(i, wordCount, otherWordCount)
+      let wordsToExamine = Math.max(wordCount, otherWordCount)
+
+      let carry = 0
+      for (let j = 0; j < wordsToExamine; ++j) {
+        let word = words[j] - carry
+
+        if (word < 0) {
+          word += BIGINT_WORD_SIZE
+          words[j] = word
+          carry = 1
+        } else {
+          words[j] = word
+          carry = 0
+          if (j > maxCarryIndex) break
+        }
+      }
+
+      if (spaceship === -1) this.sign *= -1
+
+      this.recomputeWordCount()
     } else {
-      this.addInPlace(new BigInt(num))
+      this._subtractSameSignInPlace(new BigInt(num))
+    }
+  }
+
+  addInPlace (num, flipSign=false) {
+    if (typeof num === "number") {
+      if (num === 0) return this
+
+      if (this.sign === 0) {
+        this.initFromNumber(num)
+        if (flipSign) this.sign *= -1
+
+        return this
+      }
+
+      if ((Math.sign(num) === this.sign) !== flipSign) {
+        this._addNumberSameSignInPlace(Math.abs(num))
+      } else {
+        this._subtractNumberSameSignInPlace(Math.abs(num))
+      }
+    } else if (num instanceof BigInt) {
+      if (num.isZero()) return this
+
+      if (this.sign === 0) {
+        this.initFromBigint(num)
+        if (flipSign) this.sign *= -1
+
+        return this
+      }
+
+      if ((this.sign === num.sign) !== flipSign) {
+        this._addSameSignInPlace(num)
+      } else {
+        this._subtractSameSignInPlace(num)
+      }
+    } else {
+      this.addInPlace(new BigInt(num), flipSign)
     }
 
     return this
@@ -275,7 +376,12 @@ export class BigInt {
   }
 
   subtractInPlace (num) {
+    // Call addInPlace(-num)
+    return this.addInPlace(num, true)
+  }
 
+  subtract (bigint) {
+    return this.clone().subtractInPlace(bigint)
   }
 
   /**
@@ -284,6 +390,18 @@ export class BigInt {
    */
   allocateBits (bitCount) {
     this.allocateWords(Math.ceil(bitCount / BIGINT_WORD_BITS))
+  }
+
+  /**
+   * Shrink to fit the least number of words this bigint needs
+   */
+  shrinkToFit () {
+    if (this.wordCount === this.words.length) return
+
+    const newWords = new Int32Array(this.wordCount)
+    newWords.set(this.words.subarray(0, this.wordCount))
+
+    this.words = newWords
   }
 
   /**
@@ -382,14 +500,42 @@ export class BigInt {
       let bitCount = this.bitCount()
       let givenBitCount = Math.log2(bigint) + 1
 
-      // Give some leniency in case of rounding errors (which shouldn't technically happen, but ehh)
+      // Give some leniency in case of rounding errors (which shouldn't technically happen, but ehh I don't want to prove it)
       if (bitCount < Math.floor(givenBitCount) - 1) return ((sign === 1) === lessThan) && !onlyEqual
       else if (bitCount > Math.ceil(givenBitCount) + 1) return ((sign === 1) !== lessThan) && !onlyEqual
     }
 
-
-    // Fallback
+    // Fallback for other types
     return this._compare(new BigInt(bigint), lessThan, orEqual, onlyEqual)
+  }
+
+  /**
+   * Returns -1 if less than bigint2, 0 if equal, 1 if greater than, IGNORING THE SIGN
+   * @param bigint {BigInt}
+   * @returns {boolean|number|*}
+   */
+  magnitudeSpaceship (bigint) {
+    let sign = this.sign, otherSign = bigint.sign
+    if (sign === 0) {
+      return (otherSign === 0) ? 0 : -1
+    } else if (otherSign === 0) {
+      return (sign === 0) ? 0 : 1
+    }
+
+    let bitcount = this.bitCount(), otherBitcount = bigint.bitCount()
+
+    if (bitcount < otherBitcount) return -1
+    if (bitcount > otherBitcount) return 1
+
+    let wordCount = this.wordCount, words = this.words, otherWords = bigint.words
+
+    for (let i = wordCount; i >= 0; --i) {
+      let word = words[i], otherWord = otherWords[i]
+      if (word > otherWord) return 1
+      if (word < otherWord) return -1
+    }
+
+    return 0
   }
 
   lessThan (bigint) {
@@ -728,6 +874,10 @@ export class BigInt {
       }
 
       this.sign *= Math.sign(val)
+    } else if (val instanceof BigInt) {
+      this.initFromBigint(multiplyBigInts(this, val))
+    } else {
+      this.multiplyInPlace(new BigInt(val))
     }
   }
 
@@ -737,7 +887,7 @@ export class BigInt {
   recomputeWordCount () {
     const { words } = this
 
-    for (let i = words.length - 1; i >= 0; ++i) {
+    for (let i = words.length - 1; i >= 0; --i) {
       if (words[i] !== 0) {
         this.wordCount = i + 1
         return
@@ -861,6 +1011,8 @@ export class BigInt {
    * The closest number thus begins with the first bit of the integer, wherever that is, then either agrees or disagrees
    * with the rest of the integer. Having constructed the mantissa, we round in the correct direction and multiply by
    * the exponent.
+   *
+   * TODO
    */
   toNumber (roundingMode) {
     // Example: 17 = 0b10001
