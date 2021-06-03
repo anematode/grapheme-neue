@@ -80,7 +80,7 @@ describe('BigInt', function() {
     }
   })
 
-  it('should compare equality with itself correctly', function () {
+  it('should be equal to itself', function () {
     for (const bigint of randomBigInts) {
       for (const bigint2 of randomBigInts) {
         expect(new GraphemeBigInt(bigint).equals(new GraphemeBigInt(bigint2))).to.equal(bigint === bigint2)

@@ -33,8 +33,8 @@
     }
 
     function testAddition () {
-        let arr1 = new Int32Array([ 0xF, 0xF ])
-        let arr2 = new Int32Array([ 0xE, 0xE ])
+        let arr1 = new Int32Array([ 0xE, 0x3FFFFFFF, 0x0, 0x3FFFFFFF ])
+        let arr2 = new Int32Array([ 0xE, 0xE, 0xE, 0xE ])
 
         let target = new Int32Array(3)
 
@@ -43,31 +43,29 @@
         console.log(target)
     }
 
-    function test () {
+    function testF () {
+    f1 = BF.fromNumber(0.1)
+    f2 = BF.fromNumber(0.2)
 
-    arr = new Int32Array([ 0x3FFFFFFF ])
-    console.log(Grapheme.roundMantissaToPrecisionInPlace(arr, 29, Grapheme.ROUNDING_MODE.UP))
-    console.log(Array.from(arr).map(x => x.toString(2)).join(', '))
-
+    f3 = BF.add(f1, f2)
     }
 
-    testAddition()
+    testF()
 
 
     Decimal.precision = 3000
 
     /*let s = 0.510285230981
-    let res1, res2
-    res1 = new Decimal(s)
-    res2 = BF.fromNumber(s)
+    let d = new Decimal(s)
+    let g = BF.fromNumber(s)
 
     Grapheme.utils.performance(() => {
-    rest1 = res1.toNumber()
-    }, 1e6, "decimal.js")
+    res1 = Decimal.add(d, d)
+    }, 1e7, "decimal.js")
 
     Grapheme.utils.performance(() => {
-    rest2 = res2.toNumber()
-    }, 1e6, "grapheme")*/
+    res1 = BF.add(g, g, { roundingMode: Grapheme.ROUNDING_MODE.WHATEVER })
+    }, 1e7, "grapheme")*/
 
 </noscript>
 

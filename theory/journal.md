@@ -363,3 +363,18 @@ I think the context stuff will use a similar system to the "popping" of canvas 2
 Okay, ignore contexts for now. All the instructions are split up into their zIndexes... now, we can keep track of which instructions came from which element. The order of the instructions in each zIndex is exactly the order of the elements in the tree. Most of the instructions will be in the same zIndex.
 
 
+# June 3
+
+BigFloats have consumed my mind. They aren't actually as bad as I previously thought. It's just math, some simple primitive operations, and error bounding. At least, until we get to division. I'm scared of division. Oh well, let's focus on addition, subtraction and multiplication.
+
+We store a big float as m * (2^30)^e, where m is interpreted as a number in [2^-30, 1) and stored as a series of 30-bit words, with the first word being the largest.
+
+Converting from a double to a big float is relatively straightforward; we just insert and shift the mantissa as appropriate. Converting the other way is also pretty easy; we truncate to 53 bits precision and convert. Mathematical operations, however, are not so simple. We start with addition.
+
+To add two floats together, we have to add two mantissas m1 and m2, where m2 is potentially shifted some words to the right. (We assume that m1 is more or as significant as m2 wlog.) The addition should be stored at certain *precision* with a certain *rounding mode*.
+
+Currently, precision is given as a number of *bits*, not as a number of *words*, which is a bit confusing but just means truncating a couple bits of the last word. In the WHATEVER rounding mode we don't even bother truncating the last bits, which often gives a more precise result, but isn't "technically correct". The thing is that numbers will otherwise have varying precisions depending on their size relative to 2^30, so we implement affirmative action. Unless we throw up our hands and say "WHATEVER" to the problem.
+
+There are seven rounding modes: NEAREST, TIES_AWAY, DOWN, UP, TOWARD_INF, TOWARD_ZERO, WHATEVER. NEAREST is ties to even; ties--results which lay exactly half way between representable numbers--are rounded so the least significant bit is even. TIES_AWAY always ties results towards the infinities. DOWN and UP are self-explanatory; TOWARD_INF and TOWARD_ZERO are towards the infinities and towards zero, respectively.
+
+

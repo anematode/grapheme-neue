@@ -8,6 +8,7 @@ export const ROUNDING_MODE = {
   TOWARD_INF: 3,  // towards the extremes
   TOWARD_ZERO: 4, // towards zero
   TIES_AWAY: 5,   // tie away from zero
+  WHATEVER: 6,    // do whatever's easiest
   TIES_EVEN: 0    // equivalent to NEAREST
 }
 
@@ -26,5 +27,7 @@ export function roundingModeToString (mode) {
       return "TOWARD_ZERO"
     case ROUNDING_MODE.TIES_AWAY:
       return "TIES_AWAY"
+    case ROUNDING_MODE.WHATEVER:
+      return "WHATEVER"
   }
 }
