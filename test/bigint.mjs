@@ -1,6 +1,6 @@
 import { assert, expect } from "chai"
 import { mulAddWords, BigInt as GraphemeBigInt } from "../src/math/bigint/bigint.js"
-import { prettyPrintFloat, roundMantissaToPrecisionInPlace } from "../src/math/bigint/bigfloat.js"
+import { prettyPrintFloat, roundMantissaToPrecisionInPlace, BigFloat } from "../src/math/bigint/bigfloat.js"
 import { ROUNDING_MODE, roundingModeToString } from "../src/math/rounding_modes.js"
 
 const troublesomeWords = []
@@ -125,7 +125,17 @@ describe('BigInt', function() {
 })
 
 describe('BigFloat', function () {
-  it('should convert correctly between floats')
+
+  it('should have conversion identical to Math.fround', function () {
+    let testDoubles = [ 43915, 30284, 203.44, 25028.32, 320.2, -439, 0, 4228, 410, 0.4, 0.09, 0.0000000001, -0.4205]
+
+    for (const double of testDoubles) {
+      let bf = BigFloat.fromNumber(double)
+      let flt = bf.toBigFloat({ precision: 24, roundingMode: ROUNDING_MODE.NEAREST }).toNumber({ roundingMode: ROUNDING_MODE.NEAREST })
+
+      expect(flt, `Expected conversion to f32 on ${double} to be correct`).to.equal(Math.fround(double))
+    }
+  })
 })
 
 describe('roundMantissaToPrecisionInPlace', function () {
@@ -138,7 +148,7 @@ describe('roundMantissaToPrecisionInPlace', function () {
     let carry = roundMantissaToPrecisionInPlace(arr, precision, roundingMode)
 
     expect(arr, `Expected result on mantissa ${prettyPrintFloat(mantissa)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.deep.equal(expectedMantissa)
-    expect(carry, `Expected carry on mantissa ${prettyPrintFloat(mantissa)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.equal(expectedCarry)
+    expect(carry.carry, `Expected carry on mantissa ${prettyPrintFloat(mantissa)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.equal(expectedCarry)
   }
 
   it('should return 0 for all 0 mantissas', function () {

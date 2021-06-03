@@ -361,3 +361,16 @@ export function integerExp (x) {
 
   return [ frac * pow2(denExponent), exp - denExponent]
 }
+
+/**
+ * Compute an ACCURATE floor log 2 function. floor(log2(268435455.99999994)), for example, returns 28 when it should
+ * mathematically return 27.
+ * @param x
+ */
+export function flrLog2 (x) {
+  let exp = getExponent(x) + 1
+
+  if (exp === -1022) exp -= _mantissaClz()
+
+  return exp - 1
+}

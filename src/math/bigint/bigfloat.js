@@ -3,7 +3,7 @@
 // the float. m = m_1 / 2^30 + m_2 / 2^60 + ... . The precision is the number of bits kept track of in the words. Since
 // the start of the significant bits can occur anywhere from 0 to 29 bits into the first word,
 
-import {getExponent, getMantissa, isDenormal, pow2} from "../real/fp_manip.js"
+import {getExponent, getMantissa, isDenormal, pow2, flrLog2} from "../real/fp_manip.js"
 import {ROUNDING_MODE} from "../rounding_modes.js"
 import {leftZeroPad} from "../../core/utils.js"
 
@@ -13,6 +13,10 @@ const BIGFLOAT_WORD_MAX = BIGFLOAT_WORD_SIZE - 1
 
 let CURRENT_PRECISION = 53
 let CURRENT_ROUNDING_MODE = ROUNDING_MODE.NEAREST
+
+let FLAGS = {
+  EXACT: false
+}
 
 function getMantissaForPrecision (prec) {
   return new Int32Array(Math.ceil((prec - 1) / BIGFLOAT_WORD_BITS + 1))
@@ -49,14 +53,22 @@ export function truncateMantissaToPrecisionInPlace (mantissa, prec) {
 }
 
 /**
- * Round an (unsigned) mantissa to a given precision in place, in one of a few rounding modes.
- * @param mantissa
- * @param prec
- * @param roundingMode
- * @returns {number} Carry bit; if the rounding operation leads to a carry, return 1, else return 0.
+ * Round an (unsigned) mantissa to a given precision in place, in one of a few rounding modes. Returns a carry bit if
+ * the rounding operation brings the float to a higher exponent.
+ * @param mantissa {Int32Array} Array of 30-bit mantissa words
+ * @param prec {number} Precision, in bits, to round the mantissa to
+ * @param roundingMode {number} Rounding mode; the operation treats the number as positive
+ * @param targetMantissa {Int32Array} The mantissa that is actually modified by the operation
+ * @returns {{carry: (number), exact: (number)}} Carry bit; if the rounding operation leads to a carry, return 1, else return 0. Exact; whether the operation lost no precision.
  */
-export function roundMantissaToPrecisionInPlace (mantissa, prec, roundingMode=CURRENT_ROUNDING_MODE) {
+export function roundMantissaToPrecisionInPlace (mantissa, prec, roundingMode=CURRENT_ROUNDING_MODE, targetMantissa=mantissa) {
   let mantissaLen = mantissa.length
+  let targetMantissaLen = targetMantissa.length
+
+  // If we're not modifying the given mantissa, we need to copy over the words first
+  if (targetMantissa !== mantissa) {
+    targetMantissa.set(mantissa.subarray(0, targetMantissaLen))
+  }
 
   // How many ghost bits there are at the beginning
   let offset = Math.clz32(mantissa[0]) - 2
@@ -64,29 +76,17 @@ export function roundMantissaToPrecisionInPlace (mantissa, prec, roundingMode=CU
   // Which BIT to start truncating at, indexing from 0
   let trunc = (prec + offset)
   let truncWord = Math.floor(trunc / BIGFLOAT_WORD_BITS)
-  if (truncWord >= mantissaLen) return 0
+  if (truncWord >= mantissaLen) return { carry: 0, exact: 1 }
 
   // Number of bits to truncate off the word
   let truncateLen = BIGFLOAT_WORD_BITS - (trunc - truncWord * BIGFLOAT_WORD_BITS)
-
-  if (roundingMode === ROUNDING_MODE.DOWN || roundingMode === ROUNDING_MODE.TOWARD_ZERO) {
-    // Straight up truncation
-    mantissa[truncWord] = (mantissa[truncWord] >> truncateLen) << truncateLen
-
-    // Fill the remainder with 0s
-    for (; ++truncWord < mantissaLen; ) {
-      mantissa[truncWord] = 0
-    }
-
-    return 0 // no carry
-  }
 
   let doCarry = false
 
   let word = mantissa[truncWord]
   let truncatedWord = (word >> truncateLen) << truncateLen
 
-  mantissa[truncWord] = truncatedWord
+  targetMantissa[truncWord] = truncatedWord
   let rem = word - truncatedWord
 
   doCarry: if (roundingMode === ROUNDING_MODE.UP || roundingMode === ROUNDING_MODE.TOWARD_INF) {
@@ -98,7 +98,7 @@ export function roundMantissaToPrecisionInPlace (mantissa, prec, roundingMode=CU
         break
       }
     }
-  } else {
+  } else if (roundingMode === ROUNDING_MODE.NEAREST || roundingMode === ROUNDING_MODE.TIES_AWAY) {
     // Truncated amounts less than this mean round down; more means round up; equals means needs to check whether the
     // rest of the limbs are 0
     let splitPoint = 1 << (truncateLen - 1)
@@ -128,15 +128,19 @@ export function roundMantissaToPrecisionInPlace (mantissa, prec, roundingMode=CU
     }
   }
 
-  // Fill trailing words with 0
-  for (let j = truncWord; ++j < mantissaLen; ) {
-    mantissa[j] = 0
+  // Fill the remaining words and if any are nonzero, set isExact to 0
+  let isExact = +(rem === 0) && !doCarry
+  for (let j = truncWord; ++j < targetMantissaLen; ) {
+    if (targetMantissa[j] !== 0) isExact = 0
+
+    targetMantissa[j] = 0
   }
 
+  let carry = 0
   if (doCarry) {
     // Carry amount. Note that in the case of truncateLen = 30 we'll add 1 << 30 to a word, then immediately carry it
     // to the next word, so everything works out correctly
-    let carry = 1 << truncateLen
+    carry = 1 << truncateLen
 
     for (let j = truncWord; j >= 0; --j) {
       let word = mantissa[j] + carry
@@ -151,11 +155,59 @@ export function roundMantissaToPrecisionInPlace (mantissa, prec, roundingMode=CU
         break
       }
     }
-
-    if (carry !== 0) return carry
   }
 
-  return 0
+  return { carry, exact: isExact }
+}
+
+/**
+ * Right shift a mantissa by shift bits. Instead of modifying the given mantissa, a target may be given which will be
+ * modified instead.
+ * @param mantissa
+ * @param shift
+ * @param targetMantissa
+ * @returns {*}
+ */
+export function rightShiftMantissaInPlace (mantissa, shift, targetMantissa=mantissa) {
+  if (shift === 0) {
+    if (targetMantissa !== mantissa)
+      targetMantissa.set(mantissa.subarray(0, targetMantissa.length))
+    return targetMantissa
+  }
+
+  let mantissaLen = mantissa.length
+  let targetMantissaLen = targetMantissa.length
+
+  let integerShift = Math.floor(shift / 30)
+  let bitShift = shift % 30
+
+  if (bitShift === 0) {
+    // Since it's a multiple of 30, we just shift everything over
+    for (let i = 0; i < mantissaLen; ++i) {
+      targetMantissa[i + integerShift] = mantissa[i]
+    }
+
+    for (let i = 0; i < integerShift; ++i) {
+      targetMantissa[i] = 0
+    }
+  } else {
+    let invBitShift = 30 - bitShift
+    let firstNeededIndex = Math.min(mantissaLen - 1, targetMantissaLen - integerShift - 1)
+
+    for (let i = firstNeededIndex; i >= 0; --i) {
+      let word = mantissa[i]
+
+      if (i !== firstNeededIndex)
+        targetMantissa[i + integerShift + 1] += (word & ((1 << bitShift) - 1)) << invBitShift
+      targetMantissa[i + integerShift] = word >> bitShift
+    }
+
+    for (let i = 0; i < integerShift; ++i) {
+      targetMantissa[i] = 0
+    }
+  }
+
+  return targetMantissa
 }
 
 export function prettyPrintFloat (mantissa, precision) {
@@ -217,8 +269,9 @@ export class BigFloat {
     // Exponent of the float (2^30)^newExp
     let newExp = Math.ceil((valExponent + 1) / BIGFLOAT_WORD_BITS)
 
-    // The mantissa needs to be shifted to the right by this much. 0 < bitshift <= 30
-    let bitshift = newExp * BIGFLOAT_WORD_BITS - valExponent
+    // The mantissa needs to be shifted to the right by this much. 0 < bitshift <= 30. If the number is denormal, we
+    // have to shift it by one bit less
+    let bitshift = newExp * BIGFLOAT_WORD_BITS - valExponent - isNumDenormal
 
     let denom = pow2(bitshift + 22)
     outMantissa[0] = Math.floor(valMantissa / denom) /* from double */ + (isNumDenormal ? 0 : (1 << (30 - bitshift))) /* add 1 if not denormal */
@@ -269,10 +322,23 @@ export class BigFloat {
 
       return new BigFloat(this.sign, this.exp, this.prec, mantissaOut)
     } else {
-      let newMantissa = new Int32Array(this.mant)
-      roundMantissaToPrecisionInPlace(newMantissa, precision, roundingMode)
+      let outMantissa = getMantissaForPrecision(precision)
+      let flags = roundMantissaToPrecisionInPlace(mant, precision, roundingMode, outMantissa)
 
-      return new BigFloat(this.sign, this.exp, precision, newMantissa)
+      let exp = this.exp
+
+      if (flags.carry !== 0) {
+        // Pain; we need to shift the whole mantissa 30 bits to the right and increase the (power of 2^30) exponent by
+        // 1. Not too difficult, but annoying. In this case, because it's the output of a ROUND, the entire mantissa is
+        // guaranteed to be 0, so we just create a new mantissa with a single word of 1.
+
+        console.log("pain")
+
+        exp += 1
+        outMantissa[0] = 1
+      }
+
+      return new BigFloat(this.sign, exp, precision, outMantissa)
     }
   }
 
@@ -285,15 +351,63 @@ export class BigFloat {
   }
 
   toNumber ({ roundingMode = CURRENT_ROUNDING_MODE } = {}) {
-    // The strategy isn't too crazy here; we grab the first 53 bits of the mantissa, round in the correct direction
-    // according to rounding mode, and get the correct exponent. There
-    // is some special annoyance for denormal numbers, but whatever
+    // Special numbers
+    if (this.sign === 0 || !Number.isFinite(this.sign)) return this.sign
 
-    let val = 0
-    for (let i = 0; i < this.mant.length; ++i) {
-      val += this.mant[i] * (pow2(-30 * (i + 1)))
+    const outMantissa = new Int32Array(3)
+    const flags = roundMantissaToPrecisionInPlace(this.mant, 53, roundingMode, outMantissa)
+
+    let exponent = (this.exp - 1) * BIGFLOAT_WORD_BITS, mant
+
+    if (flags.carry) {
+      mant = 1 << 30
+    } else {
+      mant = outMantissa[0] + outMantissa[1] * pow2(-BIGFLOAT_WORD_BITS) + outMantissa[2] * pow2(-2 * BIGFLOAT_WORD_BITS)
     }
-    return val * pow2(30 * this.exp)
+
+    // The number in question is now mant * 2 ^ exponent, where 1 <= mant <= 2^30 and exponent is any number. We now
+    // normalize the mantissa to be in the range [0.5, 1), which lines up exactly with a normal double
+    let expShift = flrLog2(mant) + 1
+    mant /= pow2(expShift)
+    exponent += expShift
+
+    // We now do various things depending on the rounding mode. The range of a double's exponent is -1024 to 1023,
+    // inclusive, so if the exponent is outside of those bounds, we clamp it to a value depending on the rounding mode.
+    if (exponent < -1073) {
+      if (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.NEAREST) {
+        // Debating between 0 and Number.MIN_VALUE. Unfortunately at 0.5 * 2^1074 there is a TIE, so we detect that case
+        // separately PAINNNN
+
+        if (exponent === -1074) {
+          // If greater or ties away
+          if (mant > 0.5 || (roundingMode === ROUNDING_MODE.TIES_AWAY)) {
+            return this.sign * Number.MIN_VALUE
+          }
+        }
+
+        return 0
+      } else {
+        if (this.sign === 1) {
+          if (roundingMode === ROUNDING_MODE.TOWARD_INF || roundingMode === ROUNDING_MODE.UP) return Number.MIN_VALUE
+          else return 0
+        } else {
+          if (roundingMode === ROUNDING_MODE.TOWARD_ZERO || roundingMode === ROUNDING_MODE.UP) return 0
+          else return -Number.MIN_VALUE
+        }
+      }
+    } else if (exponent > 1023) {
+      if (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.NEAREST) {
+        return Infinity * this.sign
+      } else if (this.sign === 1) {
+        if (roundingMode === ROUNDING_MODE.TOWARD_INF || roundingMode === ROUNDING_MODE.UP) return Infinity
+        else return Number.MAX_VALUE
+      } else {
+        if (roundingMode === ROUNDING_MODE.TOWARD_ZERO || roundingMode === ROUNDING_MODE.UP) return -Number.MAX_VALUE
+        else return -Infinity
+      }
+    } else {
+      return mant * pow2(exponent)
+    }
   }
 
   static zero ({ precision = CURRENT_PRECISION } = {}) {
