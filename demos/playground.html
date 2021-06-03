@@ -45,18 +45,18 @@
 
     Decimal.precision = 3000
 
-    let str = "123455678910111213141516171819".repeat(40)
-    let m = new Decimal(str)
-    let i = new BI(str)
+    let s = 0.510285230981
     let res1, res2
-
-    /*Grapheme.utils.performance(() => {
-    res1 = Decimal.mul(m, m)
-    }, 1e4, "decimal.js")
+    res1 = new Decimal(s)
+    res2 = BF.fromNumber(s)
 
     Grapheme.utils.performance(() => {
-    res2 = i.multiply(i)
-    }, 1e4, "grapheme")*/
+    rest1 = res1.toNumber()
+    }, 1e6, "decimal.js")
+
+    Grapheme.utils.performance(() => {
+    rest2 = res2.toNumber()
+    }, 1e6, "grapheme")
 
 </noscript>
 

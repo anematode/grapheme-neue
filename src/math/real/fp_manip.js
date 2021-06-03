@@ -149,6 +149,12 @@ export function getMantissa (x) {
   return intView[0] + _getMantissaHighWord() * 4294967296
 }
 
+export function getExponentAndMantissa (x) {
+  floatStore[0] = x
+
+  return [ ((intView[1] & 0x7ff00000) >> 20) - 1023, intView[0] + _getMantissaHighWord() * 4294967296 ]
+}
+
 /**
  * Testing function counting the approximate number of floats between x1 and x2, including x1 but excluding x2. NaN if
  * either is undefined. It is approximate because the answer may sometimes exceed Number.MAX_SAFE_INTEGER, but it is

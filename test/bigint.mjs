@@ -125,16 +125,34 @@ describe('BigInt', function() {
 })
 
 describe('BigFloat', function () {
+  let testDoubles = [
+    43915, 30284, 203.44, 25028.32, 320.2, -439, 0, 4228, 410, 0.4, 0.09, 0.0000000001, -0.4205,
+    -Infinity, Infinity,
+    Number.MIN_VALUE, -Number.MIN_VALUE, Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER, Number.MAX_VALUE,
+    -Number.MAX_VALUE,
+    2.2250738585072014e-308, 2 ** 1023, 2 ** -1025, 2 ** -1026 + 2 ** -1072
+  ]
 
   it('should have conversion identical to Math.fround', function () {
-    let testDoubles = [ 43915, 30284, 203.44, 25028.32, 320.2, -439, 0, 4228, 410, 0.4, 0.09, 0.0000000001, -0.4205]
-
     for (const double of testDoubles) {
       let bf = BigFloat.fromNumber(double)
-      let flt = bf.toBigFloat({ precision: 24, roundingMode: ROUNDING_MODE.NEAREST }).toNumber({ roundingMode: ROUNDING_MODE.NEAREST })
+      let flt = bf.toNumber({ roundingMode: ROUNDING_MODE.NEAREST, f32: true })
 
       expect(flt, `Expected conversion to f32 on ${double} to be correct`).to.equal(Math.fround(double))
     }
+  })
+
+  it('should have lossless conversion between doubles', function () {
+    for (const double of testDoubles) {
+      let bf = BigFloat.fromNumber(double)
+      let flt = bf.toNumber({ roundingMode: ROUNDING_MODE.NEAREST })
+
+      expect(flt, `Expected conversion double on ${double} to be correct`).to.equal(double)
+    }
+  })
+
+  it('should correctly handle special values', function () {
+
   })
 })
 
