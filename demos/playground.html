@@ -32,6 +32,17 @@
         }
     }
 
+    function testAddition () {
+        let arr1 = new Int32Array([ 0xF, 0xF ])
+        let arr2 = new Int32Array([ 0xE, 0xE ])
+
+        let target = new Int32Array(3)
+
+        Grapheme.addMantissas(arr1, arr2, 0, 50, target)
+
+        console.log(target)
+    }
+
     function test () {
 
     arr = new Int32Array([ 0x3FFFFFFF ])
@@ -40,12 +51,12 @@
 
     }
 
-    testBigFloat()
+    testAddition()
 
 
     Decimal.precision = 3000
 
-    let s = 0.510285230981
+    /*let s = 0.510285230981
     let res1, res2
     res1 = new Decimal(s)
     res2 = BF.fromNumber(s)
@@ -56,7 +67,7 @@
 
     Grapheme.utils.performance(() => {
     rest2 = res2.toNumber()
-    }, 1e6, "grapheme")
+    }, 1e6, "grapheme")*/
 
 </noscript>
 

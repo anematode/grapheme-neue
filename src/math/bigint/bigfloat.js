@@ -18,8 +18,12 @@ let FLAGS = {
   EXACT: false
 }
 
+function neededWordsForPrecision (prec) {
+  return Math.ceil((prec - 1) / BIGFLOAT_WORD_BITS + 1)
+}
+
 function getMantissaForPrecision (prec) {
-  return new Int32Array(Math.ceil((prec - 1) / BIGFLOAT_WORD_BITS + 1))
+  return new Int32Array(neededWordsForPrecision(prec))
 }
 
 /**
@@ -128,6 +132,34 @@ export function roundMantissaToPrecisionInPlace (mantissa, prec, roundingMode=CU
   }
 
   return { carry, exact: isExact }
+}
+
+/**
+ * Add two mantissas together, potentially with an integer word shift on the second mantissa, and write the result to
+ * mant1. There may be a carry, in which case the target mantissa will be correct and usable, but the exponent must be
+ * adjusted, which is reflected in the shift flag returned by this function.
+ * @param mant1 {Int32Array}
+ * @param mant2 {Int32Array}
+ * @param mant2shift {number}
+ * @param precision {number}
+ * @param targetMant {Int32Array}
+ * @param roundingMode {number}
+ */
+export function addMantissas (mant1, mant2, mant2shift, precision, targetMant, roundingMode=CURRENT_ROUNDING_MODE) {
+  // We index words from mant1[0] being the 0th.
+  let targetMantLen = targetMant.length
+
+  let fullCarryPossible = true
+  for (let i = 0; i < targetMantLen; ++i) {
+    let word = ((i < mant1.length) ? mant1[i] : 0) + ((i >= mant2shift && i < mant2.length) ? mant2[i - mant2shift] : 0)
+
+    targetMant[i] = word
+
+    if (word < BIGFLOAT_WORD_MAX)
+      fullCarryPossible = false
+  }
+
+  //roundMantissaToPrecisionInPlace(targetMant, precision, roundingMode)
 }
 
 /**
