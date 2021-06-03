@@ -15,9 +15,9 @@
     let BF = Grapheme.BigFloat
 
     function testBigFloat () {
-        test1 = BF.fromNumber(100)
-        test2 = BF.fromNumber(100.0000001)
-        test3 = BF.fromNumber(100.00001)
+        test1 = BF.fromNumber(0.1)
+        test2 = BF.fromNumber(0.2)
+        test3 = BF.add(test1, test2)
     }
 
     testBigFloat()
@@ -43,4 +43,3 @@
 
 </body>
 </html>
-w
