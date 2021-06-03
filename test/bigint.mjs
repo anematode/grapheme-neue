@@ -1,6 +1,6 @@
 import { assert, expect } from "chai"
 import { mulAddWords, BigInt as GraphemeBigInt } from "../src/math/bigint/bigint.js"
-import { prettyPrintFloat, roundMantissaToPrecisionInPlace, BigFloat } from "../src/math/bigint/bigfloat.js"
+import { prettyPrintFloat, roundMantissaToPrecision, BigFloat } from "../src/math/bigint/bigfloat.js"
 import { ROUNDING_MODE, roundingModeToString } from "../src/math/rounding_modes.js"
 
 const troublesomeWords = []
@@ -156,17 +156,20 @@ describe('BigFloat', function () {
   })
 })
 
-describe('roundMantissaToPrecisionInPlace', function () {
+describe('roundMantissaToPrecision', function () {
   const roundingModes = [ 0, 1, 2, 3, 4, 5 ]
 
-  function testCase (mantissa, precision, roundingMode, expectedMantissa, expectedCarry) {
+  function testCase (mantissa, precision, roundingMode, expectedMantissa, expectedShift) {
     expectedMantissa = new Int32Array(expectedMantissa)
 
-    let arr = new Int32Array(mantissa)
-    let carry = roundMantissaToPrecisionInPlace(arr, precision, roundingMode)
+    let { shift, mantissa: unpaddedResult } = roundMantissaToPrecision(mantissa, precision, roundingMode)
 
-    expect(arr, `Expected result on mantissa ${prettyPrintFloat(mantissa)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.deep.equal(expectedMantissa)
-    expect(carry.carry, `Expected carry on mantissa ${prettyPrintFloat(mantissa)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.equal(expectedCarry)
+    // To cope with different length returns
+    let result = new Int32Array(expectedMantissa.length)
+    result.set(unpaddedResult.subarray(0, expectedMantissa.length))
+
+    expect(result, `Expected result on mantissa ${prettyPrintFloat(mantissa)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.deep.equal(expectedMantissa)
+    expect(shift, `Expected shift on mantissa ${prettyPrintFloat(mantissa)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.equal(expectedShift)
   }
 
   it('should return 0 for all 0 mantissas', function () {
@@ -194,9 +197,9 @@ describe('roundMantissaToPrecisionInPlace', function () {
     }
   })
 
-  it('should return a carry bit, in NEAREST and UP, for all mantissas consisting of only ones', function () {
+  it('should return a shift, in NEAREST and UP, for all mantissas consisting of only ones', function () {
     let ones = new Int32Array([0x3FFFFFFF, 0x3FFFFFFF, 0x3FFFFFFF, 0x3FFFFFFF, 0x3FFFFFFF])
-    let result = new Int32Array([0, 0, 0, 0, 0])
+    let result = new Int32Array([1, 0, 0, 0, 0])
 
     for (const mode of [ ROUNDING_MODE.NEAREST, ROUNDING_MODE.UP ]) {
       for (let i = 1; i < 160; ++i) {
@@ -212,22 +215,22 @@ describe('roundMantissaToPrecisionInPlace', function () {
   it('should tie correctly', function () {
     let ones = new Int32Array([0x3FFFF000])
 
-    testCase(ones, 17, ROUNDING_MODE.NEAREST, [ 0x0 ], 1)
-    testCase(ones, 18, ROUNDING_MODE.NEAREST, [ 0x3FFFF000 ], 0)
+    testCase(ones, 17, ROUNDING_MODE.NEAREST, [ 0x1, 0x0 ], 1)
+    testCase(ones, 18, ROUNDING_MODE.NEAREST, [ 0x3FFFF000, 0x0 ], 0)
 
     ones = new Int32Array([0x3FFF1000])
 
-    testCase(ones, 17, ROUNDING_MODE.NEAREST, [ 0x3FFF0000 ], 0)
-    testCase(ones, 17, ROUNDING_MODE.TIES_AWAY, [ 0x3FFF2000 ], 0)
-    testCase(ones, 18, ROUNDING_MODE.NEAREST, [ 0x3FFF1000 ], 0)
-    testCase(ones, 18, ROUNDING_MODE.TIES_AWAY, [ 0x3FFF1000 ], 0)
+    testCase(ones, 17, ROUNDING_MODE.NEAREST, [ 0x3FFF0000, 0x0 ], 0)
+    testCase(ones, 17, ROUNDING_MODE.TIES_AWAY, [ 0x3FFF2000, 0x0 ], 0)
+    testCase(ones, 18, ROUNDING_MODE.NEAREST, [ 0x3FFF1000, 0x0 ], 0)
+    testCase(ones, 18, ROUNDING_MODE.TIES_AWAY, [ 0x3FFF1000, 0x0 ], 0)
 
     ones = new Int32Array([0x3FFF3000])
 
-    testCase(ones, 17, ROUNDING_MODE.NEAREST, [ 0x3FFF4000 ], 0)
-    testCase(ones, 17, ROUNDING_MODE.TIES_AWAY, [ 0x3FFF4000 ], 0)
-    testCase(ones, 18, ROUNDING_MODE.NEAREST, [ 0x3FFF3000 ], 0)
-    testCase(ones, 18, ROUNDING_MODE.TIES_AWAY, [ 0x3FFF3000 ], 0)
+    testCase(ones, 17, ROUNDING_MODE.NEAREST, [ 0x3FFF4000, 0x0 ], 0)
+    testCase(ones, 17, ROUNDING_MODE.TIES_AWAY, [ 0x3FFF4000, 0x0 ], 0)
+    testCase(ones, 18, ROUNDING_MODE.NEAREST, [ 0x3FFF3000, 0x0 ], 0)
+    testCase(ones, 18, ROUNDING_MODE.TIES_AWAY, [ 0x3FFF3000, 0x0 ], 0)
   })
 
   it('should work correctly when the rounding occurs on a word boundary', function () {
