@@ -208,6 +208,37 @@ export function rightShiftMantissaInPlace (mantissa, shift) {
 }
 
 /**
+ * Left shift a mantissa by shift bits, destroying any bits that come off the front.
+ * @param mantissa {Int32Array}
+ * @param shift {number}
+ * @returns {Int32Array} Returns the passed mantissa
+ */
+export function leftShiftMantissaInPlace (mantissa, shift) {
+  if (shift === 0) return mantissa
+
+  let mantissaLen = mantissa.length
+
+  let integerShift = Math.floor(shift / 30)
+  let bitShift = shift % 30
+
+  if (bitShift === 0) {
+    // Since it's a multiple of 30, we just copy everything over
+    for (let i = integerShift; i < mantissa.length; ++i) {
+      mantissa[i - integerShift] = mantissa[i]
+    }
+
+    // Fill empty stuff with zeros
+    for (let i = mantissa.length - integerShift; i < mantissa.length; ++i) {
+      mantissa[i] = 0
+    }
+  } else {
+    throw new Error("to do")
+  }
+
+  return mantissa
+}
+
+/**
  * Multiply a mantissa by an integer between 1 and 2^30 - 1, returning a new mantissa and a shift amount. The shift
  * amount is the number of words by which the new mantissa is shifted relative to the first (and is thus either 0 or 1).
  * @param mantissa
@@ -216,8 +247,8 @@ export function rightShiftMantissaInPlace (mantissa, shift) {
  * @param roundingMode
  * @returns {{shift: number, mantissa: Int32Array}}
  */
-function multiplyMantissaByInteger (mantissa, precision, int, roundingMode=CURRENT_ROUNDING_MODE) {
-  let newMantissa = createMantissaForPrecision(precision)
+export function multiplyMantissaByInteger (mantissa, precision, int, roundingMode=CURRENT_ROUNDING_MODE) {
+  let newMantissa = new Int32Array(neededWordsForPrecision(precision) + 1) // extra word for overflow
 
   // Decompose the given integer into two 15-bit words for the multiplication
   let word1Lo = int & 0x7FFF
@@ -242,26 +273,22 @@ function multiplyMantissaByInteger (mantissa, precision, int, roundingMode=CURRE
 
     high += middle >> 15
 
-    newMantissa[i] = low
+    newMantissa[i + 1] = low
     carry = high
   }
 
-  if (carry !== 0) {
-    // TODO rounding modes
-    let newCarry = 32 - Math.clz32(carry)
-    let remainingPrecision = precision - newCarry
+  newMantissa[0] = carry
+  let shift = 1
 
-    let { carry: roundingCarry } = roundMantissaToPrecisionInPlace()
-
-    rightShiftMantissaInPlace(newMantissa, 30)
-    newMantissa[0] = carry
-
-    return { shift: 1, mantissa: newMantissa  }
+  if (carry === 0) {
+    leftShiftMantissaInPlace(newMantissa, 30)
+    shift -= 1
   }
 
+  let { shift: roundingShift, mantissa: roundedMantissa } = roundMantissaToPrecision(newMantissa, precision, roundingMode)
 
-
-  return { shift: 0, mantissa: newMantissa }
+  shift += roundingShift
+  return { shift, mantissa: roundedMantissa }
 }
 
 // Another rather important function. In this case the shift is relative to the product of the first two words

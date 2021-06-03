@@ -1,6 +1,6 @@
 import { assert, expect } from "chai"
 import { mulAddWords, BigInt as GraphemeBigInt } from "../src/math/bigint/bigint.js"
-import { prettyPrintFloat, roundMantissaToPrecision, BigFloat } from "../src/math/bigint/bigfloat.js"
+import { prettyPrintFloat, roundMantissaToPrecision, BigFloat, multiplyMantissaByInteger } from "../src/math/bigint/bigfloat.js"
 import { ROUNDING_MODE, roundingModeToString } from "../src/math/rounding_modes.js"
 
 const troublesomeWords = []
@@ -254,5 +254,30 @@ describe('roundMantissaToPrecision', function () {
     testCase(test, 29, ROUNDING_MODE.UP, [ 0x1FFFFFFF, 0x0, 0x0 ], 0)
     testCase(test, 29, ROUNDING_MODE.NEAREST, [ 0x1FFFFFFE, 0x0, 0x0 ], 0)
     testCase(test, 29, ROUNDING_MODE.TIES_AWAY, [ 0x1FFFFFFE, 0x0, 0x0 ], 0)
+  })
+})
+
+describe('multiplyMantissaByInteger', function () {
+  function testCase (mantissa, precision, int, roundingMode, expectedMantissa, expectedShift) {
+    expectedMantissa = new Int32Array(expectedMantissa)
+
+    let { shift, mantissa: unpaddedResult } = multiplyMantissaByInteger(mantissa, precision, int, roundingMode)
+
+    // To cope with different length returns
+    let result = new Int32Array(expectedMantissa.length)
+    result.set(unpaddedResult.subarray(0, expectedMantissa.length))
+
+    expect(result, `Expected result on mantissa ${prettyPrintFloat(mantissa)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.deep.equal(expectedMantissa)
+    expect(shift, `Expected shift on mantissa ${prettyPrintFloat(mantissa)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.equal(expectedShift)
+  }
+
+  it('should correctly multiply', function () {
+    testCase(new Int32Array([ 0 ]), 15, 0, ROUNDING_MODE.TIES_AWAY, [0], 0)
+    testCase(new Int32Array([ 1500 ]), 15, 0, ROUNDING_MODE.TIES_AWAY, [0], 0)
+    testCase(new Int32Array([ 1500 ]), 15, 10, ROUNDING_MODE.NEAREST, [15000], 0)
+
+    testCase(new Int32Array([ 0x3fffffff ]), 60, 0x3fffffff, ROUNDING_MODE.NEAREST, [ 0x3ffffffe, 0x1 ], 1)
+    testCase(new Int32Array([ 0x3fffffff ]), 10, 0x3fffffff, ROUNDING_MODE.DOWN, [ 0x3ff00000, 0x0 ], 1)
+    testCase(new Int32Array([ 0x3fffffff ]), 10, 0x3fffffff, ROUNDING_MODE.UP, [ 0x1, 0x0 ], 2)
   })
 })
