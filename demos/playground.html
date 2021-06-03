@@ -14,7 +14,14 @@
     let BF = Grapheme.BigFloat
 
     function testBigFloat () {
-        test1 = BF.fromNumber(1.1)
+        test1 = BF.fromNumber(Number.MIN_VALUE)
+    }
+
+    function testTruncation () {
+        for (let i = 0; i < 62; ++i) {
+            arr = new Int32Array([ 0xADBEEF, 0x3EADBEEF, 0x3EADBEEF ])
+            console.log(Array.from(Grapheme.truncateMantissaToPrecisionInPlace(arr, i)).map(x => x.toString(2)).join(', '))
+        }
     }
 
     testBigFloat()

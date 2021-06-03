@@ -122,4 +122,7 @@ describe('BigInt', function() {
   })
 })
 
+describe('BigFloat', function () {
+  it('should convert correctly between floats')
+})
 
