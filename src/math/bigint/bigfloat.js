@@ -37,11 +37,9 @@ export function truncateMantissaToPrecisionInPlace (mantissa, prec) {
   if (truncWord >= mantissaLen) return
 
   // Truncate the first truncatable word at the correct bit, which means removing the last (30 - (trunc - truncWord * 30)) bits
+  // tlen is between 1 and 30, inclusive
   let tlen = BIGFLOAT_WORD_BITS - (trunc - truncWord * BIGFLOAT_WORD_BITS)
-
-  if (tlen !== 0) {
-    mantissa[truncWord] = (mantissa[truncWord] >> tlen) << tlen
-  }
+  mantissa[truncWord] = (mantissa[truncWord] >> tlen) << tlen
 
   for (; ++truncWord < mantissaLen; ) {
     mantissa[truncWord] = 0
@@ -58,64 +56,104 @@ export function truncateMantissaToPrecisionInPlace (mantissa, prec) {
  * @returns {number} Carry bit; if the rounding operation leads to a carry, return 1, else return 0.
  */
 export function roundMantissaToPrecisionInPlace (mantissa, prec, roundingMode=CURRENT_ROUNDING_MODE) {
+  let mantissaLen = mantissa.length
+
+  // How many ghost bits there are at the beginning
+  let offset = Math.clz32(mantissa[0]) - 2
+
+  // Which BIT to start truncating at, indexing from 0
+  let trunc = (prec + offset)
+  let truncWord = Math.floor(trunc / BIGFLOAT_WORD_BITS)
+  if (truncWord >= mantissaLen) return
+
+  // Number of bits to truncate off the word
+  let truncateLen = BIGFLOAT_WORD_BITS - (trunc - truncWord * BIGFLOAT_WORD_BITS)
+
   if (roundingMode === ROUNDING_MODE.DOWN || roundingMode === ROUNDING_MODE.TOWARD_ZERO) {
-    truncateMantissaToPrecisionInPlace(mantissa, prec)
-    return 0
+    // Straight up truncation
+    mantissa[truncWord] = (mantissa[truncWord] >> truncateLen) << truncateLen
+
+    // Fill the remainder with 0s
+    for (; ++truncWord < mantissaLen; ) {
+      mantissa[truncWord] = 0
+    }
+
+    return 0 // no carry
+  }
+
+  let doCarry = false
+
+  let word = mantissa[truncWord]
+  let truncatedWord = (word >> truncateLen) << truncateLen
+
+  mantissa[truncWord] = truncatedWord
+  let rem = word - truncatedWord
+
+  doCarry: if (roundingMode === ROUNDING_MODE.UP || roundingMode === ROUNDING_MODE.TOWARD_INF) {
+    if (rem > 0) {
+      doCarry = true
+    } else for (let i = truncWord + 1; i < mantissaLen; ++i) {
+      if (mantissa[i] !== 0) {
+        doCarry = true
+        break
+      }
+    }
   } else {
-    // We truncate the mantissa but look for any nonzero words following the end of the mantissa; if any are found, we
-    // do an addition and return the potential carry
+    // Truncated amounts less than this mean round down; more means round up; equals means needs to check whether the
+    // rest of the limbs are 0
+    let splitPoint = 1 << (truncateLen - 1)
 
-    let mantissaLen = mantissa.length
-
-    // How many ghost bits there are at the beginning
-    let offset = Math.clz32(mantissa[0]) - 2
-
-    // Which BIT to start truncating at, indexing from 0
-    let trunc = (prec + offset)
-    let truncWord = Math.floor(trunc / BIGFLOAT_WORD_BITS)
-    if (truncWord >= mantissaLen) return
-
-    if (roundingMode === ROUNDING_MODE.UP || roundingMode === ROUNDING_MODE.TOWARD_INF) {
-      // Truncate the first truncatable word at the correct bit, which means removing the last (30 - (trunc - truncWord * 30)) bits
-      let tlen = BIGFLOAT_WORD_BITS - (trunc - truncWord * BIGFLOAT_WORD_BITS)
-      let addOne = false
-
-      if (tlen !== 0) { // We truncate WITHIN a word
-        let word = mantissa[truncWord]
-        let rem = word - (mantissa[truncWord] = (word >> tlen) << tlen)
-
-        if (rem > 0) addOne = true
-      }
-
-      for (; ++truncWord < mantissaLen;) {
-        let word = mantissa[truncWord]
-        if (word !== 0) addOne = true
-
-        mantissa[truncWord] = 0
-      }
-
-      if (addOne) {
-        let carry = 1 << tlen // Note we add a shifted thing
-
-        for (let i = truncWord; i >= 0; --i) {
-          let word = mantissa[i] + carry
-
-          if (word > BIGFLOAT_WORD_MAX) {
-            word -= BIGFLOAT_WORD_MAX
-            carry = 1
-            mantissa[i] = word
-          } else {
-            mantissa[i] = word
-            carry = 0
-          }
-        }
-
-        if (carry !== 0) return carry
+    if (rem < splitPoint) return 0
+    else if (rem > splitPoint) doCarry = true
+    else for (let i = truncWord + 1; i < mantissaLen; ++i) {
+      if (mantissa[i] !== 0) {
+        doCarry = true
+        break doCarry
       }
     }
 
-    return mantissa
+    // Tie!
+    if (roundingMode === ROUNDING_MODE.TIES_EVEN) {
+      // We only do the carry if it would give an even bit at the end. To do this we query for the bit which will be
+      // affected (the truncateLen th bit). If truncateLen is 30 then we have to look at the preceding word.
+
+      let bit = (truncateLen === 30) ? (mantissa[truncWord - 1] & 1) : ((mantissa[truncWord] >> truncateLen) & 1)
+
+      if (bit) doCarry = true
+    } else {
+      // ties away from zero; always carry
+      doCarry = true
+    }
   }
+
+  // Fill trailing words with 0
+  for (let j = truncWord; ++j < mantissaLen; ) {
+    mantissa[j] = 0
+  }
+
+  if (doCarry) {
+    // Carry amount. Note that in the case of truncateLen = 30 we'll add 1 << 30 to a word, then immediately carry it
+    // to the next word, so everything works out correctly
+    let carry = 1 << truncateLen
+
+    for (let j = truncWord; j >= 0; --j) {
+      let word = mantissa[j] + carry
+
+      if (word > BIGFLOAT_WORD_MAX) {
+        word -= BIGFLOAT_WORD_SIZE
+        carry = 1
+        mantissa[j] = word
+      } else {
+        mantissa[j] = word
+        carry = 0
+        break
+      }
+    }
+
+    if (carry !== 0) return carry
+  }
+
+  return 0
 }
 
 export class BigFloat {

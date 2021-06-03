@@ -19,9 +19,25 @@
 
     function testTruncation () {
         for (let i = 0; i < 62; ++i) {
-            arr = new Int32Array([ 0xADBEEF, 0x3EADBEEF, 0x3EADBEEF ])
+            arr = new Int32Array([ 0xADBEEE, 0x3EADBEEF, 0x3EADBEEF ])
             console.log(Array.from(Grapheme.truncateMantissaToPrecisionInPlace(arr, i)).map(x => x.toString(2)).join(', '))
         }
+    }
+
+    function testRounding () {
+        for (let i = 0; i < 62; ++i) {
+            arr = new Int32Array([ 0x3FFFFFFF ])
+            Grapheme.roundMantissaToPrecisionInPlace(arr, i, Grapheme.ROUNDING_MODE.UP)
+            console.log(Array.from(arr).map(x => x.toString(2)).join(', '))
+        }
+    }
+
+    function test () {
+
+    arr = new Int32Array([ 0x3FFFFFFF ])
+    console.log(Grapheme.roundMantissaToPrecisionInPlace(arr, 29, Grapheme.ROUNDING_MODE.UP))
+    console.log(Array.from(arr).map(x => x.toString(2)).join(', '))
+
     }
 
     testBigFloat()
