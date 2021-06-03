@@ -10,3 +10,21 @@ export const ROUNDING_MODE = {
   TIES_AWAY: 5,   // tie away from zero
   TIES_EVEN: 0    // equivalent to NEAREST
 }
+
+export function roundingModeToString (mode) {
+  switch (mode) {
+    case ROUNDING_MODE.NEAREST:
+    case ROUNDING_MODE.TIES_EVEN:
+      return "NEAREST"
+    case ROUNDING_MODE.UP:
+      return "UP"
+    case ROUNDING_MODE.DOWN:
+      return "DOWN"
+    case ROUNDING_MODE.TOWARD_INF:
+      return "TOWARD_INF"
+    case ROUNDING_MODE.TOWARD_ZERO:
+      return "TOWARD_ZERO"
+    case ROUNDING_MODE.TIES_AWAY:
+      return "TIES_AWAY"
+  }
+}

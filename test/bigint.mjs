@@ -1,5 +1,7 @@
 import { assert, expect } from "chai"
 import { mulAddWords, BigInt as GraphemeBigInt } from "../src/math/bigint/bigint.js"
+import { prettyPrintFloat, roundMantissaToPrecisionInPlace } from "../src/math/bigint/bigfloat.js"
+import { ROUNDING_MODE, roundingModeToString } from "../src/math/rounding_modes.js"
 
 const troublesomeWords = []
 
@@ -126,3 +128,100 @@ describe('BigFloat', function () {
   it('should convert correctly between floats')
 })
 
+describe('roundMantissaToPrecisionInPlace', function () {
+  const roundingModes = [ 0, 1, 2, 3, 4, 5 ]
+
+  function testCase (mantissa, precision, roundingMode, expectedMantissa, expectedCarry) {
+    expectedMantissa = new Int32Array(expectedMantissa)
+
+    let arr = new Int32Array(mantissa)
+    let carry = roundMantissaToPrecisionInPlace(arr, precision, roundingMode)
+
+    expect(arr, `Expected result on mantissa ${prettyPrintFloat(mantissa)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.deep.equal(expectedMantissa)
+    expect(carry, `Expected carry on mantissa ${prettyPrintFloat(mantissa)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.equal(expectedCarry)
+  }
+
+  it('should return 0 for all 0 mantissas', function () {
+    let zeros = new Int32Array(5)
+
+    for (const mode of roundingModes) {
+      for (let i = 1; i < 160; ++i) {
+        testCase(zeros, i, mode, zeros, 0)
+      }
+    }
+  })
+
+  it('should carry, in NEAREST and UP', function () {
+    let ones = new Int32Array([0x1FFFFFFF, 0x3FFFFFFF, 0x3FFFFFFF, 0x3FFFFFFF, 0x3FFFFFFF])
+    let result = new Int32Array([0x20000000, 0, 0, 0, 0])
+
+    for (const mode of [ ROUNDING_MODE.NEAREST, ROUNDING_MODE.UP ]) {
+      for (let i = 1; i < 160; ++i) {
+        if (i < 149) {
+          testCase(ones, i, mode, result, 0)
+        } else {
+          testCase(ones, i, mode, ones, 0)
+        }
+      }
+    }
+  })
+
+  it('should return a carry bit, in NEAREST and UP, for all mantissas consisting of only ones', function () {
+    let ones = new Int32Array([0x3FFFFFFF, 0x3FFFFFFF, 0x3FFFFFFF, 0x3FFFFFFF, 0x3FFFFFFF])
+    let result = new Int32Array([0, 0, 0, 0, 0])
+
+    for (const mode of [ ROUNDING_MODE.NEAREST, ROUNDING_MODE.UP ]) {
+      for (let i = 1; i < 160; ++i) {
+        if (i <= 149) {
+          testCase(ones, i, mode, result, 1)
+        } else {
+          testCase(ones, i, mode, ones, 0)
+        }
+      }
+    }
+  })
+
+  it('should tie correctly', function () {
+    let ones = new Int32Array([0x3FFFF000])
+
+    testCase(ones, 17, ROUNDING_MODE.NEAREST, [ 0x0 ], 1)
+    testCase(ones, 18, ROUNDING_MODE.NEAREST, [ 0x3FFFF000 ], 0)
+
+    ones = new Int32Array([0x3FFF1000])
+
+    testCase(ones, 17, ROUNDING_MODE.NEAREST, [ 0x3FFF0000 ], 0)
+    testCase(ones, 17, ROUNDING_MODE.TIES_AWAY, [ 0x3FFF2000 ], 0)
+    testCase(ones, 18, ROUNDING_MODE.NEAREST, [ 0x3FFF1000 ], 0)
+    testCase(ones, 18, ROUNDING_MODE.TIES_AWAY, [ 0x3FFF1000 ], 0)
+
+    ones = new Int32Array([0x3FFF3000])
+
+    testCase(ones, 17, ROUNDING_MODE.NEAREST, [ 0x3FFF4000 ], 0)
+    testCase(ones, 17, ROUNDING_MODE.TIES_AWAY, [ 0x3FFF4000 ], 0)
+    testCase(ones, 18, ROUNDING_MODE.NEAREST, [ 0x3FFF3000 ], 0)
+    testCase(ones, 18, ROUNDING_MODE.TIES_AWAY, [ 0x3FFF3000 ], 0)
+  })
+
+  it('should work correctly when the rounding occurs on a word boundary', function () {
+    let test = new Int32Array([0x1FFFFFFF, 0x20000000, 0x1])
+
+    testCase(test, 29, ROUNDING_MODE.DOWN, [ 0x1FFFFFFF, 0x0, 0x0 ], 0)
+    testCase(test, 29, ROUNDING_MODE.UP, [ 0x20000000, 0x0, 0x0 ], 0)
+    testCase(test, 29, ROUNDING_MODE.NEAREST, [ 0x20000000, 0x0, 0x0 ], 0)
+    testCase(test, 29, ROUNDING_MODE.TIES_AWAY, [ 0x20000000, 0x0, 0x0 ], 0)
+
+    test = new Int32Array([0x1FFFFFFE, 0x20000000, 0x0])
+
+    testCase(test, 29, ROUNDING_MODE.DOWN, [ 0x1FFFFFFE, 0x0, 0x0 ], 0)
+    testCase(test, 29, ROUNDING_MODE.UP, [ 0x1FFFFFFF, 0x0, 0x0 ], 0)
+    testCase(test, 29, ROUNDING_MODE.NEAREST, [ 0x1FFFFFFE, 0x0, 0x0 ], 0)
+    testCase(test, 29, ROUNDING_MODE.TIES_AWAY, [ 0x1FFFFFFF, 0x0, 0x0 ], 0)
+
+    test = new Int32Array([0x1FFFFFFE, 0x10000000, 0x0])
+
+    testCase(test, 29, ROUNDING_MODE.DOWN, [ 0x1FFFFFFE, 0x0, 0x0 ], 0)
+    testCase(test, 29, ROUNDING_MODE.UP, [ 0x1FFFFFFF, 0x0, 0x0 ], 0)
+    testCase(test, 29, ROUNDING_MODE.NEAREST, [ 0x1FFFFFFE, 0x0, 0x0 ], 0)
+    testCase(test, 29, ROUNDING_MODE.TIES_AWAY, [ 0x1FFFFFFE, 0x0, 0x0 ], 0)
+  })
+})

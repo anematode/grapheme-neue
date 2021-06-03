@@ -3,9 +3,9 @@
 // the float. m = m_1 / 2^30 + m_2 / 2^60 + ... . The precision is the number of bits kept track of in the words. Since
 // the start of the significant bits can occur anywhere from 0 to 29 bits into the first word,
 
-import {getExponent, getMantissa, isDenormal, pow2} from "../real/fp_manip"
-import {ROUNDING_MODE} from "../rounding_modes"
-import {leftZeroPad} from "../../core/utils"
+import {getExponent, getMantissa, isDenormal, pow2} from "../real/fp_manip.js"
+import {ROUNDING_MODE} from "../rounding_modes.js"
+import {leftZeroPad} from "../../core/utils.js"
 
 const BIGFLOAT_WORD_BITS = 30
 const BIGFLOAT_WORD_SIZE = 1 << BIGFLOAT_WORD_BITS
@@ -64,7 +64,7 @@ export function roundMantissaToPrecisionInPlace (mantissa, prec, roundingMode=CU
   // Which BIT to start truncating at, indexing from 0
   let trunc = (prec + offset)
   let truncWord = Math.floor(trunc / BIGFLOAT_WORD_BITS)
-  if (truncWord >= mantissaLen) return
+  if (truncWord >= mantissaLen) return 0
 
   // Number of bits to truncate off the word
   let truncateLen = BIGFLOAT_WORD_BITS - (trunc - truncWord * BIGFLOAT_WORD_BITS)
@@ -103,9 +103,11 @@ export function roundMantissaToPrecisionInPlace (mantissa, prec, roundingMode=CU
     // rest of the limbs are 0
     let splitPoint = 1 << (truncateLen - 1)
 
-    if (rem < splitPoint) return 0
-    else if (rem > splitPoint) doCarry = true
-    else for (let i = truncWord + 1; i < mantissaLen; ++i) {
+    if (rem < splitPoint) break doCarry
+    else if (rem > splitPoint) {
+      doCarry = true
+      break doCarry
+    } else for (let i = truncWord + 1; i < mantissaLen; ++i) {
       if (mantissa[i] !== 0) {
         doCarry = true
         break doCarry
@@ -154,6 +156,43 @@ export function roundMantissaToPrecisionInPlace (mantissa, prec, roundingMode=CU
   }
 
   return 0
+}
+
+export function prettyPrintFloat (mantissa, precision) {
+  let words = []
+  let indices = []
+
+  for (let i = 0; i < mantissa.length; ++i) {
+    words.push(leftZeroPad(mantissa[i].toString(2), BIGFLOAT_WORD_BITS, '0'))
+    indices.push("0    5    10   15   20   25   ")
+  }
+
+  function insert (index, wordChar, indicesChar) {
+    let wordIndex = Math.floor(index / BIGFLOAT_WORD_BITS)
+    let subIndex = index - wordIndex * BIGFLOAT_WORD_BITS
+
+    let wordWord = words[wordIndex]
+    let indicesWord = indices[wordIndex]
+
+    words[wordIndex] = wordWord.slice(0, subIndex) + wordChar + wordWord.slice(subIndex)
+    indices[wordIndex] = indicesWord.slice(0, subIndex) + indicesChar + indicesWord.slice(subIndex)
+  }
+
+  // Insert [ ... ] surrounding the actual meaningful parts of the mantissa
+  if (precision) {
+    let offset = Math.clz32(mantissa[0]) - 2
+
+    let startIndex = offset
+    let endIndex = offset + precision
+
+    insert(startIndex, '[', ' ')
+    insert(endIndex, ']', ' ')
+  }
+
+  words = words.join(' | ')
+  indices = indices.join(' | ')
+
+  return words + '\n' + indices
 }
 
 export class BigFloat {
@@ -230,17 +269,10 @@ export class BigFloat {
 
       return new BigFloat(this.sign, this.exp, this.prec, mantissaOut)
     } else {
-      // Lossy conversion; grab the first "precision" bits of this float, round in the correct direction, create a
-      // new float with the same words. We leave things in the words format so that not much annoying bit stuff has to
-      // be done
+      let newMantissa = new Int32Array(this.mant)
+      roundMantissaToPrecisionInPlace(newMantissa, precision, roundingMode)
 
-      let expOffset = Math.clz32(mant[0])
-
-      // Copy over all the words. All that remains is determining the rounding. We examine the extra bits and determine
-      // whether they are 0, between 0 and 0.5, 0.5, and between 0.5 and 0.75.
-      mantissaOut.set(mant.subarray(0, mantissaOut.length))
-
-
+      return new BigFloat(this.sign, this.exp, precision, newMantissa)
     }
   }
 
@@ -252,21 +284,10 @@ export class BigFloat {
     return new BigFloat(this.sign, this.exp, this.prec, new Int32Array(this.mant))
   }
 
-  toNumber ({ roundingMode = CURRENT_ROUNDING_MODE }) {
+  toNumber ({ roundingMode = CURRENT_ROUNDING_MODE } = {}) {
     // The strategy isn't too crazy here; we grab the first 53 bits of the mantissa, round in the correct direction
     // according to rounding mode, and get the correct exponent. There
     // is some special annoyance for denormal numbers, but whatever
-
-    const { mant } = this
-
-    // The exponent offset within the words
-    let expOffset = Math.clz32(mant[0])
-    let mantissaOut = 0
-
-    for (let i = 0; i < mant.length; ++i) {
-      let word = mant[i]
-    }
-
 
     let val = 0
     for (let i = 0; i < this.mant.length; ++i) {
@@ -301,5 +322,9 @@ export class BigFloat {
 
   static isZero (f) {
     return f.sign === 0
+  }
+
+  toUnderstandableString () {
+    return prettyPrintFloat(this.mant, this.prec)
   }
 }
