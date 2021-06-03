@@ -6,7 +6,6 @@
 </head>
 <body>
 
-<script src="test_setup.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbi@3.1.4/dist/jsbi-umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/decimal.js/9.0.0/decimal.js"></script>
 
@@ -15,9 +14,7 @@
     let BF = Grapheme.BigFloat
 
     function testBigFloat () {
-        test1 = BF.fromNumber(0.1)
-        test2 = BF.fromNumber(0.2)
-        test3 = BF.add(test1, test2)
+        test1 = BF.fromNumber(1.1)
     }
 
     testBigFloat()
@@ -39,6 +36,8 @@
     }, 1e4, "grapheme")*/
 
 </noscript>
+
+<script src="test_setup.js"></script>
 
 
 </body>
