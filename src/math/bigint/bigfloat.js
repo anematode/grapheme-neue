@@ -64,8 +64,16 @@ function getTrailingInfo (mantissa, index) {
  * @returns {{shift: (number), mantissa: (Int32Array)}} 1 or 0
  */
 export function roundMantissaToPrecision (mantissa, precision, roundingMode=CURRENT_ROUNDING_MODE, trailingInfo=0) {
-  if (roundingMode === ROUNDING_MODE.WHATEVER)
-    return { shift: 0, mantissa }
+  if (roundingMode === ROUNDING_MODE.WHATEVER) {
+    // Just create a mantissa of the correct length
+    let neededWords = neededWordsForPrecision(precision)
+    if (mantissa.length === neededWords) {
+      return {shift: 0, mantissa}
+    } else {
+      let newMantissa = new Int32Array(neededWords)
+      return {shift: 0, mantissa: newMantissa}
+    }
+  }
 
   let newMantissa = createMantissaForPrecision(precision)
   let newMantissaLen = newMantissa.length
@@ -268,7 +276,16 @@ export function leftShiftMantissaInPlace (mantissa, shift) {
       mantissa[i] = 0
     }
   } else {
-    throw new Error("to do")
+    let invBitShift = 30 - bitShift
+    let mantissaLength = mantissa.length
+
+    for (let i = integerShift; i < mantissaLength; ++i) {
+      mantissa[i - integerShift] = ((mantissa[i] << bitShift) & 0x3fffffff) + ((i < mantissaLength - 1) ? (mantissa[i + 1] >> invBitShift) : 0)
+    }
+
+    for (let i = mantissaLength - integerShift; i < mantissaLength; ++i) {
+      mantissa[i] = 0
+    }
   }
 
   return mantissa
@@ -329,7 +346,7 @@ export function multiplyMantissaByInteger (mantissa, precision, int, roundingMod
 }
 
 /**
- * Multiply two mantissas
+ * Multiply two mantissas TODO make more efficient
  * @param mant1
  * @param mant2
  * @param precision
@@ -381,6 +398,41 @@ export function multiplyMantissas (mant1, mant2, precision, roundingMode=CURRENT
   const { shift: roundingShift, mantissa } = roundMantissaToPrecision(arr, precision, roundingMode)
 
   return { shift: shift + roundingShift, mantissa }
+}
+
+/**
+ * Ah, the formidable division. I really don't know how to do division besides a boring shift and subtract approach,
+ * generating one bit at a time. So in keeping with the challenge of doing this stuff without outside references,
+ * I guess that's what I'll do for now!!!11
+ * @param mant1 {Int32Array}
+ * @param mant2 {Int32Array}
+ * @param precision {number}
+ * @param roundingMode {number}
+ */
+export function divMantissas (mant1, mant2, precision, roundingMode=CURRENT_ROUNDING_MODE) {
+  let mant1Copy = new Int32Array(Math.max(mant1.length, mant2.length))
+  for (let i = 0; i < mant1.length; ++i) mant1Copy[i] = mant1[i]
+
+  let bits = ''
+
+  let mant1LeadingZeros = Math.clz32(mant2[0])
+
+  for (let bit = 0; bit < precision; ++bit) {
+    let mant2LeadingZeros = Math.clz32(mant1Copy[0])
+
+    if (mant2LeadingZeros <= mant1LeadingZeros + 1) {
+      for (let i = mant1Copy.length - 1; i >= 0; --i) {
+        mant1Copy[i] -= mant2[i]
+      }
+
+      bits += '1'
+    } else {
+      let shift = mant1LeadingZeros - mant2LeadingZeros - 1
+
+      leftShiftMantissaInPlace(mant1Copy, shift)
+      bits += ('0'.repeat(shift))
+    }
+  }
 }
 
 /**
@@ -483,7 +535,7 @@ export function subtractMantissas (mant1, mant2, mant2Shift, precision, rounding
     }
   }
 
-  let newMantissa = new Int32Array(mant1Len - subtractionShift)
+  let newMantissa = new Int32Array(Math.max(neededWordsForPrecision(precision), mant1Len - subtractionShift))
   let newMantissaLen = newMantissa.length
   for (let i = subtractionShift; i < mant1Len; ++i) {
     newMantissa[i - subtractionShift] = mant1[i]
