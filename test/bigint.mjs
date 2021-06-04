@@ -1,6 +1,6 @@
 import { assert, expect } from "chai"
 import { mulAddWords, BigInt as GraphemeBigInt } from "../src/math/bigint/bigint.js"
-import { prettyPrintFloat, roundMantissaToPrecision, BigFloat, multiplyMantissaByInteger } from "../src/math/bigint/bigfloat.js"
+import { prettyPrintFloat, roundMantissaToPrecision, BigFloat, multiplyMantissaByInteger, addMantissas } from "../src/math/bigint/bigfloat.js"
 import { ROUNDING_MODE, roundingModeToString } from "../src/math/rounding_modes.js"
 
 const troublesomeWords = []
@@ -279,5 +279,34 @@ describe('multiplyMantissaByInteger', function () {
     testCase(new Int32Array([ 0x3fffffff ]), 60, 0x3fffffff, ROUNDING_MODE.NEAREST, [ 0x3ffffffe, 0x1 ], 1)
     testCase(new Int32Array([ 0x3fffffff ]), 10, 0x3fffffff, ROUNDING_MODE.DOWN, [ 0x3ff00000, 0x0 ], 1)
     testCase(new Int32Array([ 0x3fffffff ]), 10, 0x3fffffff, ROUNDING_MODE.UP, [ 0x1, 0x0 ], 2)
+  })
+})
+
+
+describe('addMantissas', function () {
+  function testCase (mantissa1, mantissa2, m2shift, precision, roundingMode, expectedMantissa, expectedShift) {
+    mantissa1 = new Int32Array(mantissa1)
+    mantissa2 = new Int32Array(mantissa2)
+    expectedMantissa = new Int32Array(expectedMantissa)
+
+    let { shift, mantissa: unpaddedResult } = addMantissas(mantissa1, mantissa2, m2shift, precision, roundingMode)
+
+    // To cope with different length returns
+    let result = new Int32Array(expectedMantissa.length)
+    result.set(unpaddedResult.subarray(0, expectedMantissa.length))
+
+    expect(result, `Expected result on mantissas ${prettyPrintFloat(mantissa1)} and ${prettyPrintFloat(mantissa2)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.deep.equal(expectedMantissa)
+    expect(shift, `Expected shift on mantissa ${prettyPrintFloat(mantissa1)} and ${prettyPrintFloat(mantissa2)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.equal(expectedShift)
+  }
+
+  it('should correctly add simple cases', function () {
+    testCase([ 0x1, 0x0 ], [0x1, 0x0, 0x0], 0, 53, ROUNDING_MODE.NEAREST, [ 2 ], 0)
+    testCase([ 0x1, 0x3 ], [0x2, 0x4, 0x0], 0, 53, ROUNDING_MODE.NEAREST, [ 0x3, 0x7 ], 0)
+    testCase([ 0x3fff0000, 0x3 ], [0x3fff, 0x4, 0x0], 0, 53, ROUNDING_MODE.NEAREST, [ 0x3fff3fff ], 0)
+  })
+
+  it('should correctly handle shifts', function () {
+    testCase([ 0x1, 0x0 ], [0x1, 0x0], 10, 53, ROUNDING_MODE.NEAREST, [ 0x1 ], 0)
+    testCase([ 0x1, 0x0 ], [0x1, 0x0], 10, 53, ROUNDING_MODE.UP, [ 0x1, 0x0, 0x100 ], 0)
   })
 })
