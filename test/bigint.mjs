@@ -124,15 +124,15 @@ describe('BigInt', function() {
   })
 })
 
-describe('BigFloat', function () {
-  let testDoubles = [
-    43915, 30284, 203.44, 25028.32, 320.2, -439, 0, 4228, 410, 0.4, 0.09, 0.0000000001, -0.4205,
-    -Infinity, Infinity,
-    Number.MIN_VALUE, -Number.MIN_VALUE, Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER, Number.MAX_VALUE,
-    -Number.MAX_VALUE,
-    2.2250738585072014e-308, 2 ** 1023, 2 ** -1025, 2 ** -1026 + 2 ** -1072
-  ]
+let testDoubles = [
+  43915, 30284, 203.44, 25028.32, 320.2, -439, 0, 4228, 410, 0.4, 0.09, 0.0000000001, -0.4205,
+  -Infinity, Infinity,
+  Number.MIN_VALUE, -Number.MIN_VALUE, Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER, Number.MAX_VALUE,
+  -Number.MAX_VALUE,
+  2.2250738585072014e-308, 2 ** 1023, 2 ** -1025, 2 ** -1026 + 2 ** -1072
+]
 
+describe('BigFloat', function () {
   it('should have conversion identical to Math.fround', function () {
     for (const double of testDoubles) {
       let bf = BigFloat.fromNumber(double)
@@ -310,3 +310,64 @@ describe('addMantissas', function () {
     testCase([ 0x1, 0x0 ], [0x1, 0x0], 10, 53, ROUNDING_MODE.UP, [ 0x1, 0x0, 0x100 ], 0)
   })
 })
+
+describe('add', function () {
+  function testCase (f1, f2) {
+    let res = BigFloat.add(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2)).toNumber()
+
+    if (Number.isNaN(f1 + f2)) {
+      expect(Number.isNaN(res))
+    } else {
+      expect(res).to.equal(f1 + f2)
+    }
+  }
+
+  it('should correctly handle various additions', function () {
+    for (const d1 of testDoubles) {
+      for (const d2 of testDoubles) {
+        testCase(d1, d2)
+      }
+    }
+  })
+})
+
+describe('subtract', function () {
+  function testCase (f1, f2) {
+    let res = BigFloat.subtract(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2)).toNumber()
+
+    if (Number.isNaN(f1 - f2)) {
+      expect(Number.isNaN(res))
+    } else {
+      expect(res, `${f1} - ${f2}`).to.equal(f1 - f2)
+    }
+  }
+
+  it('should correctly handle various subtractions', function () {
+    for (const d1 of testDoubles) {
+      for (const d2 of testDoubles) {
+        testCase(d1, d2)
+      }
+    }
+  })
+})
+
+describe('multiply', function () {
+  function testCase (f1, f2) {
+    let res = BigFloat.multiply(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2)).toNumber()
+
+    if (Number.isNaN(f1 * f2)) {
+      expect(Number.isNaN(res))
+    } else {
+      expect(res, `${f1} * ${f2}`).to.equal(f1 * f2)
+    }
+  }
+
+  it('should correctly handle various multiplications', function () {
+    for (const d1 of testDoubles) {
+      for (const d2 of testDoubles) {
+        testCase(d1, d2)
+      }
+    }
+  })
+})
+

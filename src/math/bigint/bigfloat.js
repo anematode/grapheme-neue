@@ -3,7 +3,7 @@
 // the float. m = m_1 / 2^30 + m_2 / 2^60 + ... . The precision is the number of bits kept track of in the words. Since
 // the start of the significant bits can occur anywhere from 0 to 29 bits into the first word,
 
-import {getExponent, getMantissa, isDenormal, pow2, flrLog2, getExponentAndMantissa} from "../real/fp_manip.js"
+import {flrLog2, getExponentAndMantissa, isDenormal, pow2} from "../real/fp_manip.js"
 import {ROUNDING_MODE} from "../rounding_modes.js"
 import {leftZeroPad} from "../../core/utils.js"
 
@@ -21,7 +21,7 @@ let CURRENT_ROUNDING_MODE = ROUNDING_MODE.NEAREST
  * @returns {number}
  */
 function neededWordsForPrecision (prec) {
-  return Math.ceil((prec - 1) / BIGFLOAT_WORD_BITS + 1)
+  return ((prec - 1) / BIGFLOAT_WORD_BITS + 2) | 0
 }
 
 /**
@@ -61,17 +61,19 @@ function getTrailingInfo (mantissa, index) {
  * @param precision {number} Precision, in bits, to round the mantissa to
  * @param roundingMode {number} Rounding mode; the operation treats the number as positive
  * @param trailingInfo {number} 0 if the mantissa is followed by infinite zeros; 1 if between 0 and 0.5; 2 if a tie; 3 if between a tie and 1
- * @returns {{shift: (number)}} 1 or 0
+ * @returns {{shift: (number), mantissa: (Int32Array)}} 1 or 0
  */
 export function roundMantissaToPrecision (mantissa, precision, roundingMode=CURRENT_ROUNDING_MODE, trailingInfo=0) {
+  if (roundingMode === ROUNDING_MODE.WHATEVER)
+    return { shift: 0, mantissa }
+
   let newMantissa = createMantissaForPrecision(precision)
   let newMantissaLen = newMantissa.length
   let mantissaLen = mantissa.length
 
-  newMantissa.set(mantissa.subarray(0, newMantissaLen))
-
-  // "Whatever rounding"; don't round at all
-  if (roundingMode === ROUNDING_MODE.WHATEVER) return { shift: 0, newMantissa }
+  for (let i = 0; i < newMantissaLen; ++i) {
+    newMantissa[i] = mantissa[i]
+  }
 
   // How many ghost bits there are at the beginning
   let offset = Math.clz32(mantissa[0]) - 2
@@ -83,7 +85,7 @@ export function roundMantissaToPrecision (mantissa, precision, roundingMode=CURR
   // Number of bits to truncate off the word, a number between 1 and 30 inclusive
   let truncateLen = BIGFLOAT_WORD_BITS - (trunc - truncWord * BIGFLOAT_WORD_BITS)
 
-  let rem, doCarry = false
+  let rem = 0, doCarry = false
 
   // If the truncation would happen after the end of the mantissa...
   if (truncWord >= newMantissaLen) {
@@ -326,19 +328,25 @@ export function multiplyMantissaByInteger (mantissa, precision, int, roundingMod
   return { shift, mantissa: roundedMantissa }
 }
 
-// Another rather important function. In this case the shift is relative to the product of the first two words
+/**
+ * Multiply two mantissas
+ * @param mant1
+ * @param mant2
+ * @param precision
+ * @param roundingMode
+ * @returns {{shift: number, mantissa: Int32Array}}
+ */
 export function multiplyMantissas (mant1, mant2, precision, roundingMode=CURRENT_ROUNDING_MODE) {
-  let newMantissa = createMantissaForPrecision(precision)
-  let arr = []
+  let arr = new Int32Array(mant1.length + mant2.length + 1)
 
   // Will definitely optimise later
-  for (let i = mant1.length - 1; i >= 0; --i) {
+  for (let i = mant1.length; i >= 0; --i) {
     let mant1Word = mant1[i]
     let mant1WordLo = mant1Word & 0x7FFF
     let mant1WordHi = mant1Word >> 15
 
-    let carry = 0
-    for (let j = mant2.length - 1; j >= 0; --j) {
+    let carry = 0, j = mant2.length - 1
+    for (; j >= 0; --j) {
       let mant2Word = mant2[j]
       let mant2WordLo = mant2Word & 0x7FFF
       let mant2WordHi = mant2Word >> 15
@@ -346,7 +354,7 @@ export function multiplyMantissas (mant1, mant2, precision, roundingMode=CURRENT
       let low = Math.imul(mant1WordLo, mant2WordLo), high = Math.imul(mant1WordHi, mant2WordHi)
       let middle = Math.imul(mant2WordLo, mant1WordHi) + Math.imul(mant1WordLo, mant2WordHi)
 
-      low += ((middle & 0x7FFF) << 15) + carry + arr[i + j]
+      low += ((middle & 0x7FFF) << 15) + carry + arr[i + j + 1]
       low >>>= 0
 
       if (low > 0x3FFFFFFF) {
@@ -356,12 +364,23 @@ export function multiplyMantissas (mant1, mant2, precision, roundingMode=CURRENT
 
       high += middle >> 15
 
-      arr[i + j] = low
+      arr[i + j + 1] = low
       carry = high
     }
+
+    arr[i] += carry
   }
 
-  return { shift: 0, mantissa: newMantissa }
+  let shift = 0
+
+  if (arr[0] === 0) {
+    leftShiftMantissaInPlace(arr, 30)
+    shift -= 1
+  }
+
+  const { shift: roundingShift, mantissa } = roundMantissaToPrecision(arr, precision, roundingMode)
+
+  return { shift: shift + roundingShift, mantissa }
 }
 
 /**
@@ -369,7 +388,7 @@ export function multiplyMantissas (mant1, mant2, precision, roundingMode=CURRENT
  * also have a shift applied to it, which is relative to mant1. This function seems like it would be relatively simple,
  * but the shifting brings annoyingness, especially with the rounding modes. The overall concept is we compute as much
  * of the addition as needed without doing any carrying, then when we get to the end of the area of needed precision,
- * we continue computing until we can determine with certainty the carry and the rounding direction.
+ * we continue computing until we can determine with certainty the carry and the rounding direction. TODO optimize
  * @param mant1 {Int32Array}
  * @param mant2 {Int32Array}
  * @param mant2Shift {number}
@@ -377,20 +396,21 @@ export function multiplyMantissas (mant1, mant2, precision, roundingMode=CURRENT
  * @param roundingMode {number}
  */
 export function addMantissas (mant1, mant2, mant2Shift, precision, roundingMode=CURRENT_ROUNDING_MODE) {
-  let mant1Len = mant1.length, mant2Len = mant2.length, mant2End = mant2Len + mant2Shift, finalCarry=0
-  let newMantissa = new Int32Array(mant1Len)
+  let mant1Len = mant1.length, mant2Len = mant2.length, mant2End = mant2Len + mant2Shift
+  let newMantissa = new Int32Array(Math.max(mant1Len, neededWordsForPrecision(precision)))
+  let newMantissaLen = newMantissa.length
 
-  // Basically, we do a bunch of annoying casework. We first sum all the parts of the addition we definitely need:
-  let mant1Bound1 = Math.min(mant1Len, mant1Len)
-  for (let i = 0; i < mant1Bound1; ++i) {
+  // We first sum all the parts of the addition we definitely need:
+  for (let i = 0; i < mant1Len; ++i) {
     newMantissa[i] = mant1[i]
   }
-  let mant2Bound1 = Math.min(mant2End, mant1Len)
+
+  let mant2Bound1 = Math.min(mant2End, newMantissaLen)
   for (let i = mant2Shift; i < mant2Bound1; ++i) {
     newMantissa[i] += mant2[i - mant2Shift]
   }
 
-  // Do the carry
+  // Do a carry
   let carry = 0
   for (let i = mant1Len - 1; i >= 0; --i) {
     let word = newMantissa[i] + carry
@@ -405,7 +425,7 @@ export function addMantissas (mant1, mant2, mant2Shift, precision, roundingMode=
     }
   }
 
-  // All that remains are the words of mant2 to the right of
+  // All that remains are the words of mant2 to the right of mant1Len - mant2Shift
   let trailingInfo = 0
   if (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.UP || roundingMode === ROUNDING_MODE.TOWARD_INF || roundingMode === ROUNDING_MODE.NEAREST) {
     let trailingShift = mant1Len - mant2Shift
@@ -414,12 +434,115 @@ export function addMantissas (mant1, mant2, mant2Shift, precision, roundingMode=
     if (trailingShift < 0) trailingInfo = +(!!trailingInfo) // Lol, if the trailing info is shifted, then round it to 0 or 1 as appropriate
   }
 
+  let shift = 0
+
   if (carry) {
     rightShiftMantissaInPlace(newMantissa, 30)
     newMantissa[0] = 1
+    shift += 1
   }
 
-  return roundMantissaToPrecision(newMantissa, precision, roundingMode, trailingInfo)
+  const { shift: roundingShift, mantissa } = roundMantissaToPrecision(newMantissa, precision, roundingMode, trailingInfo)
+
+  return { shift: roundingShift + shift, mantissa }
+}
+
+/**
+ * Subtract two (positive) mantissas, with mant1 > mant2 and mant2 under a given shift, returning a shift relative to
+ * the first word of mantissa 1 depending on the result. TODO implement very correct rounding
+ * @param mant1 {Int32Array}
+ * @param mant2 {Int32Array}
+ * @param mant2Shift {number}
+ * @param precision {number}
+ * @param roundingMode {number}
+ */
+export function subtractMantissas (mant1, mant2, mant2Shift, precision, roundingMode=CURRENT_ROUNDING_MODE) {
+  let mant1Len = mant1.length, mant2Len = mant2.length, mant2End = mant2Len + mant2Shift
+
+  // This function is slightly tricky, but not too bad. The main question is how much stuff cancels out before the
+  // actual mantissa starts. Since we're guaranteed mant1 > mant2 the question is a bit easier to answer; we step along
+  // the words of mant1 until we get to a word of mant1 which is strictly greater than that of mant2. Then, we repeatedly
+  // subtract the words of mant2 from mant1, do the full carry, then examine the "negative carry" from the trailing
+  // words of mant2; this is essentially subtracting one, then calling roundMantissaToPrecision with a flipped trailing
+  // value. In the case of round whatever and round up, this rounding step is skipped.
+
+  // Index of the first word which is different
+  let subtractionShift = 0
+
+  findShift: if (mant2Shift === 0) {
+    // Figure out where the subtraction starts
+    for (let i = 0; i < mant1Len; ++i) {
+      let mant1Word = mant1[i]
+      let mant2Index = i - mant2Shift
+      let mant2Word = (0 <= mant2Index && mant2Index < mant2Len) ? mant2[mant2Index] : 0
+
+      if (mant1Word > mant2Word) {
+        subtractionShift = i
+        break findShift
+      }
+    }
+  }
+
+  let newMantissa = new Int32Array(mant1Len - subtractionShift)
+  let newMantissaLen = newMantissa.length
+  for (let i = subtractionShift; i < mant1Len; ++i) {
+    newMantissa[i - subtractionShift] = mant1[i]
+  }
+
+  // Indexing over words where 0 = first word of mant1
+  let mant2Bound = Math.min(mant2End, newMantissaLen + subtractionShift)
+  for (let i = mant2Shift; i < mant2Bound; ++i) {
+    newMantissa[i - subtractionShift] -= mant2[i - mant2Shift]
+  }
+
+  let carry = 0
+  for (let i = newMantissaLen - 1; i >= 0; --i) {
+    let word = newMantissa[i] - carry
+
+    if (word < 0) {
+      word += BIGFLOAT_WORD_SIZE
+      newMantissa[i] = word
+      carry = 1
+    } else {
+      newMantissa[i] = word
+      carry = 0
+    }
+  }
+
+  let shift = 0
+  if (newMantissa[0] === 0) {
+    leftShiftMantissaInPlace(newMantissa, 30)
+    shift -= 1
+  }
+
+  const { shift: roundingShift, mantissa } = roundMantissaToPrecision(newMantissa, precision, roundingMode)
+
+  return { shift: subtractionShift + shift + roundingShift, mantissa }
+}
+
+/**
+ * Determine which of two mantissas is larger. -1 if mant1 is smaller, 0 if they are equal, and 1 if mant2 is larger.
+ * @param mant1
+ * @param mant2
+ */
+export function compareMantissas (mant1, mant2) {
+  let swapResult = false
+  if (mant1.length < mant2.length) {
+    [ mant1, mant2 ] = [ mant2, mant1 ]
+  }
+
+  let result = 0
+  for (let i = 0; i < mant1.length; ++i) {
+    if (mant1[i] > mant2[i]) {
+      result = 1
+      break
+    } else if (mant1[i] < mant2[i]) {
+      result = -1
+      break
+    }
+  }
+
+  return swapResult ? -result : result
 }
 
 export function prettyPrintFloat (mantissa, precision) {
@@ -518,15 +641,6 @@ export class BigFloat {
     }
 
     return new BigFloat(Math.sign(num) + 0, newExp, precision, outMantissa)
-  }
-
-  /**
-   * Truncate the bits of this number to prec bits, with the given rounding mode
-   * @param prec
-   * @param roundingMode
-   */
-  truncateToPrecision (prec, roundingMode = CURRENT_ROUNDING_MODE) {
-
   }
 
   /**
@@ -659,14 +773,72 @@ export class BigFloat {
     return this
   }
 
-  static add (f1, f2, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+  static cmpMagnitude (f1, f2) {
+    if (f1.exp < f2.exp) {
+      return -1
+    } else if (f1.exp > f2.exp) {
+      return 1
+    } else {
+      return compareMantissas(f1.mant, f2.mant)
+    }
+  }
+
+  static add (f1, f2, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE, flipF2Sign=false } = {}) {
+    // To make subtraction less of a headache
+    let f1Sign = f1.sign
+    let f2Sign = flipF2Sign ? -f2.sign : f2.sign
+
+    if (!Number.isFinite(f1Sign) || !Number.isFinite(f2Sign)) {
+      return BigFloat.fromNumber(f1Sign + f2Sign)
+    }
+
+    if (f1Sign === 0) return flipF2Sign ? f2.neg() : f2.clone()
+    if (f2Sign === 0) return f1.clone()
+
+    function swapF1F2 () {
+      [ f1, f2 ] = [ f2, f1 ]
+      ;[ f1Sign, f2Sign ] = [ f2Sign, f1Sign ]
+    }
+
+    if (f1Sign !== f2Sign) {
+      let cmp = BigFloat.cmpMagnitude(f1, f2)
+      let sign = 0
+
+      if (cmp === 0) return BigFloat.zero({ precision })
+      if (cmp === 1)
+        sign = f1Sign
+      else
+        sign = f2Sign
+      if (cmp === -1) swapF1F2()
+
+      // f1mant > f2mant
+      let { shift, mantissa } = subtractMantissas(f1.mant, f2.mant, f1.exp - f2.exp, precision, roundingMode)
+      return new BigFloat(sign, f1.exp + shift, precision, mantissa)
+    } else {
+      if (f1.exp < f2.exp) swapF1F2()
+
+      let { shift, mantissa } = addMantissas(f1.mant, f2.mant, f1.exp - f2.exp, precision, roundingMode)
+      return new BigFloat(f1Sign, f1.exp + shift, precision, mantissa)
+    }
+  }
+
+  static subtract (f1, f2, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+    return BigFloat.add(f1, f2, { precision, roundingMode, flipF2Sign: true })
+  }
+
+  static multiply (f1, f2, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+    let f1Sign = f1.sign
+    let f2Sign = f2.sign
+
+    if (f1Sign === 0 || f2Sign === 0 || !Number.isFinite(f1Sign) || !Number.isFinite(f2Sign)) return BigFloat.fromNumber(f1Sign * f2Sign)
+
     if (f1.exp < f2.exp) {
       [ f1, f2 ] = [ f2, f1 ]
     }
 
-    let { shift, mantissa } = addMantissas(f1.mant, f2.mant, f1.exp - f2.exp, precision, roundingMode)
+    let { shift, mantissa } = multiplyMantissas(f1.mant, f2.mant, precision, roundingMode)
 
-    return new BigFloat(f1.sign, f1.exp + shift, precision, mantissa)
+    return new BigFloat(f1.sign * f2.sign, f1.exp + f2.exp + shift, precision, mantissa)
   }
 
   static zero ({ precision = CURRENT_PRECISION } = {}) {
@@ -699,6 +871,10 @@ export class BigFloat {
 
   setZero () {
     this.setFromFloat(BigFloat.zero({ precision: this.prec }))
+  }
+
+  neg () {
+    return new BigFloat(this.sign * -1, this.exp, this.prec, new Int32Array(this.mant))
   }
 
   setFromFloat (f) {
