@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Elements</title>
+</head>
+<body>
+
+<script src="https://cdn.jsdelivr.net/npm/jsbi@3.1.4/dist/jsbi-umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/decimal.js/9.0.0/decimal.js"></script>
+
+<noscript id="setup">
+    let BI = Grapheme.BigInt
+    let BF = Grapheme.BigFloat
+
+    function print(flt) {
+        if (flt instanceof Int32Array)
+            console.log(Grapheme.prettyPrintFloat(flt))
+        else
+            print (flt.mant ?? flt.mantissa)
+    }
+
+    let n = 8.98846567431158e+307
+    let d = 9007199254740991
+
+    const flt = BF.divide(BF.fromNumber(n), BF.fromNumber(d), {precision:53})
+
+
+</noscript>
+
+<script src="test_setup.js"></script>
+
+
+</body>
+</html>

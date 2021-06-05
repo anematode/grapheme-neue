@@ -371,3 +371,25 @@ describe('multiply', function () {
   })
 })
 
+describe('divide', function () {
+  function testCase (f1, f2) {
+    // Rounding issues cause correct code to differ from doubles for very small values
+    if (Math.abs(f1 / f2) < 2 ** -1022) return
+
+    let res = BigFloat.divide(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2)).toNumber()
+
+    if (Number.isNaN(f1 / f2)) {
+      expect(Number.isNaN(res))
+    } else {
+      expect(res, `${f1} / ${f2}`).to.equal(f1 / f2)
+    }
+  }
+
+  it('should correctly handle various divisions', function () {
+    for (const d1 of testDoubles) {
+      for (const d2 of testDoubles) {
+        testCase(d1, d2)
+      }
+    }
+  })
+})
