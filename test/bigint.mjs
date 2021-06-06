@@ -154,6 +154,12 @@ describe('BigFloat', function () {
   it('should correctly handle special values', function () {
 
   })
+
+  it('should have a new static function', function () {
+    let flt = BigFloat.new(160)
+
+    expect(flt.prec, `Expected precision to be set`).to.equal(160)
+  })
 })
 
 describe('roundMantissaToPrecision', function () {
@@ -161,12 +167,13 @@ describe('roundMantissaToPrecision', function () {
 
   function testCase (mantissa, precision, roundingMode, expectedMantissa, expectedShift) {
     expectedMantissa = new Int32Array(expectedMantissa)
+    let target = new Int32Array(expectedMantissa.length)
 
-    let { shift, mantissa: unpaddedResult } = roundMantissaToPrecision(mantissa, precision, roundingMode)
+    let shift = roundMantissaToPrecision(mantissa, precision, target, roundingMode)
 
     // To cope with different length returns
     let result = new Int32Array(expectedMantissa.length)
-    result.set(unpaddedResult.subarray(0, expectedMantissa.length))
+    result.set(target.subarray(0, expectedMantissa.length))
 
     expect(result, `Expected result on mantissa ${prettyPrintFloat(mantissa)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.deep.equal(expectedMantissa)
     expect(shift, `Expected shift on mantissa ${prettyPrintFloat(mantissa)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.equal(expectedShift)
@@ -257,31 +264,6 @@ describe('roundMantissaToPrecision', function () {
   })
 })
 
-describe('multiplyMantissaByInteger', function () {
-  function testCase (mantissa, precision, int, roundingMode, expectedMantissa, expectedShift) {
-    expectedMantissa = new Int32Array(expectedMantissa)
-
-    let { shift, mantissa: unpaddedResult } = multiplyMantissaByInteger(mantissa, precision, int, roundingMode)
-
-    // To cope with different length returns
-    let result = new Int32Array(expectedMantissa.length)
-    result.set(unpaddedResult.subarray(0, expectedMantissa.length))
-
-    expect(result, `Expected result on mantissa ${prettyPrintFloat(mantissa)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.deep.equal(expectedMantissa)
-    expect(shift, `Expected shift on mantissa ${prettyPrintFloat(mantissa)} with precision ${precision} and roundingMode ${roundingModeToString(roundingMode)}`).to.equal(expectedShift)
-  }
-
-  it('should correctly multiply', function () {
-    testCase(new Int32Array([ 0 ]), 15, 0, ROUNDING_MODE.TIES_AWAY, [0], 0)
-    testCase(new Int32Array([ 1500 ]), 15, 0, ROUNDING_MODE.TIES_AWAY, [0], 0)
-    testCase(new Int32Array([ 1500 ]), 15, 10, ROUNDING_MODE.NEAREST, [15000], 0)
-
-    testCase(new Int32Array([ 0x3fffffff ]), 60, 0x3fffffff, ROUNDING_MODE.NEAREST, [ 0x3ffffffe, 0x1 ], 1)
-    testCase(new Int32Array([ 0x3fffffff ]), 10, 0x3fffffff, ROUNDING_MODE.DOWN, [ 0x3ff00000, 0x0 ], 1)
-    testCase(new Int32Array([ 0x3fffffff ]), 10, 0x3fffffff, ROUNDING_MODE.UP, [ 0x1, 0x0 ], 2)
-  })
-})
-
 
 describe('addMantissas', function () {
   function testCase (mantissa1, mantissa2, m2shift, precision, roundingMode, expectedMantissa, expectedShift) {
@@ -289,7 +271,8 @@ describe('addMantissas', function () {
     mantissa2 = new Int32Array(mantissa2)
     expectedMantissa = new Int32Array(expectedMantissa)
 
-    let { shift, mantissa: unpaddedResult } = addMantissas(mantissa1, mantissa2, m2shift, precision, roundingMode)
+    let unpaddedResult = new Int32Array(expectedMantissa.length)
+    let shift = addMantissas(mantissa1, mantissa2, m2shift, precision, unpaddedResult, roundingMode)
 
     // To cope with different length returns
     let result = new Int32Array(expectedMantissa.length)
@@ -313,12 +296,14 @@ describe('addMantissas', function () {
 
 describe('add', function () {
   function testCase (f1, f2) {
-    let res = BigFloat.add(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2)).toNumber()
+    let res = BigFloat.new()
+    BigFloat.add(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
 
+    res = res.toNumber()
     if (Number.isNaN(f1 + f2)) {
       expect(Number.isNaN(res))
     } else {
-      expect(res).to.equal(f1 + f2)
+      expect(res, `Result on ${f1} and ${f2}`).to.equal(f1 + f2)
     }
   }
 
@@ -333,12 +318,14 @@ describe('add', function () {
 
 describe('subtract', function () {
   function testCase (f1, f2) {
-    let res = BigFloat.subtract(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2)).toNumber()
+    let res = BigFloat.new()
+    BigFloat.subtract(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
 
+    res = res.toNumber()
     if (Number.isNaN(f1 - f2)) {
       expect(Number.isNaN(res))
     } else {
-      expect(res, `${f1} - ${f2}`).to.equal(f1 - f2)
+      expect(res, `Result on ${f1} and ${f2}`).to.equal(f1 - f2)
     }
   }
 
@@ -353,12 +340,14 @@ describe('subtract', function () {
 
 describe('multiply', function () {
   function testCase (f1, f2) {
-    let res = BigFloat.multiply(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2)).toNumber()
+    let res = BigFloat.new()
+    BigFloat.mul2(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
 
+    res = res.toNumber()
     if (Number.isNaN(f1 * f2)) {
       expect(Number.isNaN(res))
     } else {
-      expect(res, `${f1} * ${f2}`).to.equal(f1 * f2)
+      expect(res, `Result on ${f1} and ${f2}`).to.equal(f1 * f2)
     }
   }
 
@@ -371,7 +360,7 @@ describe('multiply', function () {
   })
 })
 
-describe('divide', function () {
+/*describe('divide', function () {
   function testCase (f1, f2) {
     // Rounding issues cause correct code to differ from doubles for very small values
     if (Math.abs(f1 / f2) < 2 ** -1022) return
@@ -393,3 +382,4 @@ describe('divide', function () {
     }
   })
 })
+*/

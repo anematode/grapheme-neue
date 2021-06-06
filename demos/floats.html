@@ -9,39 +9,71 @@
 <script src="https://cdn.jsdelivr.net/npm/jsbi@3.1.4/dist/jsbi-umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/decimal.js/9.0.0/decimal.js"></script>
 
-<noscript id="setup">
-    let BI = Grapheme.BigInt
-    let BF = Grapheme.BigFloat
+<script id="setup">
+    var BI = Grapheme.BigInt
+    var BF = Grapheme.BigFloat
 
-    function print(flt) {
-        if (flt instanceof Int32Array)
-            console.log(Grapheme.prettyPrintFloat(flt))
-        else
-            print (flt.mant ?? flt.mantissa)
+    var f = BF.fromNumber(0.5)
+    var g = BF.new(20)
+
+    Grapheme.setGlobalPrecision(200)
+
+    function sqrt(c) {
+      let ret = BF.new()
+      BF.mulNumber(c, 0.5, ret)
+
+      let tmp1 = BF.new(), tmp2 = BF.new(), tmp3 = BF.new(), tmp4 = BF.new(), tmp5 = BF.new()
+
+      for (let i = 0; i < 5; ++i) {
+        BF.mul(ret, ret, tmp1) // x^2
+        BF.subtract(tmp1, c, tmp2) // x^2 - c
+
+        BF.mul(tmp2, ret, tmp3)
+        BF.mulNumber(tmp3, 4, tmp3)
+
+        BF.mulNumber(tmp1, 8, tmp4)
+        BF.mulNumber(tmp2, 2, tmp5)
+
+        BF.subtract(tmp4, tmp5, tmp1)
+        BF.div(tmp3, tmp1, tmp2)
+        BF.subtract(ret, tmp2, tmp3)
+
+        ;[ret, tmp3] = [tmp3, ret]
+      }
+
+      return ret
     }
 
-    let n = 0.04102418929
-    let d = 0.041021082141
+    function arctanh (c) {
+      let accumulator = BF.new()
+      let xSquared = BF.new()
 
-    const flt = BF.multiply(BF.fromNumber(n), BF.fromNumber(d), { precision: 106 })
+      BF.mul(c, c, xSquared)
 
-    let decimalN = new Decimal(n)
-    let decimalD = new Decimal(d)
+      let pow = BF.fromNumber(1)
+      let powTmp = BF.new()
 
-    let bfN = BF.fromNumber(n, { precision: 70 })
-    let bfD = BF.fromNumber(d, { precision: 70 })
+      let powDiv = BF.new()
 
-    let resD, resBF
+      for (let i = 0; i < 10; ++i) {
+        BF.div(pow, BF.fromNumber(2 * i + 1), powDiv)
 
-    Grapheme.utils.performance(() => {
-        resD = Decimal.mul(decimalN, decimalD)
-    }, 1e6, "decimal")
+        let cow = BF.new()
+        BF.div(pow, BF.fromNumber(2 * i + 1), cow)
 
-    Grapheme.utils.performance(() => {
-        resBF = BF.multiply(bfN, bfD)
-    }, 1e6, "grapheme")
+        BF.mul(pow, xSquared, powTmp)
+        ;[ powTmp, pow ] = [ pow, powTmp ]
 
-</noscript>
+        BF.add(accumulator, powDiv, accumulator)
+      }
+
+
+      let ret = BF.new()
+      BF.mul(accumulator, c, ret)
+
+      return ret
+    }
+</script>
 
 <script src="test_setup.js"></script>
 

@@ -9,113 +9,127 @@
 <script src="https://cdn.jsdelivr.net/npm/jsbi@3.1.4/dist/jsbi-umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/decimal.js/9.0.0/decimal.js"></script>
 
-<noscript id="setup">
-    let BI = Grapheme.BigInt
-    let BF = Grapheme.BigFloat
+<script id="setup">
+  var BI = Grapheme.BigInt
+  var BF = Grapheme.BigFloat
 
-    const canvas = document.createElement("canvas")
+  var canvas = document.createElement("canvas")
 
-    canvas.width = 1000
-    canvas.height = 500
+  canvas.width = 1000
+  canvas.height = 500
 
-    document.body.appendChild(canvas)
+  document.body.appendChild(canvas)
 
-    const ctx = canvas.getContext('2d')
+  var ctx = canvas.getContext('2d')
 
-    let viewport = { cx: BF.fromNumber(0), cy: BF.fromNumber(0), w: BF.fromNumber(2), h: BF.fromNumber(1) }
+  var viewport = {cx: BF.fromNumber(0), cy: BF.fromNumber(0), w: BF.fromNumber(2), h: BF.fromNumber(1)}
 
-    Grapheme.CURRENT_ROUNDING_MODE = Grapheme.ROUNDING_MODE.WHATEVER
+  Grapheme.CURRENT_ROUNDING_MODE = Grapheme.ROUNDING_MODE.WHATEVER
 
-    function displayBigFloat () {
-        let w = canvas.width
-        let h = canvas.height
+  function displayBigFloat() {
+    let w = canvas.width
+    let h = canvas.height
 
-        const img = new Uint8ClampedArray(w * h * 4)
+    const img = new Uint8ClampedArray(w * h * 4)
 
-        console.time("start")
-        for (let y = 0; y < h; ++y) {
-            let fracY = BF.fromNumber(y / h - 0.5)
+    const fracX = BF.new(), fracY = BF.new(), plotRe = BF.new(), plotIm = BF.new(), zRe = BF.new(), zIm = BF.new(),
+      newRe = BF.new(), newIm = BF.new(), tmp1 = BF.new(), tmp2 = BF.new(), tmp3 = BF.new()
 
-            for (let x = 0; x < w; ++x) {
-                let fracX = BF.fromNumber(x / w - 0.5)
+    console.time("start")
+    for (let y = 0; y < h; ++y) {
+      fracY.setFromNumber(y / h - 0.5)
 
-                let plotRe = BF.add(BF.multiply(fracX, viewport.w), viewport.cx)
-                let plotIm = BF.add(BF.multiply(fracY, viewport.h), viewport.cy)
+      for (let x = 0; x < w; ++x) {
+        fracX.setFromNumber(x / w - 0.5)
 
-                let zRe = plotRe.clone()
-                let zIm = plotIm.clone()
+        BF.mul2(fracX, viewport.w, plotRe)
+        BF.add(plotRe, viewport.cx, plotRe)
 
-                let iterations = 0
-                let maxIterations = 100
+        BF.mul2(fracY, viewport.h, plotIm)
+        BF.add(plotIm, viewport.cy, plotIm)
 
-                for (; iterations < maxIterations; ++iterations) {
-                    newRe = BF.add(BF.subtract(BF.multiply(zRe, zRe), BF.multiply(zIm, zIm)), plotRe)
-                    newIm = BF.add(BF.multiply(zRe, zIm).multiplyByIntegerInPlace(2), plotIm)
+        zRe.setFromFloat(plotRe)
+        zIm.setFromFloat(plotIm)
 
-                    if (newRe.toNumber() ** 2 + newIm.toNumber() ** 2 > 2) break
+        let iterations = 0
+        let maxIterations = 100
 
-                    zRe = newRe
-                    zIm = newIm
-                }
+        for (; iterations < maxIterations; ++iterations) {
+          BF.mul2(zRe, zRe, tmp1)
+          BF.mul2(zIm, zIm, tmp2)
 
-                let index = 4 * (y * w + x)
-                img[index] = iterations / maxIterations * 255
-                img[index+1] = iterations / maxIterations * 255
-                img[index+2] = iterations / maxIterations * 255
-                img[index+3] = 255
-            }
+          BF.subtract(tmp1, tmp2, tmp3)
+          BF.add(tmp3, plotRe, newRe)
+
+          BF.mul2(zRe, zIm, tmp1)
+          BF.add(tmp1, tmp1, tmp2)
+
+          BF.add(tmp2, plotIm, newIm)
+
+          if (newRe.toNumber() ** 2 + newIm.toNumber() ** 2 > 2) break
+
+          zRe.setFromFloat(newRe)
+          zIm.setFromFloat(newIm)
         }
-        console.timeEnd("start")
 
-        ctx.putImageData(new ImageData(img, w, h), 0, 0)
+        let index = 4 * (y * w + x)
+        img[index] = iterations / maxIterations * 255
+        img[index + 1] = iterations / maxIterations * 255
+        img[index + 2] = iterations / maxIterations * 255
+        img[index + 3] = 255
+      }
     }
+    console.timeEnd("start")
 
-    function displayBigDecimal () {
-        let w = canvas.width
-        let h = canvas.height
+    ctx.putImageData(new ImageData(img, w, h), 0, 0)
+  }
 
-        const img = new Uint8ClampedArray(w * h * 4)
-        let viewport = { cx: new Decimal(0), cy: new Decimal(0), w: new Decimal(2), h: new Decimal(1) }
+  function displayBigDecimal() {
+    let w = canvas.width
+    let h = canvas.height
 
-        console.time("start")
-        for (let y = 0; y < h; ++y) {
-            let fracY = new Decimal(y / h - 0.5)
+    const img = new Uint8ClampedArray(w * h * 4)
+    let viewport = {cx: new Decimal(0), cy: new Decimal(0), w: new Decimal(2), h: new Decimal(1)}
 
-            for (let x = 0; x < w; ++x) {
-                let fracX = new Decimal(x / w - 0.5)
+    console.time("start")
+    for (let y = 0; y < h; ++y) {
+      let fracY = new Decimal(y / h - 0.5)
 
-                let plotRe = Decimal.add(Decimal.mul(fracX, viewport.w), viewport.cx)
-                let plotIm = Decimal.add(Decimal.mul(fracY, viewport.h), viewport.cy)
+      for (let x = 0; x < w; ++x) {
+        let fracX = new Decimal(x / w - 0.5)
 
-                let zRe = new Decimal(plotRe)
-                let zIm = new Decimal(plotIm)
+        let plotRe = Decimal.add(Decimal.mul(fracX, viewport.w), viewport.cx)
+        let plotIm = Decimal.add(Decimal.mul(fracY, viewport.h), viewport.cy)
 
-                let iterations = 0
-                let maxIterations = 4
+        let zRe = new Decimal(plotRe)
+        let zIm = new Decimal(plotIm)
 
-                for (; iterations < maxIterations; ++iterations) {
-                    newRe = Decimal.add(Decimal.sub(Decimal.mul(zRe, zRe), Decimal.mul(zIm, zIm)), plotRe)
-                    newIm = Decimal.add(Decimal.mul(Decimal.mul(zRe, zIm), 2), plotIm)
+        let iterations = 0
+        let maxIterations = 4
 
-                    if (newRe.toNumber() ** 2 + newIm.toNumber() ** 2 > 2) break
+        for (; iterations < maxIterations; ++iterations) {
+          newRe = Decimal.add(Decimal.sub(Decimal.mul(zRe, zRe), Decimal.mul(zIm, zIm)), plotRe)
+          newIm = Decimal.add(Decimal.mul(Decimal.mul(zRe, zIm), 2), plotIm)
 
-                    zRe = newRe
-                    zIm = newIm
-                }
+          if (newRe.toNumber() ** 2 + newIm.toNumber() ** 2 > 2) break
 
-                let index = 4 * (y * w + x)
-                img[index] = iterations / maxIterations * 255
-                img[index+1] = iterations / maxIterations * 255
-                img[index+2] = iterations / maxIterations * 255
-                img[index+3] = 255
-            }
+          zRe = newRe
+          zIm = newIm
         }
-        console.timeEnd("start")
 
-        ctx.putImageData(new ImageData(img, w, h), 0, 0)
+        let index = 4 * (y * w + x)
+        img[index] = iterations / maxIterations * 255
+        img[index + 1] = iterations / maxIterations * 255
+        img[index + 2] = iterations / maxIterations * 255
+        img[index + 3] = 255
+      }
     }
+    console.timeEnd("start")
 
-</noscript>
+    ctx.putImageData(new ImageData(img, w, h), 0, 0)
+  }
+
+</script>
 
 <script src="test_setup.js"></script>
 
