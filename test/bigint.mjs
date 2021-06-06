@@ -319,7 +319,7 @@ describe('add', function () {
 describe('subtract', function () {
   function testCase (f1, f2) {
     let res = BigFloat.new()
-    BigFloat.subtract(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
+    BigFloat.sub(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
 
     res = res.toNumber()
     if (Number.isNaN(f1 - f2)) {
@@ -360,13 +360,15 @@ describe('multiply', function () {
   })
 })
 
-/*describe('divide', function () {
+describe('divide', function () {
   function testCase (f1, f2) {
     // Rounding issues cause correct code to differ from doubles for very small values
     if (Math.abs(f1 / f2) < 2 ** -1022) return
 
-    let res = BigFloat.divide(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2)).toNumber()
+    let res = BigFloat.new()
+    BigFloat.div(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
 
+    res = res.toNumber()
     if (Number.isNaN(f1 / f2)) {
       expect(Number.isNaN(res))
     } else {
@@ -382,4 +384,3 @@ describe('multiply', function () {
     }
   })
 })
-*/

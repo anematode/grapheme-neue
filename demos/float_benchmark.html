@@ -100,9 +100,11 @@
   }
 
   function division() {
+    res = BF.new(53)
+
     for (let i = 0; i < floats.length; ++i) {
       for (let j = 0; j < floats.length; ++j) {
-        res = BF.divide(bigFloats[i], bigFloats[j])
+        BF.div(bigFloats[i], bigFloats[j], res)
       }
     }
   }

@@ -42,10 +42,10 @@
       for (let x = 0; x < w; ++x) {
         fracX.setFromNumber(x / w - 0.5)
 
-        BF.mul2(fracX, viewport.w, plotRe)
+        BF.mul(fracX, viewport.w, plotRe)
         BF.add(plotRe, viewport.cx, plotRe)
 
-        BF.mul2(fracY, viewport.h, plotIm)
+        BF.mul(fracY, viewport.h, plotIm)
         BF.add(plotIm, viewport.cy, plotIm)
 
         zRe.setFromFloat(plotRe)
@@ -55,13 +55,13 @@
         let maxIterations = 100
 
         for (; iterations < maxIterations; ++iterations) {
-          BF.mul2(zRe, zRe, tmp1)
-          BF.mul2(zIm, zIm, tmp2)
+          BF.mul(zRe, zRe, tmp1)
+          BF.mul(zIm, zIm, tmp2)
 
-          BF.subtract(tmp1, tmp2, tmp3)
+          BF.sub(tmp1, tmp2, tmp3)
           BF.add(tmp3, plotRe, newRe)
 
-          BF.mul2(zRe, zIm, tmp1)
+          BF.mul(zRe, zIm, tmp1)
           BF.add(tmp1, tmp1, tmp2)
 
           BF.add(tmp2, plotIm, newIm)

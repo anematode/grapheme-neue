@@ -915,6 +915,12 @@ export class BigFloat {
     return new BigFloat(0, 0, precision, createMantissaForPrecision(precision))
   }
 
+  /**
+   * Compare the magnitude of two floats, ignoring their signs
+   * @param f1
+   * @param f2
+   * @returns {number}
+   */
   static cmpMagnitude (f1, f2) {
     if (f1.exp < f2.exp) {
       return -1
@@ -927,7 +933,6 @@ export class BigFloat {
 
   /**
    * Add floats f1 and f2 to the target float, using the precision of the target. This function does not allow aliasing.
-   *
    * @param f1 {BigFloat} The first float
    * @param f2 {BigFloat} The second float
    * @param target {BigFloat} The target float
@@ -997,10 +1002,17 @@ export class BigFloat {
    * @param target {BigFloat}
    * @param roundingMode {number}
    */
-  static subtract (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static sub (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
     BigFloat.add(f1, f2, target, roundingMode, true)
   }
 
+  /**
+   * Multiply two numbers and write the result to the target.
+   * @param f1 {BigFloat}
+   * @param f2 {BigFloat}
+   * @param target {BigFloat}
+   * @param roundingMode {number}
+   */
   static mul (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
     let f1Sign = f1.sign
     let f2Sign = f2.sign
@@ -1019,18 +1031,18 @@ export class BigFloat {
 
   /**
    * Multiply a float by a JS number, writing the result to the target. This function does support aliasing.
-   * @param f1
+   * @param float
    * @param num
    * @param target
    * @param roundingMode
    */
-  static mulNumber (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
-    let isAliased = f1 === target
+  static mulNumber (float, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
+    let isAliased = float === target
 
     if (num === 0) {
       target.setZero()
     } else if (num === 1) {
-      if (!isAliased) target.setFromFloat(f1)
+      if (!isAliased) target.setFromFloat(float)
       return
     }
 
@@ -1038,10 +1050,10 @@ export class BigFloat {
       let absNum = Math.abs(num)
 
       if (absNum <= 0x3fffffff) {
-        let shift = multiplyMantissaByInteger(f1.mant, num, target.prec, target.mant, roundingMode)
+        let shift = multiplyMantissaByInteger(float.mant, num, target.prec, target.mant, roundingMode)
 
-        target.sign = f1.sign * Math.sign(num)
-        target.exp = f1.exp + shift
+        target.sign = float.sign * Math.sign(num)
+        target.exp = float.exp + shift
 
         return
       }
@@ -1050,10 +1062,10 @@ export class BigFloat {
     if (isAliased) {
       let tmp = BigFloat.new(target.prec)
 
-      BigFloat.mul(f1, BigFloat.fromNumber(num), tmp, roundingMode)
+      BigFloat.mul(float, BigFloat.fromNumber(num), tmp, roundingMode)
       target.set(tmp)
     } else {
-      BigFloat.mul(f1, BigFloat.fromNumber(num), target, roundingMode)
+      BigFloat.mul(float, BigFloat.fromNumber(num), target, roundingMode)
     }
   }
 
