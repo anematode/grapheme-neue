@@ -404,7 +404,7 @@ export function subtractMantissas (mant1, mant2, mant2Shift, precision, targetMa
 
   let shift = 0
   if (newMantissa[0] === 0) {
-    leftShiftMantissaInPlace(newMantissa, 30)
+    leftShiftMantissa(newMantissa, 30)
     shift -= 1
   }
 
@@ -414,86 +414,91 @@ export function subtractMantissas (mant1, mant2, mant2Shift, precision, targetMa
 }
 
 /**
- * Right shift a mantissa by shift bits, destroying any bits that trail off the end.
+ * Right shift a mantissa by shift bits, destroying any bits that trail off the end. This function supports aliasing.
  * @param mantissa {Int32Array}
  * @param shift {number}
+ * @param targetMantissa
  * @returns {Int32Array} Returns the passed mantissa
  */
-export function rightShiftMantissaInPlace (mantissa, shift) {
+export function rightShiftMantissaInPlace (mantissa, shift, targetMantissa=mantissa) {
   if (shift === 0) return mantissa
 
   let mantissaLen = mantissa.length
+  let targetMantissaLen = targetMantissa.length
 
   let integerShift = (shift / 30) | 0
   let bitShift = shift % 30
 
   if (bitShift === 0) {
+    let lastFilledIndex = Math.min(mantissaLen - 1, targetMantissaLen - integerShift - 1)
+
     // Since it's a multiple of 30, we just copy everything over
-    for (let i = mantissaLen - 1; i >= 0; --i) {
-      mantissa[i + integerShift] = mantissa[i]
+    for (let i = lastFilledIndex; i >= 0; --i) {
+      targetMantissa[i + integerShift] = mantissa[i]
     }
 
     // Fill empty stuff with zeros
-    for (let i = 0; i < integerShift; ++i) {
-      mantissa[i] = 0
-    }
+    for (let i = 0; i < integerShift; ++i) targetMantissa[i] = 0
+    for (let i = lastFilledIndex + integerShift + 1; i < targetMantissaLen; ++i) targetMantissa[i] = 0
   } else {
     let invBitShift = 30 - bitShift
     let firstNeededIndex = mantissaLen - integerShift - 1
+    let lastFilledIndex = firstNeededIndex + integerShift + 1
+
+    targetMantissa[lastFilledIndex] = 0
 
     for (let i = firstNeededIndex; i >= 0; --i) {
       let word = mantissa[i]
 
       // Two components from each word
       if (i !== firstNeededIndex)
-        mantissa[i + integerShift + 1] += (word & ((1 << bitShift) - 1)) << invBitShift
-      mantissa[i + integerShift] = word >> bitShift
+        targetMantissa[i + integerShift + 1] += (word & ((1 << bitShift) - 1)) << invBitShift
+      targetMantissa[i + integerShift] = word >> bitShift
     }
 
-    for (let i = 0; i < integerShift; ++i) mantissa[i] = 0
+    for (let i = 0; i < integerShift; ++i) targetMantissa[i] = 0
+    for (let i = lastFilledIndex; i < targetMantissaLen; ++i) targetMantissa[i] = 0
   }
-
-  return mantissa
 }
 
 /**
- * Left shift a mantissa by shift bits, destroying any bits that come off the front.
+ * Left shift a mantissa by shift bits, destroying any bits that come off the front, writing the result to target.
+ * This function supports aliasing.
  * @param mantissa {Int32Array}
  * @param shift {number}
+ * @param targetMantissa
  * @returns {Int32Array} Returns the passed mantissa
  */
-export function leftShiftMantissaInPlace (mantissa, shift) {
+export function leftShiftMantissa (mantissa, shift, targetMantissa=mantissa) {
   if (shift === 0) return mantissa
 
   let mantissaLen = mantissa.length
+  let targetMantissaLen = targetMantissa.length
 
   let integerShift = Math.floor(shift / 30)
   let bitShift = shift % 30
 
   if (bitShift === 0) {
     // Since it's a multiple of 30, we just copy everything over
-    for (let i = integerShift; i < mantissa.length; ++i) {
-      mantissa[i - integerShift] = mantissa[i]
+    for (let i = integerShift; i < mantissaLen; ++i) {
+      targetMantissa[i - integerShift] = mantissa[i]
     }
 
     // Fill empty stuff with zeros
-    for (let i = mantissa.length - integerShift; i < mantissa.length; ++i) {
-      mantissa[i] = 0
+    for (let i = mantissaLen - integerShift; i < targetMantissaLen; ++i) {
+      targetMantissa[i] = 0
     }
   } else {
     let invBitShift = 30 - bitShift
-    let mantissaLength = mantissa.length
 
-    for (let i = integerShift; i < mantissaLength; ++i) {
-      mantissa[i - integerShift] = ((mantissa[i] << bitShift) & 0x3fffffff) + ((i < mantissaLength - 1) ? (mantissa[i + 1] >> invBitShift) : 0)
+    for (let i = integerShift; i < mantissaLen; ++i) {
+      targetMantissa[i - integerShift] = ((mantissa[i] << bitShift) & 0x3fffffff) + ((i < mantissaLen - 1) ? (mantissa[i + 1] >> invBitShift) : 0)
     }
 
-    for (let i = mantissaLength - integerShift; i < mantissaLength; ++i) {
-      mantissa[i] = 0
+    for (let i = mantissaLen - integerShift; i < targetMantissaLen; ++i) {
+      targetMantissa[i] = 0
     }
   }
-
-  return mantissa
 }
 
 /**
@@ -601,7 +606,7 @@ export function multiplyMantissas (mant1, mant2, precision, targetMantissa, roun
   let shift = 0
 
   if (arr[0] === 0) {
-    leftShiftMantissaInPlace(arr, 30)
+    leftShiftMantissa(arr, 30)
     shift -= 1
   }
 
@@ -778,13 +783,13 @@ export function divMantissas (mant1, mant2, precision, targetMantissa, roundingM
     let shift = mant1Zeros - mant2LeadingZeros
 
     if (shift !== 0) {
-      leftShiftMantissaInPlace(mant1Copy, shift)
+      leftShiftMantissa(mant1Copy, shift)
       pushZeroBits(shift)
     }
 
     let cmp = compareMantissas(mant1Copy, mant2)
     if (cmp === -1) {
-      leftShiftMantissaInPlace(mant1Copy, 1)
+      leftShiftMantissa(mant1Copy, 1)
       pushZeroBits(1)
     } else if (cmp === 0) {
       pushOneBit()
@@ -1069,6 +1074,31 @@ export class BigFloat {
     }
   }
 
+  /**
+   * Multiply a float by a power of two, writing the result to the target.
+   */
+  static mulPowerOfTwo (float, exponent, target, roundingMode=CURRENT_ROUNDING_MODE) {
+    if (float.sign === 0 || !Number.isFinite(float.sign)) {
+      target.sign = float.sign
+      return
+    }
+
+    let clz = Math.clz32(float.mant[0]) - 2
+    let newClz = clz - exponent
+
+    let expShift = 0
+
+    if (newClz > 29 || newClz < 0) {
+      expShift = Math.floor(newClz / 30)
+      newClz = newClz - expShift * 30
+    }
+
+    this.exp += expShift
+
+    let bitshift = clz - newClz
+
+  }
+
   static div (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
     let f1Sign = f1.sign
     let f2Sign = f2.sign
@@ -1082,6 +1112,68 @@ export class BigFloat {
 
     target.exp = f1.exp - f2.exp + shift
     target.sign = f1Sign / f2Sign
+  }
+
+  /**
+   * Ah, our first transcendental function. We split it up as you'd expect: an integer part for the (2^30)^e, and a
+   * fractional part for the rest. The actual computation of log2(m) where 2^-30 <= m < 1 is trickier. My first instinct
+   * was to somehow turn it into an expression involving natural log and use some series expansion. Another potential
+   * method is to do repeated squaring followed by division on m, which would emit bits corresponding to the logarithm.
+   * First, we notice that we can move m into the range 0.5 <= m < 1 only, which makes things easier. To find ln(m) we
+   * could use the Taylor series for ln(1+x). We'd have -0.5 <= x < 0, in which range the series converges relatively
+   * quickly... let's start there for now. I have some other ideas.
+   * @param f1
+   * @param target
+   * @param roundingMode
+   */
+  static log2 (f1, target, roundingMode=CURRENT_ROUNDING_MODE) {
+    let f1Sign = f1.sign
+
+    console.log("hi")
+
+    if (f1Sign === 0) {
+      target.sign = -Infinity
+      return
+    } else if (f1Sign < 0) {
+      target.sign = NaN
+      return
+    } else if (!Number.isFinite(f1Sign)) {
+      target.sign = f1Sign // NaN or Infinity
+      return
+    }
+
+    let mant = new Int32Array(f1.mant)
+
+    let shift = Math.clz32(mant[0]) - 2
+    leftShiftMantissa(mant, shift)
+
+    let integerPart = f1.exp * 30 + shift
+
+    // We now have a float between 0.5 and 1 and an integer part. It remains to find the natural log of the mantissa
+    // via the series ln(1+x) = x - x^2/2 + x^3/3 - ...
+
+    let x = BF.new()
+    BF.mulPowerOfTwo(f1, shift, x)
+
+    let xExp = BF.fromNumber(1)
+    let accum = BF.new()
+    let accum2 = BF.new()
+
+    for (let i = 0; i < 10; ++i) {
+
+    }
+  }
+
+  /**
+   * Return the floored base-2 logarithm of a number, which can be useful for many reasons
+   * @param f1
+   * @returns {number}
+   */
+  static floorLog2 (f1) {
+    if (f1.sign === 0 || !Number.isFinite(f1.sign)) return Math.log2(f1.sign)
+    if (f1.sign < 0) return NaN
+
+    return f1.exp * 30 - Math.clz32(f1.mant[0]) + 1
   }
 
   static zero ({ precision = CURRENT_PRECISION } = {}) {
