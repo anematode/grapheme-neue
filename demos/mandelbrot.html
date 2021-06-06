@@ -26,7 +26,7 @@
 
     Grapheme.CURRENT_ROUNDING_MODE = Grapheme.ROUNDING_MODE.WHATEVER
 
-    function display () {
+    function displayBigFloat () {
         let w = canvas.width
         let h = canvas.height
 
@@ -58,6 +58,8 @@
                     zIm = newIm
                 }
 
+                if (iterations === 0 && (plotRe.toNumber() ** 2 + plotIm.toNumber() ** 2 < 0.02)) console.log(plotRe, plotIm)
+
                 let index = 4 * (y * w + x)
                 img[index] = iterations / maxIterations * 255
                 img[index+1] = iterations / maxIterations * 255
@@ -70,7 +72,50 @@
         ctx.putImageData(new ImageData(img, w, h), 0, 0)
     }
 
-    display()
+    function displayBigDecimal () {
+        let w = canvas.width
+        let h = canvas.height
+
+        const img = new Uint8ClampedArray(w * h * 4)
+        let viewport = { cx: new Decimal(0), cy: new Decimal(0), w: new Decimal(2), h: new Decimal(1) }
+
+        console.time("start")
+        for (let y = 0; y < h; ++y) {
+            let fracY = new Decimal(y / h - 0.5)
+
+            for (let x = 0; x < w; ++x) {
+                let fracX = new Decimal(x / w - 0.5)
+
+                let plotRe = Decimal.add(Decimal.mul(fracX, viewport.w), viewport.cx)
+                let plotIm = Decimal.add(Decimal.mul(fracY, viewport.h), viewport.cy)
+
+                let zRe = new Decimal(plotRe)
+                let zIm = new Decimal(plotIm)
+
+                let iterations = 0
+                let maxIterations = 4
+
+                for (; iterations < maxIterations; ++iterations) {
+                    newRe = Decimal.add(Decimal.sub(Decimal.mul(zRe, zRe), Decimal.mul(zIm, zIm)), plotRe)
+                    newIm = Decimal.add(Decimal.mul(Decimal.mul(zRe, zIm), 2), plotIm)
+
+                    if (newRe.toNumber() ** 2 + newIm.toNumber() ** 2 > 2) break
+
+                    zRe = newRe
+                    zIm = newIm
+                }
+
+                let index = 4 * (y * w + x)
+                img[index] = iterations / maxIterations * 255
+                img[index+1] = iterations / maxIterations * 255
+                img[index+2] = iterations / maxIterations * 255
+                img[index+3] = 255
+            }
+        }
+        console.timeEnd("start")
+
+        ctx.putImageData(new ImageData(img, w, h), 0, 0)
+    }
 
 </noscript>
 

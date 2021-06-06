@@ -371,11 +371,11 @@ export function multiplyMantissaByInteger (mantissa, precision, int, roundingMod
 
   if (carry === 0) {
     // Shift left; there was no carry after all
-    for (let i = 0; i < mantissa.length - 1; ++i) {
-      mantissa[i] = mantissa[i + 1]
+    for (let i = 0; i < newMantissa.length - 1; ++i) {
+      newMantissa[i] = newMantissa[i + 1]
     }
 
-    mantissa[mantissa.length - 1] = 0
+    newMantissa[newMantissa.length - 1] = 0
     shift -= 1
   }
 
@@ -679,6 +679,8 @@ export function subtractMantissas (mant1, mant2, mant2Shift, precision, rounding
     newMantissa[i - subtractionShift] -= mant2[i - mant2Shift]
   }
 
+  console.log(newMantissa)
+
   let carry = 0
   for (let i = newMantissaLen - 1; i >= 0; --i) {
     let word = newMantissa[i] - carry
@@ -701,7 +703,7 @@ export function subtractMantissas (mant1, mant2, mant2Shift, precision, rounding
 
   const { shift: roundingShift, mantissa } = roundMantissaToPrecision(newMantissa, precision, roundingMode)
 
-  return { shift: subtractionShift + shift + roundingShift, mantissa }
+  return { shift: shift + roundingShift - subtractionShift, mantissa }
 }
 
 /**
