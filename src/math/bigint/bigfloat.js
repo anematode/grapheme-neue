@@ -1512,6 +1512,26 @@ export class BigFloat {
     this.sign = NaN
   }
 
+  lessThan (f) {
+    return BigFloat.cmpNumber(this, f) === -1
+  }
+
+  lessEq (f) {
+    return BigFloat.cmpNumber(this, f) <= 0
+  }
+
+  equals (f) {
+    return BigFloat.cmpNumber(this, f) === 0
+  }
+
+  greaterThan (f) {
+    return BigFloat.cmpNumber(this, f) === 1
+  }
+
+  greaterEq (f) {
+    return BigFloat.cmpNumber(this, f) >= 0
+  }
+
   /**
    * Convert this float into a float with a different precision, rounded in the correct direction
    * @param precision
