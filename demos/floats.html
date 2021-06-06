@@ -20,11 +20,26 @@
             print (flt.mant ?? flt.mantissa)
     }
 
-    let n = 8.98846567431158e+307
-    let d = 9007199254740991
+    let n = 0.04102418929
+    let d = 0.041021082141
 
-    const flt = BF.divide(BF.fromNumber(n), BF.fromNumber(d), {precision:53})
+    const flt = BF.multiply(BF.fromNumber(n), BF.fromNumber(d), { precision: 106 })
 
+    let decimalN = new Decimal(n)
+    let decimalD = new Decimal(d)
+
+    let bfN = BF.fromNumber(n, { precision: 70 })
+    let bfD = BF.fromNumber(d, { precision: 70 })
+
+    let resD, resBF
+
+    Grapheme.utils.performance(() => {
+        resD = Decimal.mul(decimalN, decimalD)
+    }, 1e6, "decimal")
+
+    Grapheme.utils.performance(() => {
+        resBF = BF.multiply(bfN, bfD)
+    }, 1e6, "grapheme")
 
 </noscript>
 

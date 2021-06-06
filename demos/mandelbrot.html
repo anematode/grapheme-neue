@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Elements</title>
+</head>
+<body>
+
+<script src="https://cdn.jsdelivr.net/npm/jsbi@3.1.4/dist/jsbi-umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/decimal.js/9.0.0/decimal.js"></script>
+
+<noscript id="setup">
+    let BI = Grapheme.BigInt
+    let BF = Grapheme.BigFloat
+
+    const canvas = document.createElement("canvas")
+
+    canvas.width = 1000
+    canvas.height = 500
+
+    document.body.appendChild(canvas)
+
+    const ctx = canvas.getContext('2d')
+
+    let viewport = { cx: BF.fromNumber(0), cy: BF.fromNumber(0), w: BF.fromNumber(2), h: BF.fromNumber(1) }
+
+    Grapheme.CURRENT_ROUNDING_MODE = Grapheme.ROUNDING_MODE.WHATEVER
+
+    function display () {
+        let w = canvas.width
+        let h = canvas.height
+
+        const img = new Uint8ClampedArray(w * h * 4)
+
+        console.time("start")
+        for (let y = 0; y < h; ++y) {
+            let fracY = BF.fromNumber(y / h - 0.5)
+
+            for (let x = 0; x < w; ++x) {
+                let fracX = BF.fromNumber(x / w - 0.5)
+
+                let plotRe = BF.add(BF.multiply(fracX, viewport.w), viewport.cx)
+                let plotIm = BF.add(BF.multiply(fracY, viewport.h), viewport.cy)
+
+                let zRe = plotRe.clone()
+                let zIm = plotIm.clone()
+
+                let iterations = 0
+                let maxIterations = 4
+
+                for (; iterations < maxIterations; ++iterations) {
+                    newRe = BF.add(BF.subtract(BF.multiply(zRe, zRe), BF.multiply(zIm, zIm)), plotRe)
+                    newIm = BF.add(BF.multiply(zRe, zIm).multiplyByIntegerInPlace(2), plotIm)
+
+                    if (newRe.toNumber() ** 2 + newIm.toNumber() ** 2 > 2) break
+
+                    zRe = newRe
+                    zIm = newIm
+                }
+
+                let index = 4 * (y * w + x)
+                img[index] = iterations / maxIterations * 255
+                img[index+1] = iterations / maxIterations * 255
+                img[index+2] = iterations / maxIterations * 255
+                img[index+3] = 255
+            }
+        }
+        console.timeEnd("start")
+
+        ctx.putImageData(new ImageData(img, w, h), 0, 0)
+    }
+
+    display()
+
+</noscript>
+
+<script src="test_setup.js"></script>
+
+
+</body>
+</html>

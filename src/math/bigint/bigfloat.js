@@ -14,6 +14,8 @@ const BIGFLOAT_WORD_MAX = BIGFLOAT_WORD_SIZE - 1
 let CURRENT_PRECISION = 53
 let CURRENT_ROUNDING_MODE = ROUNDING_MODE.NEAREST
 
+export { CURRENT_PRECISION, CURRENT_ROUNDING_MODE }
+
 /**
  * The minimum number of words needed to store a mantissa with prec bits. The +1 is because the bits need to be stored
  * at any shift within the word, from 1 to 29, so some space may be needed
@@ -55,105 +57,94 @@ function getTrailingInfo (mantissa, index) {
 }
 
 /**
- * Round an (unsigned) mantissa to a given precision, in one of a few rounding modes. Also returns a shift if
- * the rounding operation brings the float to a higher exponent.
+ * Round an (unsigned) mantissa to a given precision, in one of a few rounding modes. Also returns a shift if the
+ * rounding operation brings the float to a higher exponent. Trailing information may be provided about the digits
+ * following the mantissa to ensure correct rounding in those cases.
  * @param mantissa {Int32Array} Array of 30-bit mantissa words
  * @param precision {number} Precision, in bits, to round the mantissa to
  * @param roundingMode {number} Rounding mode; the operation treats the number as positive
  * @param trailingInfo {number} 0 if the mantissa is followed by infinite zeros; 1 if between 0 and 0.5; 2 if a tie; 3 if between a tie and 1
+ * @param trailingInfoMode {number} 0 if the trailingInfo is considered to be at the end of all the words; 1 if it's considered to be at the end of precision
  * @returns {{shift: (number), mantissa: (Int32Array)}} 1 or 0
  */
 export function roundMantissaToPrecision (mantissa, precision, roundingMode=CURRENT_ROUNDING_MODE, trailingInfo=0, trailingInfoMode=0) {
   if (roundingMode === ROUNDING_MODE.WHATEVER) {
-    // Just create a mantissa of the correct length
+    // Create a mantissa of the correct length
     let neededWords = neededWordsForPrecision(precision)
     if (mantissa.length === neededWords) {
-      return {shift: 0, mantissa}
+      return { shift: 0, mantissa }
     } else {
       let newMantissa = new Int32Array(neededWords)
-      return {shift: 0, mantissa: newMantissa}
+      return { shift: 0, mantissa: newMantissa }
     }
   }
 
+  // Create a mantissa, which may or may not be longer than the given mantissa
   let newMantissa = createMantissaForPrecision(precision)
   let newMantissaLen = newMantissa.length
   let mantissaLen = mantissa.length
 
+  // Copy over the given mantissa
   for (let i = 0; i < newMantissaLen; ++i) {
     newMantissa[i] = mantissa[i]
   }
 
-  // How many ghost bits there are at the beginning
+  // How many ghost bits there are at the beginning; in other words, where to start counting precision bits from
   let offset = Math.clz32(mantissa[0]) - 2
 
-  // Which BIT to start truncating at, indexing from 0
+  // Which bit to start truncating at, indexing from 0 = the beginning of the mantissa
   let trunc = precision + offset
   let truncWord = (trunc / BIGFLOAT_WORD_BITS) | 0
 
   // Number of bits to truncate off the word, a number between 1 and 30 inclusive
   let truncateLen = BIGFLOAT_WORD_BITS - (trunc - truncWord * BIGFLOAT_WORD_BITS)
 
+  // Remainder of the truncation and whether to do a carry after the truncation (rounding up)
   let rem = 0, doCarry = false
 
   // If the truncation would happen after the end of the mantissa...
   if (truncWord >= newMantissaLen) {
-    let isAtVeryEnd = truncWord === newMantissaLen && truncateLen === 30
+    // Whether the truncation bit is on the (nonexistent) word right after the mantissa
+    let isAtVeryEnd = truncWord === newMantissaLen && truncateLen === BIGFLOAT_WORD_BITS
 
-    if (trailingInfoMode === 1) {
-      if (!isAtVeryEnd) {
-        if (trailingInfo > 0) {
-          trailingInfo = 1
-          isAtVeryEnd = true
-        }
-      }
+    // Fake a trailing info after the end. Our general strategy with trailingInfoMode = 1 is to convert it into a form
+    // that trailingInfoMode = 0 can handle
+    if (!isAtVeryEnd && trailingInfoMode === 1 && trailingInfo > 0) {
+      // Any positive trailing info that isn't at the very end turns into a trailing info between 0 and 0.5 at the end
+      trailingInfo = 1
+      isAtVeryEnd = true
     }
 
-    // We use trailingInfo to determine the truncation
+    // If rounding at the very end, what we do depends directly on the trailingInfo. To avoid complicating matters, we
+    // "fake" the tie and round up cases so that the code doesn't have to be duplicated--especially the tie code, which
+    // is slightly intricate
     if (isAtVeryEnd) {
       if (trailingInfo === 0 || (roundingMode === ROUNDING_MODE.DOWN || roundingMode === ROUNDING_MODE.TOWARD_ZERO) ||
         ((trailingInfo === 1) && (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.TOWARD_ZERO))) {
         return { shift: 0, mantissa: newMantissa }
       } else if (trailingInfo === 2 && (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.TOWARD_ZERO)) {
-        rem = 1 << 29     // emulate tie
+        rem = 0x20000000 // emulate tie = BIGFLOAT_WORD_SIZE / 2
       } else {
-        rem = 0x3fff0000  // lol, emulate round up
+        rem = 0x30000000 // emulate round up = 3 * BIGFLOAT_WORD_SIZE / 4
       }
-    } else return { shift: 0, mantissa: newMantissa } // otherwise do nothing
+    } else {
+      // Otherwise, if the rounding is happening after the very end, nothing happens since it's already all 0s
+      return { shift: 0, mantissa: newMantissa }
+    }
   } else {
     // Truncate the word
     let word = newMantissa[truncWord]
     let truncatedWord = (word >> truncateLen) << truncateLen
-
     newMantissa[truncWord] = truncatedWord
 
     // Store the remainder, aka what was just truncated off
-    if (trailingInfoMode !== 1) {
+    if (trailingInfoMode === 0) {
       rem = word - truncatedWord
     } else {
-      switch (trailingInfo) {
-        case 0:
-          rem = 0
-          trailingInfo = 0
-          break
-        case 1:
-          rem = 0
-          trailingInfo = 1
-          break
-        case 2:
-          rem = 1 << (truncateLen - 1)
-          trailingInfo = 0
-          break
-        case 3:
-          rem = 1 << (truncateLen - 1)
-          trailingInfo = 1
-          break
-      }
-    }
-  }
-
-  if (trailingInfoMode === 1) {
-    for (let j = truncWord; ++j < newMantissaLen; ) {
-      newMantissa[j] = 0
+      // When in info mode 1, we fake a remainder and trailing info that corresponds to the correct rounding mode.
+      // 0 -> (0, 0), 1 (between 0 and 0.5) -> (0, positive), 2 -> (tie, 0), 3 -> (tie, (between 0 and 0.5))
+      rem = (trailingInfo < 2) ? 0 : (1 << (truncateLen - 1))
+      trailingInfo &= 1
     }
   }
 
@@ -161,15 +152,18 @@ export function roundMantissaToPrecision (mantissa, precision, roundingMode=CURR
   // was truncated. For example, if we just truncated 011010110|1000, and our rounding mode is, say, TIES_AWAY, then we
   // determine that we have to round up and add 1 to the end: 01101011[1]. We call this a carry because it could
   // carry down the word in the right circumstances.
-
   doCarry: if (roundingMode === ROUNDING_MODE.UP || roundingMode === ROUNDING_MODE.TOWARD_INF) {
-    // If we're rounding up, we carry if and only if the remainder is positive or there is a nonzero word after the truncated word
+    // If we're rounding up, we carry if and only if the remainder is positive or there is a nonzero word after the
+    // truncated word. If in info mode 1 we treat all the numbers following as 0 anyway, since that information is
+    // contained within rem and trailingInfo
     if (rem > 0 || trailingInfo > 0) {
       doCarry = true
-    } else for (let i = truncWord + 1; i < mantissaLen; ++i) {
-      if (mantissa[i] !== 0) {
-        doCarry = true
-        break
+    } else if (trailingInfoMode === 0) {
+      for (let i = truncWord + 1; i < mantissaLen; ++i) {
+        if (mantissa[i] !== 0) {
+          doCarry = true
+          break
+        }
       }
     }
   } else if (roundingMode === ROUNDING_MODE.NEAREST || roundingMode === ROUNDING_MODE.TIES_AWAY) {
@@ -177,44 +171,46 @@ export function roundMantissaToPrecision (mantissa, precision, roundingMode=CURR
     // rest of the limbs are 0, then break the tie
     let splitPoint = 1 << (truncateLen - 1)
 
-    if (rem < splitPoint) break doCarry
-    else if (rem > splitPoint || trailingInfo > 0) {
+    if (rem > splitPoint) {
       doCarry = true
-      break doCarry
-    } else {
-      for (let i = truncWord + 1; i < mantissaLen; ++i) {
-        // Try to break the tie by looking for nonzero bits
-        if (mantissa[i] !== 0) {
+    } else if (rem === splitPoint) {
+      if (trailingInfo > 0) {
+        doCarry = true
+      } else {
+        if (trailingInfoMode === 0) {
+          // Try to break the tie by looking for nonzero bits
+          for (let i = truncWord + 1; i < mantissaLen; ++i) {
+            if (mantissa[i] !== 0) {
+              doCarry = true
+              break doCarry
+            }
+          }
+        }
+
+        // Need to break the tie
+        if (roundingMode === ROUNDING_MODE.TIES_EVEN) {
+          // We only do the carry if it would give an even bit at the end. To do this we query for the bit which will be
+          // affected (the truncateLen th bit). If the bit is 1, we do the carry. If truncateLen is 30 then we have to look
+          // at the preceding word for the bit, since we truncated *at* a word
+          let bit = (truncateLen === BIGFLOAT_WORD_BITS) ?
+            (newMantissa[truncWord - 1] & 1) :
+            ((newMantissa[truncWord] >> truncateLen) & 1)
+
+          if (bit) doCarry = true
+        } else {
+          // Ties away from zero; always carry
           doCarry = true
-          break doCarry
         }
       }
-    }
-
-    // Tie
-    if (roundingMode === ROUNDING_MODE.TIES_EVEN) {
-      // We only do the carry if it would give an even bit at the end. To do this we query for the bit which will be
-      // affected (the truncateLen th bit). If the bit is 1, we do the carry. If truncateLen is 30 then we have to look
-      // at the preceding word for the bit, since we truncated *at* a word
-      let bit = (truncateLen === BIGFLOAT_WORD_BITS) ?
-        (newMantissa[truncWord - 1] & 1) :
-        ((newMantissa[truncWord] >> truncateLen) & 1)
-
-      if (bit) doCarry = true
-    } else {
-      // Ties away from zero; always carry
-      doCarry = true
     }
   }
 
   // Set all the words following the truncated word to 0
-  if (trailingInfoMode === 0) {
-    for (let j = truncWord; ++j < newMantissaLen;) {
-      newMantissa[j] = 0
-    }
+  for (let j = truncWord; ++j < newMantissaLen;) {
+    newMantissa[j] = 0
   }
 
-  // The carry value is returned indicating whether the mantissa has "overflowed", in some sense
+  // The carry value is returned indicating whether the mantissa has "overflowed" due to rounding
   let carry = 0
 
   if (doCarry) {
@@ -232,14 +228,14 @@ export function roundMantissaToPrecision (mantissa, precision, roundingMode=CURR
       } else {
         newMantissa[j] = word
         carry = 0
-        break
+        break // can immediately break
       }
     }
   }
 
   if (carry === 1) {
-    // We carried the whole way and still have a 1, meaning the mantissa is now full of zeros. We shift to the right
-    // by 30 bits and call it a day
+    // We carried the whole way and still have a 1, meaning the mantissa is now full of zeros and we need to shift by
+    // one word and set the first word to a 1
     newMantissa[0] = 1
 
     return { shift: 1, mantissa: newMantissa }
@@ -375,7 +371,11 @@ export function multiplyMantissaByInteger (mantissa, precision, int, roundingMod
 
   if (carry === 0) {
     // Shift left; there was no carry after all
-    newMantissa = newMantissa.subarray(1)
+    for (let i = 0; i < mantissa.length - 1; ++i) {
+      mantissa[i] = mantissa[i + 1]
+    }
+
+    mantissa[mantissa.length - 1] = 0
     shift -= 1
   }
 
