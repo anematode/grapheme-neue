@@ -322,7 +322,7 @@ export function addMantissas (mant1, mant2, mant2Shift, precision, targetMantiss
   let shift = 0
 
   if (carry) {
-    rightShiftMantissaInPlace(newMantissa, 30)
+    rightShiftMantissa(newMantissa, 30)
     newMantissa[0] = 1
     shift += 1
   }
@@ -420,7 +420,7 @@ export function subtractMantissas (mant1, mant2, mant2Shift, precision, targetMa
  * @param targetMantissa
  * @returns {Int32Array} Returns the passed mantissa
  */
-export function rightShiftMantissaInPlace (mantissa, shift, targetMantissa=mantissa) {
+export function rightShiftMantissa (mantissa, shift, targetMantissa=mantissa) {
   if (shift === 0) return mantissa
 
   let mantissaLen = mantissa.length
@@ -680,7 +680,7 @@ export function multiplyMantissas2 (mant1, mant2, precision, targetMantissa, rou
   let shift = -1
 
   if (highestWord !== 0) {
-    rightShiftMantissaInPlace(targetMantissa, 30)
+    rightShiftMantissa(targetMantissa, 30)
 
     targetMantissa[0] = highestWord
     shift = 0
@@ -888,6 +888,95 @@ export function prettyPrintFloat (mantissa, precision) {
   return words + '\n' + indices
 }
 
+// Works for f in -0.5 <= f <= 0.5 using the straightforward Taylor series expansion
+function slowLn1pBounded (f, precision) {
+  // if (!(-0.5 <= f && f <= 0.5)) throw new RangeError("f must be between -0.5 and 0.5")
+
+  precision += 10
+
+  let fExp = BigFloat.fromNumber(1)
+
+  let fExp2 = BigFloat.new(precision)
+  let term = BigFloat.new(precision)
+  let accum = BigFloat.new(precision)
+  let accum2 = BigFloat.new(precision)
+
+  let bitsPerIteration = -BigFloat.floorLog2(f, true)
+  let iterations = precision / bitsPerIteration
+
+  console.log(iterations)
+
+  // The rate of convergence depends on f, with about -log2(abs(f)) bits being generated each time. Since we
+  for (let i = 0; i < iterations; ++i) {
+    BigFloat.mul(fExp, f, fExp2, ROUNDING_MODE.WHATEVER)
+    BigFloat.divNumber(fExp2, ((i & 1) ? -1 : 1) * (i + 1), term, ROUNDING_MODE.WHATEVER)
+    BigFloat.add(accum, term, accum2, ROUNDING_MODE.WHATEVER)
+
+    // Swap the accumulators
+    let tmp = accum
+    accum = accum2
+    accum2 = tmp
+
+    tmp = fExp
+    fExp = fExp2
+    fExp2 = tmp
+  }
+
+  return accum
+}
+
+// Compute ln(x) for x in [1, 1.5] so we can later shift arguments via multiplication and subtraction into a
+// neighborhood of 1 by caching some of these values, then using slowLn1pBounded or arctanhSmallRange
+function lnBaseCase (f, precision) {
+
+}
+
+// Compute atanh(f) for f in [0, 1/5] for use in natural log calculations, since ln(x) = 2 arctanh((x-1)/(x+1))
+export function arctanhSmallRange (f, precision) {
+  precision += 10
+
+  // atanh(x) = x + x^3 / 3 + x^5 / 5 + ... meaning at worst we have convergence at -log2((1/5)^2) = 4.6 bits / iteration
+  let accum = BF.new(precision), accumSwap = BF.new(precision), fSq = BF.new(precision), ret = BF.new(precision)
+  BF.mul(f, f, fSq)
+
+  // Compute 1 + x^2 / 3 + x^4 / 5 + ...
+  let pow = BF.fromNumber(1)
+  let powSwap = BF.new(), powDiv = BF.new()
+
+  let bitsPerIteration = -BigFloat.floorLog2(fSq)
+  let iterations = precision / bitsPerIteration
+
+  for (let i = 0; i < iterations; ++i) {
+    BF.divNumber(pow, 2 * i + 1, powDiv)
+
+    BF.mul(pow, fSq, powSwap)
+    ;[ powSwap, pow ] = [ pow, powSwap ]
+
+    BF.add(accum, powDiv, accumSwap)
+    ;[ accumSwap, accum ] = [ accum, accumSwap ]
+  }
+
+  // Multiply by x
+  BF.mul(accum, f, ret)
+
+  return ret
+}
+
+const CACHED_CONSTANTS = {}
+
+export function getLn1p5 (minPrecision) {
+  let c = CACHED_CONSTANTS.ln1p5
+
+  if (c && c.prec >= minPrecision) return c
+
+  let f = BigFloat.fromNumber(0.5)
+
+  c = slowLn1pBounded(f, minPrecision)
+  CACHED_CONSTANTS.ln1p5 = c
+
+  return c
+}
+
 export class BigFloat {
   constructor (sign, exponent, precision, mantissa) {
     this.sign = sign
@@ -934,6 +1023,82 @@ export class BigFloat {
     } else {
       return compareMantissas(f1.mant, f2.mant)
     }
+  }
+
+  /**
+   * Compare two floats. If either is NaN, return NaN :P
+   * @param f1
+   * @param f2
+   * @returns {number}
+   */
+  static cmp (f1, f2) {
+    if (f1.sign < f2.sign) return -1
+    if (f1.sign > f2.sign) return 1
+
+    if (f1.sign === 0 && f2.sign === 0) return 0
+
+    if (!Number.isFinite(f1.sign) || !Number.isFinite(f2.sign)) {
+      // Then they are either both a same signed infinity, or two NaNs
+
+      if (Number.isNaN(f1.sign) || Number.isNaN(f2.sign)) return NaN
+      return 0
+    }
+
+    if (f1.exp < f2.exp) {
+      return -1
+    } else if (f1.exp > f2.exp) {
+      return 1
+    } else {
+      return f1.sign * compareMantissas(f1.mant, f2.mant)
+    }
+  }
+
+  /**
+   * Returns -1 if a is less than b, 0 if they are equal, and 1 if a is greater than b
+   * @param a {BigFloat|number}
+   * @param b {BigFloat|number}
+   */
+  static cmpNumber (a, b) {
+    if (a instanceof BigFloat && b instanceof BigFloat) {
+      return BigFloat.cmp(a, b)
+    }
+
+    if (typeof a === "number" && typeof b === "number") {
+      if (a < b) return -1
+      else if (a === b) return 0
+      else if (a > b) return 1
+      else return NaN
+    }
+
+    if (a instanceof BigFloat && typeof b === "number") {
+      if (BigFloat.isNaN(a) || Number.isNaN(b)) return NaN
+
+      const aSign = a.sign
+      const bSign = Math.sign(b)
+
+      if (aSign < bSign) return -1
+      else if (aSign > bSign) return 1
+
+      if (aSign === Infinity || aSign === -Infinity || aSign === 0) return 0
+
+      let aFlrLog2 = BigFloat.floorLog2(a, true)
+      let bFlrLog2 = flrLog2(b * bSign)
+
+      if (aFlrLog2 < bFlrLog2) {
+        return -aSign
+      } else if (aFlrLog2 > bFlrLog2) {
+        return aSign
+      } else {
+        // Fallback
+        DOUBLE_STORE.setFromNumber(b)
+
+        return BigFloat.cmp(a, DOUBLE_STORE)
+      }
+    } else if (typeof a === "number" && (b instanceof BigFloat)) {
+      return -BigFloat.cmpNumber(b, a)
+    }
+
+    throw new Error("Invalid arguments to cmpNumber")
   }
 
   /**
@@ -1000,6 +1165,12 @@ export class BigFloat {
     }
   }
 
+  static addNumber (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
+    DOUBLE_STORE.setFromNumber(num)
+
+    BigFloat.add(f1, DOUBLE_STORE, target, roundingMode)
+  }
+
   /**
    * Subtract two numbers and write the result to the target.
    * @param f1 {BigFloat}
@@ -1009,6 +1180,12 @@ export class BigFloat {
    */
   static sub (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
     BigFloat.add(f1, f2, target, roundingMode, true)
+  }
+
+  static subNumber (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
+    DOUBLE_STORE.setFromNumber(num)
+
+    BigFloat.sub(f1, DOUBLE_STORE, target, roundingMode)
   }
 
   /**
@@ -1035,7 +1212,7 @@ export class BigFloat {
   }
 
   /**
-   * Multiply a float by a JS number, writing the result to the target. This function does support aliasing.
+   * Multiply a float by a JS number and write the result to the target. This function does support aliasing.
    * @param float
    * @param num
    * @param target
@@ -1064,13 +1241,15 @@ export class BigFloat {
       }
     }
 
+    DOUBLE_STORE.setFromNumber(num)
+
     if (isAliased) {
       let tmp = BigFloat.new(target.prec)
 
-      BigFloat.mul(float, BigFloat.fromNumber(num), tmp, roundingMode)
+      BigFloat.mul(float, DOUBLE_STORE, tmp, roundingMode)
       target.set(tmp)
     } else {
-      BigFloat.mul(float, BigFloat.fromNumber(num), target, roundingMode)
+      BigFloat.mul(float, DOUBLE_STORE, target, roundingMode)
     }
   }
 
@@ -1093,10 +1272,16 @@ export class BigFloat {
       newClz = newClz - expShift * 30
     }
 
-    this.exp += expShift
+    target.exp = float.exp - expShift
 
-    let bitshift = clz - newClz
+    let bitshift = newClz - clz
+    if (bitshift < 0) {
+      leftShiftMantissa(float.mant, -bitshift, target.mant)
+    } else if (bitshift > 0) {
+      rightShiftMantissa(float.mant, bitshift, target.mant)
+    }
 
+    target.sign = float.sign
   }
 
   static div (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
@@ -1114,6 +1299,12 @@ export class BigFloat {
     target.sign = f1Sign / f2Sign
   }
 
+  static divNumber (f1, num, target, roundingMode) {
+    DOUBLE_STORE.setFromNumber(num)
+
+    BigFloat.div(f1, DOUBLE_STORE, target, roundingMode)
+  }
+
   /**
    * Ah, our first transcendental function. We split it up as you'd expect: an integer part for the (2^30)^e, and a
    * fractional part for the rest. The actual computation of log2(m) where 2^-30 <= m < 1 is trickier. My first instinct
@@ -1129,8 +1320,6 @@ export class BigFloat {
   static log2 (f1, target, roundingMode=CURRENT_ROUNDING_MODE) {
     let f1Sign = f1.sign
 
-    console.log("hi")
-
     if (f1Sign === 0) {
       target.sign = -Infinity
       return
@@ -1142,36 +1331,50 @@ export class BigFloat {
       return
     }
 
-    let mant = new Int32Array(f1.mant)
+    let shift = Math.clz32(f1.mant[0]) - 2
+    let integerPart = f1.exp * 30 - shift
 
-    let shift = Math.clz32(mant[0]) - 2
-    leftShiftMantissa(mant, shift)
-
-    let integerPart = f1.exp * 30 + shift
+    let y = BigFloat.new(), x = BigFloat.new()
+    BigFloat.mulPowerOfTwo(f1, shift - 30, y)
+    BigFloat.sub(y, BF.fromNumber(1), x)
 
     // We now have a float between 0.5 and 1 and an integer part. It remains to find the natural log of the mantissa
     // via the series ln(1+x) = x - x^2/2 + x^3/3 - ...
 
-    let x = BF.new()
-    BF.mulPowerOfTwo(f1, shift, x)
-
-    let xExp = BF.fromNumber(1)
-    let accum = BF.new()
-    let accum2 = BF.new()
+    let xExp = BigFloat.fromNumber(1)
+    let xExp2 = BigFloat.new()
+    let term = BigFloat.new()
+    let accum = BigFloat.new()
+    let accum2 = BigFloat.new()
 
     for (let i = 0; i < 10; ++i) {
+      BigFloat.mul(xExp, x, xExp2)
+      BigFloat.mulNumber(xExp2, ((i & 1) ? -1 : 1) / (i + 1), term)
+      BigFloat.add(accum, term, accum2)
 
+      // Swap the accumulators
+      let tmp = accum
+      accum = accum2
+      accum2 = tmp
+
+      tmp = xExp
+      xExp = xExp2
+      xExp2 = tmp
     }
+
+    BigFloat.mul(accum, BF.fromNumber(Math.LOG2E), accum2)
+    BigFloat.add(accum2, BF.fromNumber(integerPart), target)
   }
 
   /**
    * Return the floored base-2 logarithm of a number, which can be useful for many reasons
    * @param f1
+   * @param ignoreSign
    * @returns {number}
    */
-  static floorLog2 (f1) {
+  static floorLog2 (f1, ignoreSign=false) {
     if (f1.sign === 0 || !Number.isFinite(f1.sign)) return Math.log2(f1.sign)
-    if (f1.sign < 0) return NaN
+    if (!ignoreSign && f1.sign < 0) return NaN
 
     return f1.exp * 30 - Math.clz32(f1.mant[0]) + 1
   }
@@ -1407,3 +1610,6 @@ export class BigFloat {
     return prettyPrintFloat(this.mant, this.prec)
   }
 }
+
+// Used for intermediate calculations to avoid allocating floats unnecessarily
+const DOUBLE_STORE = BigFloat.new(53)
