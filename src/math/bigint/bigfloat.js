@@ -679,8 +679,6 @@ export function subtractMantissas (mant1, mant2, mant2Shift, precision, rounding
     newMantissa[i - subtractionShift] -= mant2[i - mant2Shift]
   }
 
-  console.log(newMantissa)
-
   let carry = 0
   for (let i = newMantissaLen - 1; i >= 0; --i) {
     let word = newMantissa[i] - carry
@@ -811,7 +809,7 @@ export class BigFloat {
     outMantissa[0] = Math.floor(valMantissa / denom) /* from double */ + (isNumDenormal ? 0 : (1 << (30 - bitshift))) /* add 1 if not denormal */
 
     let rem = valMantissa % denom
-    if (rem > BIGFLOAT_WORD_MAX) {
+    if (bitshift > 8) {
       let cow = 1 << (bitshift - 8)
 
       outMantissa[1] = Math.floor(rem / cow)

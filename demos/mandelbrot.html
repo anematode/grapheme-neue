@@ -46,7 +46,7 @@
                 let zIm = plotIm.clone()
 
                 let iterations = 0
-                let maxIterations = 4
+                let maxIterations = 100
 
                 for (; iterations < maxIterations; ++iterations) {
                     newRe = BF.add(BF.subtract(BF.multiply(zRe, zRe), BF.multiply(zIm, zIm)), plotRe)
@@ -57,8 +57,6 @@
                     zRe = newRe
                     zIm = newIm
                 }
-
-                if (iterations === 0 && (plotRe.toNumber() ** 2 + plotIm.toNumber() ** 2 < 0.02)) console.log(plotRe, plotIm)
 
                 let index = 4 * (y * w + x)
                 img[index] = iterations / maxIterations * 255

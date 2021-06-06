@@ -7,6 +7,7 @@ if (document.location.origin.search("localhost") > -1) {
 import * as Grapheme from "../src/main.js"
 
 window.Grapheme = Grapheme
+window.deferLoad = () => {}
 
 // Remove and readd the script. It won't crash now.
 Grapheme.utils.onReady(() => {
@@ -15,7 +16,7 @@ const scriptText = script.innerHTML
 
 script.parentNode.removeChild(script)
 const newScript = document.createElement("script")
-newScript.setAttribute("id", "setup")
+newScript.setAttribute("id", "cow")
 newScript.innerHTML = scriptText
 document.body.appendChild(newScript)
 })
