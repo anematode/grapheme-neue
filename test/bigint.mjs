@@ -341,7 +341,7 @@ describe('subtract', function () {
 describe('multiply', function () {
   function testCase (f1, f2) {
     let res = BigFloat.new()
-    BigFloat.mul2(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
+    BigFloat.mul(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
 
     res = res.toNumber()
     if (Number.isNaN(f1 * f2)) {

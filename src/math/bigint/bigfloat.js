@@ -565,7 +565,6 @@ export function multiplyMantissaByInteger (mantissa, int, precision, targetManti
  */
 export function multiplyMantissas (mant1, mant2, precision, targetMantissa, roundingMode=CURRENT_ROUNDING_MODE) {
   let arr = new Int32Array(mant1.length + mant2.length + 1)
-  let targetMantissaLen = targetMantissa.length
 
   // Will definitely optimise later
   for (let i = mant1.length; i >= 0; --i) {
@@ -615,11 +614,26 @@ export function sqrtMantissa (mantissa, precision, targetMantissa, roundingMode=
   // We proceed by estimating the square root, then do a root finding search basically
 }
 
+/**
+ * Not yet fully resistant, but a significantly faster (2x speedup) multiplication operation that works by only
+ * multiplying the words which must appear in the final result. Hard to optimize beyond here until we get to Karatsuba
+ * and the like, which isn't really relevant at these small scales.
+ * @param mant1
+ * @param mant2
+ * @param precision
+ * @param targetMantissa
+ * @param roundingMode
+ * @returns {number}
+ */
 export function multiplyMantissas2 (mant1, mant2, precision, targetMantissa, roundingMode=CURRENT_ROUNDING_MODE) {
   let mant1Len = mant1.length, mant2Len = mant2.length
   let targetMantissaLen = targetMantissa.length
 
+  for (let i = 0; i < targetMantissaLen; ++i) targetMantissa[i] = 0
+
   let highestWord = 0
+
+  // Only add the products whose high words are within targetMantissa
   for (let i = Math.min(targetMantissaLen, mant1Len - 1); i >= 0; --i) {
     let mant1Word = mant1[i]
     let mant1Lo = mant1Word & 0x7FFF
@@ -637,7 +651,7 @@ export function multiplyMantissas2 (mant1, mant2, precision, targetMantissa, rou
       let high = Math.imul(mant1Hi, mant2Hi)
       let middle = Math.imul(mant1Hi, mant2Lo) + Math.imul(mant1Lo, mant2Hi)
 
-      low = low + ((middle & 0x7FFF) << 15) + ((writeIndex < targetMantissa.length) ? targetMantissa[writeIndex] : 0) + carry
+      low = low + ((middle & 0x7FFF) << 15) + ((writeIndex < targetMantissaLen) ? targetMantissa[writeIndex] : 0) + carry
       low >>>= 0
 
       if (low > 0x3FFFFFFF) {
@@ -647,7 +661,7 @@ export function multiplyMantissas2 (mant1, mant2, precision, targetMantissa, rou
 
       high += middle >> 15
 
-      if (writeIndex < targetMantissaLen) targetMantissa[i + j] = low
+      if (writeIndex < targetMantissaLen) targetMantissa[writeIndex] = low
       carry = high
     }
 
@@ -892,56 +906,6 @@ export class BigFloat {
     return float
   }
 
-  setFromNumber (num, roundingMode=CURRENT_ROUNDING_MODE) {
-    if (num === 0 || !Number.isFinite(num)) {
-      this.sign = num + 0
-      return
-    }
-
-    // In the odd case we want a lower precision, we create a normal precision and then downcast
-    if (this.prec < 53) {
-      this.set(BigFloat.fromNumber(num, { precision: 53, roundingMode }).toBigFloat({ precision: this.prec }))
-      return
-    }
-
-    const outMantissa = this.mant
-
-    let isNumDenormal = isDenormal(num)
-    let [ valExponent, valMantissa ] = getExponentAndMantissa(num)
-
-    // Exponent of the float (2^30)^newExp
-    let newExp = Math.ceil((valExponent + 1) / BIGFLOAT_WORD_BITS)
-
-    // The mantissa needs to be shifted to the right by this much. 0 < bitshift <= 30. If the number is denormal, we
-    // have to shift it by one bit less
-    let bitshift = newExp * BIGFLOAT_WORD_BITS - valExponent - isNumDenormal
-
-    let denom = pow2(bitshift + 22)
-    outMantissa[0] = Math.floor(valMantissa / denom) /* from double */ + (isNumDenormal ? 0 : (1 << (30 - bitshift))) /* add 1 if not denormal */
-
-    let rem = valMantissa % denom
-    if (bitshift > 8) {
-      let cow = 1 << (bitshift - 8)
-
-      outMantissa[1] = Math.floor(rem / cow)
-      outMantissa[2] = (rem % cow) << (38 - bitshift)
-    } else {
-      outMantissa[1] = rem << (8 - bitshift)
-    }
-
-    // Special handling; for extremely small denormal numbers, the first word is 0, so we shift them over
-    if (isNumDenormal && outMantissa[0] === 0) {
-      outMantissa[0] = outMantissa[1]
-      outMantissa[1] = outMantissa[2]
-      outMantissa[2] = 0
-
-      newExp -= 1
-    }
-
-    this.exp = newExp
-    this.sign = Math.sign(num) + 0
-  }
-
   /**
    * Create a new BigFloat, initialized to 0
    * @param precision
@@ -949,119 +913,6 @@ export class BigFloat {
    */
   static new (precision=CURRENT_PRECISION) {
     return new BigFloat(0, 0, precision, createMantissaForPrecision(precision))
-  }
-
-  /**
-   * Set this float's parameters to another float's parameters
-   * @param {BigFloat} float
-   */
-  set (float) {
-    this.sign = float.sign
-    this.mant = new Int32Array(float.mant)
-    this.exp = float.exp
-    this.prec = float.prec
-  }
-
-  /**
-   * Convert this float into a float with a different precision, rounded in the correct direction
-   * @param precision
-   * @param roundingMode
-   */
-  toBigFloat ({ precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE }) {
-    let newMantissa = createMantissaForPrecision(precision)
-    let { mant, sign, exp } = this
-
-    if (this.sign !== 0 && Number.isFinite(sign)) {
-      let shift = roundMantissaToPrecision(mant, precision, newMantissa, roundingMode)
-
-      exp += shift
-    }
-
-    return new BigFloat(sign, exp, precision, newMantissa)
-  }
-
-  /**
-   * Clone this big float
-   * @returns {BigFloat}
-   */
-  clone () {
-    return new BigFloat(this.sign, this.exp, this.prec, new Int32Array(this.mant))
-  }
-
-  /**
-   * Convert this BigFloat to a normal JS number, rounding in the given direction and optionally rounding to the nearest
-   * float32 value. It *does* handle denormal numbers, unfortunately for me.
-   * @param roundingMode {number}
-   * @param f32 {boolean} Whether to cast to a float32 instead of a float64
-   * @returns {number}
-   */
-  toNumber ({ roundingMode = CURRENT_ROUNDING_MODE, f32 = false } = {}) {
-    if (this.sign === 0 || !Number.isFinite(this.sign)) return this.sign
-
-    let prec = f32 ? 24 : 53
-    let roundedMantissa = createMantissaForPrecision(prec)
-
-    // Round to the nearest float32 or float64, ignoring denormal numbers for now
-    const shift = roundMantissaToPrecision(this.mant, prec, roundedMantissa, roundingMode)
-
-    // Calculate an exponent and mant such that mant * 2^exponent = the number
-    let exponent = (this.exp - 1) * BIGFLOAT_WORD_BITS, mant
-
-    if (shift) {
-      mant = 1 << 30
-    } else {
-      mant = roundedMantissa[0] + roundedMantissa[1] * pow2(-BIGFLOAT_WORD_BITS) + (f32 ? 0 : roundedMantissa[2] * pow2(-2 * BIGFLOAT_WORD_BITS))
-    }
-
-    // Normalize mant to be in the range [0.5, 1), which lines up exactly with a normal double
-    let expShift = flrLog2(mant) + 1
-    mant /= pow2(expShift)
-    exponent += expShift
-
-    let MIN_EXPONENT = f32 ? -148 : -1073
-    let MAX_EXPONENT = f32 ? 127 : 1023
-    let MIN_VALUE = f32 ? 1.175494e-38 : Number.MIN_VALUE
-    let MAX_VALUE = f32 ? 3.40282347e+38 : Number.MAX_VALUE
-
-    // We now do various things depending on the rounding mode. The range of a double's exponent is -1024 to 1023,
-    // inclusive, so if the exponent is outside of those bounds, we clamp it to a value depending on the rounding mode.
-    if (exponent < MIN_EXPONENT) {
-      if (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.NEAREST) {
-        // Deciding between 0 and Number.MIN_VALUE. Unfortunately at 0.5 * 2^1074 there is a TIE
-        if (exponent === MIN_EXPONENT - 1) {
-          // If greater or ties away
-          if (mant > 0.5 || (roundingMode === ROUNDING_MODE.TIES_AWAY)) {
-            return this.sign * MIN_VALUE
-          }
-        }
-
-        return 0
-      } else {
-        if (this.sign === 1) {
-          if (roundingMode === ROUNDING_MODE.TOWARD_INF || roundingMode === ROUNDING_MODE.UP) return MIN_VALUE
-          else return 0
-        } else {
-          if (roundingMode === ROUNDING_MODE.TOWARD_ZERO || roundingMode === ROUNDING_MODE.UP) return 0
-          else return -MIN_VALUE
-        }
-      }
-    } else if (exponent > MAX_EXPONENT) {
-      if (exponent === MAX_EXPONENT + 1) { // Bottom formula will overflow, so we adjust
-        return this.sign * mant * 2 * pow2(exponent - 1)
-      }
-
-      if (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.NEAREST) {
-        return Infinity * this.sign
-      } else if (this.sign === 1) {
-        if (roundingMode === ROUNDING_MODE.TOWARD_INF || roundingMode === ROUNDING_MODE.UP) return Infinity
-        else return MAX_VALUE
-      } else {
-        if (roundingMode === ROUNDING_MODE.TOWARD_ZERO || roundingMode === ROUNDING_MODE.UP) return -MAX_VALUE
-        else return -Infinity
-      }
-    } else {
-      return this.sign * mant * pow2(exponent)
-    }
   }
 
   static cmpMagnitude (f1, f2) {
@@ -1162,22 +1013,6 @@ export class BigFloat {
       [ f1, f2 ] = [ f2, f1 ]
     }
 
-    let shift = multiplyMantissas(f1.mant, f2.mant, target.prec, target.mant, roundingMode)
-    target.exp = f1.exp + f2.exp + shift
-  }
-
-  static mul2 (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
-    let f1Sign = f1.sign
-    let f2Sign = f2.sign
-
-    target.sign = f1Sign * f2Sign
-
-    if (f1Sign === 0 || f2Sign === 0 || !Number.isFinite(f1Sign) || !Number.isFinite(f2Sign)) return
-
-    if (f1.exp < f2.exp) {
-      [ f1, f2 ] = [ f2, f1 ]
-    }
-
     let shift = multiplyMantissas2(f1.mant, f2.mant, target.prec, target.mant, roundingMode)
     target.exp = f1.exp + f2.exp + shift
   }
@@ -1265,12 +1100,27 @@ export class BigFloat {
     return f.sign === 0
   }
 
-  setZero () {
-    this.sign = 0
+  /**
+   * Clone this big float
+   * @returns {BigFloat}
+   */
+  clone () {
+    return new BigFloat(this.sign, this.exp, this.prec, new Int32Array(this.mant))
   }
 
   neg () {
     return new BigFloat(this.sign * -1, this.exp, this.prec, new Int32Array(this.mant))
+  }
+
+  /**
+   * Set this float's parameters to another float's parameters
+   * @param {BigFloat} float
+   */
+  set (float) {
+    this.sign = float.sign
+    this.mant = new Int32Array(float.mant)
+    this.exp = float.exp
+    this.prec = float.prec
   }
 
   /**
@@ -1295,6 +1145,158 @@ export class BigFloat {
     this.exp = f.exp
 
     roundMantissaToPrecision(f.mant, this.prec, this.mant, roundingMode)
+  }
+
+  setFromNumber (num, roundingMode=CURRENT_ROUNDING_MODE) {
+    if (num === 0 || !Number.isFinite(num)) {
+      this.sign = num + 0
+      return
+    }
+
+    // In the odd case we want a lower precision, we create a normal precision and then downcast
+    if (this.prec < 53) {
+      this.set(BigFloat.fromNumber(num, { precision: 53, roundingMode }).toBigFloat({ precision: this.prec }))
+      return
+    }
+
+    const outMantissa = this.mant
+
+    let isNumDenormal = isDenormal(num)
+    let [ valExponent, valMantissa ] = getExponentAndMantissa(num)
+
+    // Exponent of the float (2^30)^newExp
+    let newExp = Math.ceil((valExponent + 1) / BIGFLOAT_WORD_BITS)
+
+    // The mantissa needs to be shifted to the right by this much. 0 < bitshift <= 30. If the number is denormal, we
+    // have to shift it by one bit less
+    let bitshift = newExp * BIGFLOAT_WORD_BITS - valExponent - isNumDenormal
+
+    let denom = pow2(bitshift + 22)
+    outMantissa[0] = Math.floor(valMantissa / denom) /* from double */ + (isNumDenormal ? 0 : (1 << (30 - bitshift))) /* add 1 if not denormal */
+
+    let rem = valMantissa % denom
+    if (bitshift > 8) {
+      let cow = 1 << (bitshift - 8)
+
+      outMantissa[1] = Math.floor(rem / cow)
+      outMantissa[2] = (rem % cow) << (38 - bitshift)
+    } else {
+      outMantissa[1] = rem << (8 - bitshift)
+    }
+
+    // Special handling; for extremely small denormal numbers, the first word is 0, so we shift them over
+    if (isNumDenormal && outMantissa[0] === 0) {
+      outMantissa[0] = outMantissa[1]
+      outMantissa[1] = outMantissa[2]
+      outMantissa[2] = 0
+
+      newExp -= 1
+    }
+
+    this.exp = newExp
+    this.sign = Math.sign(num) + 0
+  }
+
+  setZero () {
+    this.sign = 0
+  }
+
+  setNaN () {
+    this.sign = NaN
+  }
+
+  /**
+   * Convert this float into a float with a different precision, rounded in the correct direction
+   * @param precision
+   * @param roundingMode
+   */
+  toBigFloat ({ precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE }) {
+    let newMantissa = createMantissaForPrecision(precision)
+    let { mant, sign, exp } = this
+
+    if (this.sign !== 0 && Number.isFinite(sign)) {
+      let shift = roundMantissaToPrecision(mant, precision, newMantissa, roundingMode)
+
+      exp += shift
+    }
+
+    return new BigFloat(sign, exp, precision, newMantissa)
+  }
+
+  /**
+   * Convert this BigFloat to a normal JS number, rounding in the given direction and optionally rounding to the nearest
+   * float32 value. It *does* handle denormal numbers, unfortunately for me.
+   * @param roundingMode {number}
+   * @param f32 {boolean} Whether to cast to a float32 instead of a float64
+   * @returns {number}
+   */
+  toNumber ({ roundingMode = CURRENT_ROUNDING_MODE, f32 = false } = {}) {
+    if (this.sign === 0 || !Number.isFinite(this.sign)) return this.sign
+
+    let prec = f32 ? 24 : 53
+    let roundedMantissa = createMantissaForPrecision(prec)
+
+    // Round to the nearest float32 or float64, ignoring denormal numbers for now
+    const shift = roundMantissaToPrecision(this.mant, prec, roundedMantissa, roundingMode)
+
+    // Calculate an exponent and mant such that mant * 2^exponent = the number
+    let exponent = (this.exp - 1) * BIGFLOAT_WORD_BITS, mant
+
+    if (shift) {
+      mant = 1 << 30
+    } else {
+      mant = roundedMantissa[0] + roundedMantissa[1] * pow2(-BIGFLOAT_WORD_BITS) + (f32 ? 0 : roundedMantissa[2] * pow2(-2 * BIGFLOAT_WORD_BITS))
+    }
+
+    // Normalize mant to be in the range [0.5, 1), which lines up exactly with a normal double
+    let expShift = flrLog2(mant) + 1
+    mant /= pow2(expShift)
+    exponent += expShift
+
+    let MIN_EXPONENT = f32 ? -148 : -1073
+    let MAX_EXPONENT = f32 ? 127 : 1023
+    let MIN_VALUE = f32 ? 1.175494e-38 : Number.MIN_VALUE
+    let MAX_VALUE = f32 ? 3.40282347e+38 : Number.MAX_VALUE
+
+    // We now do various things depending on the rounding mode. The range of a double's exponent is -1024 to 1023,
+    // inclusive, so if the exponent is outside of those bounds, we clamp it to a value depending on the rounding mode.
+    if (exponent < MIN_EXPONENT) {
+      if (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.NEAREST) {
+        // Deciding between 0 and Number.MIN_VALUE. Unfortunately at 0.5 * 2^1074 there is a TIE
+        if (exponent === MIN_EXPONENT - 1) {
+          // If greater or ties away
+          if (mant > 0.5 || (roundingMode === ROUNDING_MODE.TIES_AWAY)) {
+            return this.sign * MIN_VALUE
+          }
+        }
+
+        return 0
+      } else {
+        if (this.sign === 1) {
+          if (roundingMode === ROUNDING_MODE.TOWARD_INF || roundingMode === ROUNDING_MODE.UP) return MIN_VALUE
+          else return 0
+        } else {
+          if (roundingMode === ROUNDING_MODE.TOWARD_ZERO || roundingMode === ROUNDING_MODE.UP) return 0
+          else return -MIN_VALUE
+        }
+      }
+    } else if (exponent > MAX_EXPONENT) {
+      if (exponent === MAX_EXPONENT + 1) { // Bottom formula will overflow, so we adjust
+        return this.sign * mant * 2 * pow2(exponent - 1)
+      }
+
+      if (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.NEAREST) {
+        return Infinity * this.sign
+      } else if (this.sign === 1) {
+        if (roundingMode === ROUNDING_MODE.TOWARD_INF || roundingMode === ROUNDING_MODE.UP) return Infinity
+        else return MAX_VALUE
+      } else {
+        if (roundingMode === ROUNDING_MODE.TOWARD_ZERO || roundingMode === ROUNDING_MODE.UP) return -MAX_VALUE
+        else return -Infinity
+      }
+    } else {
+      return this.sign * mant * pow2(exponent)
+    }
   }
 
   toUnderstandableString () {
