@@ -980,7 +980,7 @@ export function arctanhSmallRange (f, precision) {
   let iterations = precision / bitsPerIteration
 
   for (let i = 0; i < iterations; ++i) {
-    BF.divNumber(pow, 2 * i + 1, powDiv)
+    BF.mulNumber(pow, 1 / (2 * i + 1), powDiv)
 
     BF.mul(pow, fSq, powSwap)
     ;[ powSwap, pow ] = [ pow, powSwap ]
@@ -1409,7 +1409,7 @@ export class BigFloat {
     BigFloat.add(accum2, BF.fromNumber(integerPart), target)
   }
 
-  static ln (f1, { precision=CURRENT_PRECISION, roundingMode=CURRENT_ROUNDING_MODE }={}) {
+  static ln (f1, target, roundingMode=CURRENT_ROUNDING_MODE) {
     let f1Sign = f1.sign
 
     if (f1Sign === 0) {
@@ -1426,29 +1426,20 @@ export class BigFloat {
     let shift = Math.clz32(f1.mant[0]) - 2
     let integerPart = f1.exp * 30 - shift
 
-    let tmp = BigFloat.new(precision), m = BigFloat.new(), tmp2 = BigFloat.new(precision), ret = BigFloat.new(precision)
+    let precision = target.prec
+    let tmp = BigFloat.new(precision), tmp2 = BigFloat.new(precision), m = BigFloat.new(precision)
 
-    BigFloat.mulPowerOfTwo(f1, shift, m)
+    BigFloat.mulPowerOfTwo(f1, -integerPart, m)
 
-    // 0.5 <= m < 1, integerPart is exponent. We basically have a lookup table of log(x) for x in 1 to 2, so that m
+    // 0.5 <= m < 1, integerPart is exponent. We have a lookup table of log(x) for x in 1 to 2, so that m
     // can be put into a quickly converging series based on the inverse hyperbolic tangent. For now we aim for
-    // |1-x| < 0.125, meaning 8 brackets. Yes you could do it by division, but I'm leaving it like this for later
-
-    let brackets = [1, 0.8888888888888888, 0.8, 0.7272727272727273, 0.6666666666666666, 0.6153846153846154, 0.5714285714285714, 0.5333333333333333]
-    let lookups = [1, 1.125, 1.25, 1.375, 1.5, 1.625, 1.75, 1.875]
-
-    let lookup = 2
+    // |1-x| < 0.125, meaning 8 brackets.
 
     let mAsNumber = m.toNumber() // Makes things easier
-    for (let i = 0; i < brackets.length; ++i) {
-      if (mAsNumber >= brackets[i]) {
-        lookup = lookups[i]
-        break
-      }
-    }
+    let lookup = 1 + Math.floor((( 1 / mAsNumber) - 1) * 8) / 8
 
     // Compute ln(f1 * lookup) - ln(lookup)
-    BigFloat.mulNumber(f1, lookup, tmp)
+    BigFloat.mulNumber(m, lookup, tmp)
 
     let part1 = lnBaseCase(tmp, precision)
     let part2 = getCachedLnValue(lookup, precision)
@@ -1456,8 +1447,7 @@ export class BigFloat {
     BigFloat.sub(part1, part2, tmp2)
     BigFloat.mulNumber(getCachedLnValue(2, precision), integerPart, tmp)
 
-    BigFloat.add(tmp, tmp2, ret)
-    return ret
+    BigFloat.add(tmp, tmp2, target)
   }
 
   /**

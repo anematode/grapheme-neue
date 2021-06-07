@@ -89,6 +89,14 @@
     }
   }
 
+  function decimalLn () {
+    let res
+
+    for (let i = 0; i < floats.length; ++i) {
+      res = Decimal.ln(decimalFloats[i])
+    }
+  }
+
   function multiplication() {
     res = BF.new(53)
 
@@ -109,6 +117,14 @@
     }
   }
 
+  function ln () {
+    res = BF.new(53)
+
+    for (let i = 0; i < floats.length; ++i) {
+      BF.ln(bigFloats[i], res)
+    }
+  }
+
   function benchmark(callback, name, iterations) {
     setTimeout(() => {
       let timeStart = Date.now()
@@ -124,16 +140,19 @@
 
   benchmark(fromNumber, "fromNumber", 1000)
   benchmark(toNumber, "toNumber", 10)
-  benchmark(addition, "addition", 30)
-  benchmark(multiplication, "multiplication", 10)
-  benchmark(division, "division", 2)
+  //benchmark(addition, "addition", 30)
+  //benchmark(multiplication, "multiplication", 10)
+  //benchmark(division, "division", 2)
+  benchmark(ln, "ln", 10)
+  benchmark(decimalLn, "decimal.js ln", 10)
   /*
   benchmark(decimalAddition, "decimal.js addition", 10)
   benchmark(decimalMultiplication, "decimal.js multiplication", 10)*/
 
 
   /**
-   * Benchmark fromNumber: 0.158 ms per iteration for 1000 iterations
+   Before moving primitive functions to C-like writing instead of returning value
+   Benchmark fromNumber: 0.158 ms per iteration for 1000 iterations
    Benchmark toNumber: 1.4 ms per iteration for 10 iterations
    Benchmark addition: 385 ms per iteration for 2 iterations
    Benchmark multiplication: 466.5 ms per iteration for 2 iterations
