@@ -71,6 +71,16 @@
 
       return ret
     }
+
+    function mul () {
+      let resFast = BF.new(60), resSlow = BF.new(60)
+
+      BF.mul(f1, f2, resFast)
+      BF.mulSlow(f1, f2, resSlow)
+
+      console.log("mul fast: ", resFast.toNumber(), resFast.mant)
+      console.log("mul slow: ", resSlow.toNumber(), resSlow.mant)
+    }
 </script>
 
 <script src="test_setup.js"></script>

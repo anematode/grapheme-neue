@@ -54,6 +54,23 @@ function getTrailingInfo (mantissa, index) {
   return 0
 }
 
+/**
+ * Count the number of leading zeros in a mantissa
+ * @param mantissa {Int32Array}
+ * @returns {number}
+ */
+function clzMantissa (mantissa) {
+  let mantissaLen = mantissa.length
+
+  for (let i = 0; i < mantissaLen; ++i) {
+    if (mantissa[i]) {
+      return Math.clz32(mantissa[i]) - 2 + 30 * i
+    }
+  }
+
+  return -1
+}
+
 export function setGlobalRoundingMode (roundingMode) {
   CURRENT_ROUNDING_MODE = roundingMode
 }
@@ -89,19 +106,36 @@ export function roundMantissaToPrecision (mantissa, precision, targetMantissa, r
     return 0
   }
 
-  // Create a mantissa, which may or may not be longer than the given mantissa
   let targetMantissaLen = targetMantissa.length
   let mantissaLen = mantissa.length
 
-  // Copy over the given mantissa
-  if (!isAliased) {
-    for (let i = 0; i < targetMantissaLen; ++i) {
-      targetMantissa[i] = mantissa[i]
+  let offset = -1, shift = 0, bitShift = 0
+
+  // How many ghost bits there are at the beginning; in other words, where to start counting precision bits from.
+  // Specialized impl of clzMantissa
+  for (let i = 0; i < mantissaLen; ++i) {
+    if (mantissa[i]) {
+      bitShift = 30 * i
+      offset = bitShift + Math.clz32(mantissa[i]) - 2
+
+      shift = -i
+
+      break
     }
   }
 
-  // How many ghost bits there are at the beginning; in other words, where to start counting precision bits from
-  let offset = Math.clz32(mantissa[0]) - 2
+  if (offset === -1) {
+    // Mantissa is all 0s, return
+    for (let i = 0; i < targetMantissaLen; ++i) {
+      targetMantissa[i] = 0
+    }
+
+    return shift
+  }
+
+  // Copy over the given mantissa, shifted by shift
+  leftShiftMantissa(mantissa, bitShift, targetMantissa)
+  offset -= bitShift
 
   // Which bit to start truncating at, indexing from 0 = the beginning of the mantissa
   let trunc = precision + offset
@@ -132,7 +166,7 @@ export function roundMantissaToPrecision (mantissa, precision, targetMantissa, r
     if (isAtVeryEnd) {
       if (trailingInfo === 0 || (roundingMode === ROUNDING_MODE.DOWN || roundingMode === ROUNDING_MODE.TOWARD_ZERO) ||
         ((trailingInfo === 1) && (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.TOWARD_ZERO))) {
-        return 0
+        return shift
       } else if (trailingInfo === 2 && (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.TOWARD_ZERO)) {
         rem = 0x20000000 // emulate tie = BIGFLOAT_WORD_SIZE / 2
       } else {
@@ -140,7 +174,7 @@ export function roundMantissaToPrecision (mantissa, precision, targetMantissa, r
       }
     } else {
       // Otherwise, if the rounding is happening after the very end, nothing happens since it's already all 0s
-      return 0
+      return shift
     }
   } else {
     // Truncate the word
@@ -170,7 +204,7 @@ export function roundMantissaToPrecision (mantissa, precision, targetMantissa, r
     if (rem > 0 || trailingInfo > 0) {
       doCarry = true
     } else if (trailingInfoMode === 0) {
-      for (let i = truncWord + 1; i < mantissaLen; ++i) {
+      for (let i = truncWord + shift + 1; i < mantissaLen; ++i) {
         if (mantissa[i] !== 0) {
           doCarry = true
           break
@@ -190,7 +224,7 @@ export function roundMantissaToPrecision (mantissa, precision, targetMantissa, r
       } else {
         if (trailingInfoMode === 0) {
           // Try to break the tie by looking for nonzero bits
-          for (let i = truncWord + 1; i < mantissaLen; ++i) {
+          for (let i = truncWord + shift + 1; i < mantissaLen; ++i) {
             if (mantissa[i] !== 0) {
               doCarry = true
               break doCarry
@@ -249,10 +283,10 @@ export function roundMantissaToPrecision (mantissa, precision, targetMantissa, r
     // one word and set the first word to a 1
     targetMantissa[0] = 1
 
-    return 1
+    return shift + 1
   }
 
-  return 0
+  return shift
 }
 
 /**
@@ -470,7 +504,15 @@ export function rightShiftMantissa (mantissa, shift, targetMantissa=mantissa) {
  * @returns {Int32Array} Returns the passed mantissa
  */
 export function leftShiftMantissa (mantissa, shift, targetMantissa=mantissa) {
-  if (shift === 0) return mantissa
+  if (shift === 0) {
+    if (targetMantissa !== mantissa) {
+      for (let i = Math.min(targetMantissa.length, mantissa.length); i >= 0; --i) {
+        targetMantissa[i] = mantissa[i]
+      }
+    }
+
+    return mantissa
+  }
 
   let mantissaLen = mantissa.length
   let targetMantissaLen = targetMantissa.length
@@ -817,11 +859,8 @@ export function divMantissas (mant1, mant2, precision, targetMantissa, roundingM
   }
 
   const roundingShift = roundMantissaToPrecision(targetMantissa, precision, targetMantissa, roundingMode, trailingInfo, 1)
-
   return newMantissaShift + roundingShift
 }
-
-
 
 /**
  * Divide two mantissas and write the result to a target mantissa.
@@ -837,8 +876,11 @@ export function divMantissas2 (mant1, mant2, precision, targetMantissa, rounding
   // https://en.wikipedia.org/wiki/Division_algorithm (yes, I gave up trying to figure this stuff out on my own)
 
   let shiftedDenominator = new Int32Array(neededWordsForPrecision(precision))
-  let initialDenominatorShift = Math.clz32(mant2)
+  let initialDenominatorShift = clzMantissa(mant2)
 
+  leftShiftMantissa(mant2, initialDenominatorShift, shiftedDenominator)
+
+  console.log(shiftedDenominator)
 }
 
 /**
@@ -1253,6 +1295,29 @@ export class BigFloat {
   }
 
   /**
+   * Multiply two numbers and write the result to the target.
+   * @param f1 {BigFloat}
+   * @param f2 {BigFloat}
+   * @param target {BigFloat}
+   * @param roundingMode {number}
+   */
+  static mulSlow (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
+    let f1Sign = f1.sign
+    let f2Sign = f2.sign
+
+    target.sign = f1Sign * f2Sign
+
+    if (f1Sign === 0 || f2Sign === 0 || !Number.isFinite(f1Sign) || !Number.isFinite(f2Sign)) return
+
+    if (f1.exp < f2.exp) {
+      [ f1, f2 ] = [ f2, f1 ]
+    }
+
+    let shift = multiplyMantissas(f1.mant, f2.mant, target.prec, target.mant, roundingMode)
+    target.exp = f1.exp + f2.exp + shift
+  }
+
+  /**
    * Multiply a float by a JS number and write the result to the target. This function does support aliasing.
    * @param float
    * @param num
@@ -1341,6 +1406,22 @@ export class BigFloat {
     target.exp = f1.exp - f2.exp + shift
     target.sign = f1Sign / f2Sign
   }
+
+  static divFast (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
+    let f1Sign = f1.sign
+    let f2Sign = f2.sign
+
+    if (f1Sign === 0 || f2Sign === 0 || !Number.isFinite(f1Sign) || !Number.isFinite(f2Sign)) {
+      target.sign = f1Sign / f2Sign
+      return
+    }
+
+    let shift = divMantissas2(f1.mant, f2.mant, target.prec, target.mant, roundingMode)
+
+    target.exp = f1.exp - f2.exp + shift
+    target.sign = f1Sign / f2Sign
+  }
+
 
   static divNumber (f1, num, target, roundingMode) {
     DOUBLE_STORE.setFromNumber(num)
