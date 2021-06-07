@@ -821,6 +821,26 @@ export function divMantissas (mant1, mant2, precision, targetMantissa, roundingM
   return newMantissaShift + roundingShift
 }
 
+
+
+/**
+ * Divide two mantissas and write the result to a target mantissa.
+ * @param mant1
+ * @param mant2
+ * @param precision
+ * @param targetMantissa
+ * @param roundingMode
+ */
+export function divMantissas2 (mant1, mant2, precision, targetMantissa, roundingMode=CURRENT_ROUNDING_MODE) {
+  // We use a Newton-Raphson approach, narrowing down on the result with quadratic speed. The first step is determining
+  // the reciprocal of mant2, then multiplying by mant1. The approach is based on the wikipedia article
+  // https://en.wikipedia.org/wiki/Division_algorithm (yes, I gave up trying to figure this stuff out on my own)
+
+  let shiftedDenominator = new Int32Array(neededWordsForPrecision(precision))
+  let initialDenominatorShift = Math.clz32(mant2)
+
+}
+
 /**
  * Determine which of two mantissas is larger. -1 if mant1 is smaller, 0 if they are equal, and 1 if mant2 is larger.
  * @param mant1
@@ -925,13 +945,26 @@ function slowLn1pBounded (f, precision) {
   return accum
 }
 
-// Compute ln(x) for x in [1, 1.5] so we can later shift arguments via multiplication and subtraction into a
+// Compute ln(x) for x in [0.5, 1.5] so we can later shift arguments via multiplication and subtraction into a
 // neighborhood of 1 by caching some of these values, then using slowLn1pBounded or arctanhSmallRange
-function lnBaseCase (f, precision) {
+export function lnBaseCase (f, precision) {
+  // ln(x) = 2 arctanh((x-1)/(x+1))
+  precision += 10
 
+  let atanhArg = BF.new(precision)
+  let argNum = BF.new(precision), argDen = BF.new(precision)
+
+  BF.subNumber(f, 1, argNum)
+  BF.addNumber(f, 1, argDen)
+  BF.div(argNum, argDen, atanhArg)
+
+  let result = arctanhSmallRange(atanhArg, precision - 10)
+  BF.mulPowerOfTwo(result, 1, result)
+
+  return result
 }
 
-// Compute atanh(f) for f in [0, 1/5] for use in natural log calculations, since ln(x) = 2 arctanh((x-1)/(x+1))
+// Compute atanh(f) for f in [0, 1/5] for use in natural log calculations
 export function arctanhSmallRange (f, precision) {
   precision += 10
 
@@ -962,17 +995,25 @@ export function arctanhSmallRange (f, precision) {
   return ret
 }
 
-const CACHED_CONSTANTS = {}
+const CACHED_CONSTANTS = {
+  lnValues: new Map()
+}
 
-export function getLn1p5 (minPrecision) {
-  let c = CACHED_CONSTANTS.ln1p5
+/**
+ * Compute and return ln(x), intended for x between 1 and 2 for higher series convergence in ln
+ * @param value
+ * @param minPrecision
+ * @returns {any|BigFloat}
+ */
+function getCachedLnValue (value, minPrecision) {
+  let c = CACHED_CONSTANTS.lnValues.get(value)
 
   if (c && c.prec >= minPrecision) return c
 
-  let f = BigFloat.fromNumber(0.5)
+  let f = BigFloat.fromNumber(value)
 
-  c = slowLn1pBounded(f, minPrecision)
-  CACHED_CONSTANTS.ln1p5 = c
+  c = lnBaseCase(f, minPrecision)
+  CACHED_CONSTANTS.lnValues.set(value, c)
 
   return c
 }
@@ -1279,6 +1320,8 @@ export class BigFloat {
       leftShiftMantissa(float.mant, -bitshift, target.mant)
     } else if (bitshift > 0) {
       rightShiftMantissa(float.mant, bitshift, target.mant)
+    } else {
+      roundMantissaToPrecision(float.mant, target.prec, target.mant, roundingMode)
     }
 
     target.sign = float.sign
@@ -1364,6 +1407,57 @@ export class BigFloat {
 
     BigFloat.mul(accum, BF.fromNumber(Math.LOG2E), accum2)
     BigFloat.add(accum2, BF.fromNumber(integerPart), target)
+  }
+
+  static ln (f1, { precision=CURRENT_PRECISION, roundingMode=CURRENT_ROUNDING_MODE }={}) {
+    let f1Sign = f1.sign
+
+    if (f1Sign === 0) {
+      target.sign = -Infinity
+      return
+    } else if (f1Sign < 0) {
+      target.sign = NaN
+      return
+    } else if (!Number.isFinite(f1Sign)) {
+      target.sign = f1Sign // NaN or Infinity
+      return
+    }
+
+    let shift = Math.clz32(f1.mant[0]) - 2
+    let integerPart = f1.exp * 30 - shift
+
+    let tmp = BigFloat.new(precision), m = BigFloat.new(), tmp2 = BigFloat.new(precision), ret = BigFloat.new(precision)
+
+    BigFloat.mulPowerOfTwo(f1, shift, m)
+
+    // 0.5 <= m < 1, integerPart is exponent. We basically have a lookup table of log(x) for x in 1 to 2, so that m
+    // can be put into a quickly converging series based on the inverse hyperbolic tangent. For now we aim for
+    // |1-x| < 0.125, meaning 8 brackets. Yes you could do it by division, but I'm leaving it like this for later
+
+    let brackets = [1, 0.8888888888888888, 0.8, 0.7272727272727273, 0.6666666666666666, 0.6153846153846154, 0.5714285714285714, 0.5333333333333333]
+    let lookups = [1, 1.125, 1.25, 1.375, 1.5, 1.625, 1.75, 1.875]
+
+    let lookup = 2
+
+    let mAsNumber = m.toNumber() // Makes things easier
+    for (let i = 0; i < brackets.length; ++i) {
+      if (mAsNumber >= brackets[i]) {
+        lookup = lookups[i]
+        break
+      }
+    }
+
+    // Compute ln(f1 * lookup) - ln(lookup)
+    BigFloat.mulNumber(f1, lookup, tmp)
+
+    let part1 = lnBaseCase(tmp, precision)
+    let part2 = getCachedLnValue(lookup, precision)
+
+    BigFloat.sub(part1, part2, tmp2)
+    BigFloat.mulNumber(getCachedLnValue(2, precision), integerPart, tmp)
+
+    BigFloat.add(tmp, tmp2, ret)
+    return ret
   }
 
   /**
