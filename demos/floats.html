@@ -13,19 +13,24 @@
     var BI = Grapheme.BigInt
     var BF = Grapheme.BigFloat
 
-    var cases = [ [ 2058, 308 ], [0.1, 0.0002], [1, 3], [-9, -4285]]
+    var f = BF.new(53)
+    var g = BF.new(53)
+    var pi = BF.fromNumber(Math.PI)
+    var pio2 = BF.fromNumber(Math.PI / 2)
+
+    /*var cases = [ [ 2058, 308 ], [0.1, 0.0002], [1, 3], [-9, -4285]]
 
     for (const [ n, d ] of cases) {
       var f = BF.fromNumber(n)
       var g = BF.fromNumber(d)
       var h = BF.fromNumber(0)
 
-      BF.divFast(f, g, h)
+      BF.div(f, g, h)
 
       console.log(`n/d: ${n} / ${d}`)
       console.log("Grapheme:", h.toNumber())
       console.log("Native:", n / d)
-    }
+    }*/
 
 </script>
 

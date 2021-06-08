@@ -55,7 +55,7 @@
 
   function toNumber() {
     for (let i = 0; i < floats.length; ++i) {
-      res = bigFloats[i].toNumber()
+      res = bigFloats[i].toNumber({ roundingMode: Grapheme.ROUNDING_MODE.WHATEVER })
     }
   }
 
@@ -118,10 +118,14 @@
   }
 
   function ln () {
-    res = BF.new(53)
-
     for (let i = 0; i < floats.length; ++i) {
-      BF.ln(bigFloats[i], res)
+      res = BF.ln(bigFloats[i])
+    }
+  }
+
+  function exp () {
+    for (let i = 0; i < floats.length; ++i) {
+      res = BF.exp(bigFloats[i])
     }
   }
 
@@ -138,12 +142,13 @@
     })
   }
 
-  benchmark(fromNumber, "fromNumber", 1000)
-  benchmark(toNumber, "toNumber", 10)
+  benchmark(fromNumber, "fromNumber", 10000)
+  benchmark(toNumber, "toNumber", 10000)
   //benchmark(addition, "addition", 300)
   //benchmark(multiplication, "multiplication", 10)
-  benchmark(division, "division", 2)
-  //benchmark(ln, "ln", 10)
+  //benchmark(division, "division", 2)
+  benchmark(ln, "ln", 10)
+  benchmark(exp, "exp", 5)
   //benchmark(decimalLn, "decimal.js ln", 10)
   /*
   benchmark(decimalAddition, "decimal.js addition", 10)

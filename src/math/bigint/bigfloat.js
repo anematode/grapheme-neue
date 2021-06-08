@@ -1139,9 +1139,43 @@ export function arctanhSmallRange (f, precision) {
   return ret
 }
 
+/**
+ * Compute e^f for 0.5 <= f < 1. e^f = 1 + f * (1 + f/2 * (1 + f/3 * ... ) ) )
+ */
+export function expBaseCase (f, precision, target) {
+  let tmp = BigFloat.new(precision)
+  let tmp2 = BigFloat.new(precision)
+
+  // The number of iterations depends on f. Since the term is f^n / n!, we take logs -> n ln(f) - ln(n!) = n ln(f) - n ln(n) + n
+  // We want this to be less than ln(2^-(p + 1)) = -(p + 1) * ln(2) or so. We write the equation as n (ln f - ln n + 1) = -(p+1) * ln 2.
+  // This is an annoying equation. For now I just came up with an approximation by picking n = c*p for a constant c and
+  // fiddling around with it, till I got the approximation n = -l / (ln(f) - (ln(-l/(ln(f) - ln(p) + 2)) + 1), where l = p ln(2).
+  // No clue how it works, but it seems to be good enough. At 999 bits precision and 0.5 it reports 153 iterations are needed,
+  // while only 148 are sufficient. Oh well.
+
+  let pln2 = (precision + 1) * Math.log(2)
+  let lnf = Math.log(Math.abs(f.toNumber(ROUNDING_MODE.WHATEVER)))
+  let lnp = Math.log(precision)
+
+  const iters = Math.ceil(-pln2 / (lnf - Math.log(-pln2 / (lnf - lnp + 2)) + 1))
+
+  BigFloat.divNumber(f, iters, tmp)
+  BigFloat.addNumber(tmp, 1, target)
+
+  for (let m = iters - 1; m > 0; --m) {
+    BigFloat.divNumber(f, m, tmp)
+    BigFloat.mul(tmp, target, tmp2)
+
+    BigFloat.addNumber(tmp2, 1, target)
+  }
+}
+
 const CACHED_CONSTANTS = {
   lnValues: new Map()
 }
+
+const recip2Pow30 = pow2(-BIGFLOAT_WORD_BITS)
+const recip2Pow60 = pow2(-2 * BIGFLOAT_WORD_BITS)
 
 /**
  * Compute and return ln(x), intended for x between 1 and 2 for higher series convergence in ln
@@ -1154,9 +1188,14 @@ function getCachedLnValue (value, minPrecision) {
 
   if (c && c.prec >= minPrecision) return c
 
-  let f = BigFloat.fromNumber(value)
+  if (value > 2 || value < 1) {
+    c = BigFloat.ln(value, { precision: minPrecision })
+  } else {
+    let f = BigFloat.fromNumber(value)
 
-  c = lnBaseCase(f, minPrecision)
+    c = lnBaseCase(f, minPrecision)
+  }
+
   CACHED_CONSTANTS.lnValues.set(value, c)
 
   return c
@@ -1397,29 +1436,6 @@ export class BigFloat {
   }
 
   /**
-   * Multiply two numbers and write the result to the target.
-   * @param f1 {BigFloat}
-   * @param f2 {BigFloat}
-   * @param target {BigFloat}
-   * @param roundingMode {number}
-   */
-  static mulSlow (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
-    let f1Sign = f1.sign
-    let f2Sign = f2.sign
-
-    target.sign = f1Sign * f2Sign
-
-    if (f1Sign === 0 || f2Sign === 0 || !Number.isFinite(f1Sign) || !Number.isFinite(f2Sign)) return
-
-    if (f1.exp < f2.exp) {
-      [ f1, f2 ] = [ f2, f1 ]
-    }
-
-    let shift = multiplyMantissas(f1.mant, f2.mant, target.prec, target.mant, roundingMode)
-    target.exp = f1.exp + f2.exp + shift
-  }
-
-  /**
    * Multiply a float by a JS number and write the result to the target. This function does support aliasing.
    * @param float
    * @param num
@@ -1440,7 +1456,7 @@ export class BigFloat {
       let absNum = Math.abs(num)
 
       if (absNum <= 0x3fffffff) {
-        let shift = multiplyMantissaByInteger(float.mant, num, target.prec, target.mant, roundingMode)
+        let shift = multiplyMantissaByInteger(float.mant, absNum, target.prec, target.mant, roundingMode)
 
         target.sign = float.sign * Math.sign(num)
         target.exp = float.exp + shift
@@ -1531,106 +1547,74 @@ export class BigFloat {
     BigFloat.div(f1, DOUBLE_STORE, target, roundingMode)
   }
 
-  /**
-   * Ah, our first transcendental function. We split it up as you'd expect: an integer part for the (2^30)^e, and a
-   * fractional part for the rest. The actual computation of log2(m) where 2^-30 <= m < 1 is trickier. My first instinct
-   * was to somehow turn it into an expression involving natural log and use some series expansion. Another potential
-   * method is to do repeated squaring followed by division on m, which would emit bits corresponding to the logarithm.
-   * First, we notice that we can move m into the range 0.5 <= m < 1 only, which makes things easier. To find ln(m) we
-   * could use the Taylor series for ln(1+x). We'd have -0.5 <= x < 0, in which range the series converges relatively
-   * quickly... let's start there for now. I have some other ideas.
-   * @param f1
-   * @param target
-   * @param roundingMode
-   */
-  static log2 (f1, target, roundingMode=CURRENT_ROUNDING_MODE) {
-    let f1Sign = f1.sign
+  static ln (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+    let f1Sign = f.sign
 
+    // Special cases
     if (f1Sign === 0) {
-      target.sign = -Infinity
-      return
+      return BigFloat.NegativeInfinity(precision)
     } else if (f1Sign < 0) {
-      target.sign = NaN
-      return
+      return BigFloat.NaN(precision)
     } else if (!Number.isFinite(f1Sign)) {
-      target.sign = f1Sign // NaN or Infinity
-      return
+      return BigFloat.fromNumber(f1Sign, { precision })
     }
 
-    let shift = Math.clz32(f1.mant[0]) - 2
-    let integerPart = f1.exp * 30 - shift
-
-    let y = BigFloat.new(), x = BigFloat.new()
-    BigFloat.mulPowerOfTwo(f1, shift - 30, y)
-    BigFloat.sub(y, BF.fromNumber(1), x)
-
-    // We now have a float between 0.5 and 1 and an integer part. It remains to find the natural log of the mantissa
-    // via the series ln(1+x) = x - x^2/2 + x^3/3 - ...
-
-    let xExp = BigFloat.fromNumber(1)
-    let xExp2 = BigFloat.new()
-    let term = BigFloat.new()
-    let accum = BigFloat.new()
-    let accum2 = BigFloat.new()
-
-    for (let i = 0; i < 10; ++i) {
-      BigFloat.mul(xExp, x, xExp2)
-      BigFloat.mulNumber(xExp2, ((i & 1) ? -1 : 1) / (i + 1), term)
-      BigFloat.add(accum, term, accum2)
-
-      // Swap the accumulators
-      let tmp = accum
-      accum = accum2
-      accum2 = tmp
-
-      tmp = xExp
-      xExp = xExp2
-      xExp2 = tmp
-    }
-
-    BigFloat.mul(accum, BF.fromNumber(Math.LOG2E), accum2)
-    BigFloat.add(accum2, BF.fromNumber(integerPart), target)
-  }
-
-  static ln (f1, target, roundingMode=CURRENT_ROUNDING_MODE) {
-    let f1Sign = f1.sign
-
-    if (f1Sign === 0) {
-      target.sign = -Infinity
-      return
-    } else if (f1Sign < 0) {
-      target.sign = NaN
-      return
-    } else if (!Number.isFinite(f1Sign)) {
-      target.sign = f1Sign // NaN or Infinity
-      return
-    }
-
-    let shift = Math.clz32(f1.mant[0]) - 2
-    let integerPart = f1.exp * 30 - shift
-
-    let precision = target.prec
+    // By what power of two to shift f, so that we get a number between 0.5 and 1
+    let shift = BigFloat.floorLog2(f, true) + 1
     let tmp = BigFloat.new(precision), tmp2 = BigFloat.new(precision), m = BigFloat.new(precision)
 
-    BigFloat.mulPowerOfTwo(f1, -integerPart, m)
+    BigFloat.mulPowerOfTwo(f, -shift, m)
 
     // 0.5 <= m < 1, integerPart is exponent. We have a lookup table of log(x) for x in 1 to 2, so that m
     // can be put into a quickly converging series based on the inverse hyperbolic tangent. For now we aim for
     // |1-x| < 0.125, meaning 8 brackets.
-
-    let mAsNumber = m.toNumber() // Makes things easier
+    let mAsNumber = m.toNumber(ROUNDING_MODE.WHATEVER) // Makes things easier
     let lookup = 1 + Math.floor((( 1 / mAsNumber) - 1) * 8) / 8
 
-    // Compute ln(f1 * lookup) - ln(lookup)
+    // Compute ln(f * lookup) - ln(lookup)
     BigFloat.mulNumber(m, lookup, tmp)
 
     let part1 = lnBaseCase(tmp, precision)
     let part2 = getCachedLnValue(lookup, precision)
 
     BigFloat.sub(part1, part2, tmp2)
-    BigFloat.mulNumber(getCachedLnValue(2, precision), integerPart, tmp)
+    BigFloat.mulNumber(getCachedLnValue(2, precision), shift, tmp)
 
-    BigFloat.add(tmp, tmp2, target)
+    BigFloat.add(tmp, tmp2, m)
+
+    return m
+  }
+
+  // We'll deal with rounding later...
+  static exp (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+    let sign = f.sign
+
+    if (Number.isNaN(sign)) return BigFloat.NaN({ precision })
+    if (sign === 0) return BigFloat.fromNumber(1, { precision })
+
+    let shifts = BigFloat.floorLog2(f, true)
+
+    if (shifts < 0) {
+      let ret = BigFloat.new(precision)
+
+      expBaseCase(f, precision, ret)
+
+      return ret
+    } else {
+      let tmp = BigFloat.new(precision)
+      let mul1 = BigFloat.new(precision)
+
+      BigFloat.mulPowerOfTwo(f, -shifts, tmp)
+      expBaseCase(tmp, precision, mul1)
+
+      // Repeated squaring; every shift requires one squaring
+      for (; shifts >= 0; --shifts) {
+        BigFloat.mul(mul1, mul1, tmp)
+        ;[ mul1, tmp ] = [ tmp, mul1 ]
+      }
+
+      return tmp
+    }
   }
 
   /**
@@ -1674,12 +1658,35 @@ export class BigFloat {
     return f.sign === 0
   }
 
+  static ZERO = Object.freeze(BigFloat.fromNumber(0, { precision: 53 }))
+  static ONE = Object.freeze(BigFloat.fromNumber(1, { precision: 53 }))
+
   /**
    * Clone this big float
    * @returns {BigFloat}
    */
   clone () {
     return new BigFloat(this.sign, this.exp, this.prec, new Int32Array(this.mant))
+  }
+
+  equals (f) {
+    return BigFloat.cmpNumber(this, f) === 0
+  }
+
+  greaterEq (f) {
+    return BigFloat.cmpNumber(this, f) >= 0
+  }
+
+  greaterThan (f) {
+    return BigFloat.cmpNumber(this, f) === 1
+  }
+
+  lessEq (f) {
+    return BigFloat.cmpNumber(this, f) <= 0
+  }
+
+  lessThan (f) {
+    return BigFloat.cmpNumber(this, f) === -1
   }
 
   neg () {
@@ -1771,32 +1778,12 @@ export class BigFloat {
     this.sign = Math.sign(num) + 0
   }
 
-  setZero () {
-    this.sign = 0
-  }
-
   setNaN () {
     this.sign = NaN
   }
 
-  lessThan (f) {
-    return BigFloat.cmpNumber(this, f) === -1
-  }
-
-  lessEq (f) {
-    return BigFloat.cmpNumber(this, f) <= 0
-  }
-
-  equals (f) {
-    return BigFloat.cmpNumber(this, f) === 0
-  }
-
-  greaterThan (f) {
-    return BigFloat.cmpNumber(this, f) === 1
-  }
-
-  greaterEq (f) {
-    return BigFloat.cmpNumber(this, f) >= 0
+  setZero () {
+    this.sign = 0
   }
 
   /**
@@ -1824,28 +1811,34 @@ export class BigFloat {
    * @param f32 {boolean} Whether to cast to a float32 instead of a float64
    * @returns {number}
    */
-  toNumber ({ roundingMode = CURRENT_ROUNDING_MODE, f32 = false } = {}) {
+  toNumber (roundingMode = CURRENT_ROUNDING_MODE, f32 = false) {
     if (this.sign === 0 || !Number.isFinite(this.sign)) return this.sign
+
+    let m = this.mant, exp = (this.exp - 1) * BIGFLOAT_WORD_BITS
+    if (roundingMode === ROUNDING_MODE.WHATEVER) {
+      // Short-circuit calculation for efficiency
+      return pow2(exp) * (m[0] + m[1] * recip2Pow30 + (f32 ? 0 : m[2] * recip2Pow60))
+    }
 
     let prec = f32 ? 24 : 53
     let roundedMantissa = createMantissa(prec)
 
     // Round to the nearest float32 or float64, ignoring denormal numbers for now
-    const shift = roundMantissaToPrecision(this.mant, prec, roundedMantissa, roundingMode)
+    const shift = roundMantissaToPrecision(m, prec, roundedMantissa, roundingMode)
 
     // Calculate an exponent and mant such that mant * 2^exponent = the number
-    let exponent = (this.exp - 1) * BIGFLOAT_WORD_BITS, mant
+    let mAsInt
 
     if (shift) {
-      mant = 1 << 30
+      mAsInt = 1 << 30
     } else {
-      mant = roundedMantissa[0] + roundedMantissa[1] * pow2(-BIGFLOAT_WORD_BITS) + (f32 ? 0 : roundedMantissa[2] * pow2(-2 * BIGFLOAT_WORD_BITS))
+      mAsInt = roundedMantissa[0] + roundedMantissa[1] * recip2Pow30 + (f32 ? 0 : roundedMantissa[2] * recip2Pow60)
     }
 
     // Normalize mant to be in the range [0.5, 1), which lines up exactly with a normal double
-    let expShift = flrLog2(mant) + 1
-    mant /= pow2(expShift)
-    exponent += expShift
+    let expShift = flrLog2(mAsInt) + 1
+    mAsInt /= pow2(expShift)
+    exp += expShift
 
     let MIN_EXPONENT = f32 ? -148 : -1073
     let MAX_EXPONENT = f32 ? 127 : 1023
@@ -1854,12 +1847,12 @@ export class BigFloat {
 
     // We now do various things depending on the rounding mode. The range of a double's exponent is -1024 to 1023,
     // inclusive, so if the exponent is outside of those bounds, we clamp it to a value depending on the rounding mode.
-    if (exponent < MIN_EXPONENT) {
+    if (exp < MIN_EXPONENT) {
       if (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.NEAREST) {
         // Deciding between 0 and Number.MIN_VALUE. Unfortunately at 0.5 * 2^1074 there is a TIE
-        if (exponent === MIN_EXPONENT - 1) {
+        if (exp === MIN_EXPONENT - 1) {
           // If greater or ties away
-          if (mant > 0.5 || (roundingMode === ROUNDING_MODE.TIES_AWAY)) {
+          if (mAsInt > 0.5 || (roundingMode === ROUNDING_MODE.TIES_AWAY)) {
             return this.sign * MIN_VALUE
           }
         }
@@ -1874,9 +1867,9 @@ export class BigFloat {
           else return -MIN_VALUE
         }
       }
-    } else if (exponent > MAX_EXPONENT) {
-      if (exponent === MAX_EXPONENT + 1) { // Bottom formula will overflow, so we adjust
-        return this.sign * mant * 2 * pow2(exponent - 1)
+    } else if (exp > MAX_EXPONENT) {
+      if (exp === MAX_EXPONENT + 1) { // Bottom formula will overflow, so we adjust
+        return this.sign * mAsInt * 2 * pow2(exp - 1)
       }
 
       if (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.NEAREST) {
@@ -1889,7 +1882,7 @@ export class BigFloat {
         else return -Infinity
       }
     } else {
-      return this.sign * mant * pow2(exponent)
+      return this.sign * mAsInt * pow2(exp)
     }
   }
 
