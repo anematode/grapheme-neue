@@ -1,7 +1,7 @@
 
 // Define general types of rounding modes for various mathematical operations over the reals
 
-export const ROUNDING_MODE = {
+export const ROUNDING_MODE = Object.freeze({
   NEAREST: 0,     // nearest neighbor, ties to even
   UP: 1,          // always round positively
   DOWN: 2,
@@ -10,7 +10,7 @@ export const ROUNDING_MODE = {
   TIES_AWAY: 5,   // tie away from zero
   WHATEVER: 6,    // do whatever's easiest
   TIES_EVEN: 0    // equivalent to NEAREST
-}
+})
 
 export function roundingModeToString (mode) {
   switch (mode) {

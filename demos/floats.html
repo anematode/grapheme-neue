@@ -13,74 +13,20 @@
     var BI = Grapheme.BigInt
     var BF = Grapheme.BigFloat
 
-    var f = BF.fromNumber(-75/437)
-    var g = BF.fromNumber(20)
+    var cases = [ [ 2058, 308 ], [0.1, 0.0002], [1, 3], [-9, -4285]]
 
-    function sqrt(c) {
-      let ret = BF.new()
-      BF.mulNumber(c, 0.5, ret)
+    for (const [ n, d ] of cases) {
+      var f = BF.fromNumber(n)
+      var g = BF.fromNumber(d)
+      var h = BF.fromNumber(0)
 
-      let tmp1 = BF.new(), tmp2 = BF.new(), tmp3 = BF.new(), tmp4 = BF.new(), tmp5 = BF.new()
+      BF.divFast(f, g, h)
 
-      for (let i = 0; i < 5; ++i) {
-        BF.mul(ret, ret, tmp1) // x^2
-        BF.subtract(tmp1, c, tmp2) // x^2 - c
-
-        BF.mul(tmp2, ret, tmp3)
-        BF.mulNumber(tmp3, 4, tmp3)
-
-        BF.mulNumber(tmp1, 8, tmp4)
-        BF.mulNumber(tmp2, 2, tmp5)
-
-        BF.subtract(tmp4, tmp5, tmp1)
-        BF.div(tmp3, tmp1, tmp2)
-        BF.subtract(ret, tmp2, tmp3)
-
-        ;[ret, tmp3] = [tmp3, ret]
-      }
-
-      return ret
+      console.log(`n/d: ${n} / ${d}`)
+      console.log("Grapheme:", h.toNumber())
+      console.log("Native:", n / d)
     }
 
-    function arctanh (c) {
-      let accumulator = BF.new()
-      let xSquared = BF.new()
-
-      BF.mul(c, c, xSquared)
-
-      let pow = BF.fromNumber(1)
-      let powTmp = BF.new()
-
-      let powDiv = BF.new()
-
-      for (let i = 0; i < 10; ++i) {
-        BF.div(pow, BF.fromNumber(2 * i + 1), powDiv)
-
-        let cow = BF.new()
-        BF.div(pow, BF.fromNumber(2 * i + 1), cow)
-
-        BF.mul(pow, xSquared, powTmp)
-        ;[ powTmp, pow ] = [ pow, powTmp ]
-
-        BF.add(accumulator, powDiv, accumulator)
-      }
-
-
-      let ret = BF.new()
-      BF.mul(accumulator, c, ret)
-
-      return ret
-    }
-
-    function mul () {
-      let resFast = BF.new(60), resSlow = BF.new(60)
-
-      BF.mul(f1, f2, resFast)
-      BF.mulSlow(f1, f2, resSlow)
-
-      console.log("mul fast: ", resFast.toNumber(), resFast.mant)
-      console.log("mul slow: ", resSlow.toNumber(), resSlow.mant)
-    }
 </script>
 
 <script src="test_setup.js"></script>
