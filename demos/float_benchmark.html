@@ -31,6 +31,8 @@
   var bigFloats = floats.map(f => BF.fromNumber(f))
   var decimalFloats = floats.map(f => new Decimal(f))
 
+  var boundedFloats = floats.map(f => BF.fromNumber(f % 1041.2241))
+
   function generateRandomFloats() {
     let seed = 6
     let gen = mulberry32(seed)
@@ -64,7 +66,7 @@
 
     for (let i = 0; i < floats.length; ++i) {
       for (let j = 0; j < floats.length; ++j) {
-        BF.add(bigFloats[i], bigFloats[j], res, Grapheme.ROUNDING_MODE.WHATEVER)
+        BF.internalAddTo(boundedFloats[i], boundedFloats[j], res, Grapheme.ROUNDING_MODE.WHATEVER)
       }
     }
   }
@@ -102,7 +104,7 @@
 
     for (let i = 0; i < floats.length; ++i) {
       for (let j = 0; j < floats.length; ++j) {
-        BF.mul(bigFloats[i], bigFloats[j], res, Grapheme.ROUNDING_MODE.WHATEVER)
+        BF.mulTo(bigFloats[i], bigFloats[j], res, Grapheme.ROUNDING_MODE.WHATEVER)
       }
     }
   }
@@ -125,7 +127,7 @@
 
   function exp () {
     for (let i = 0; i < floats.length; ++i) {
-      res = BF.exp(bigFloats[i])
+      res = BF.exp(boundedFloats[i])
     }
   }
 
@@ -142,13 +144,13 @@
     })
   }
 
-  benchmark(fromNumber, "fromNumber", 10000)
-  benchmark(toNumber, "toNumber", 10000)
-  //benchmark(addition, "addition", 300)
-  //benchmark(multiplication, "multiplication", 10)
+  benchmark(fromNumber, "fromNumber", 100)
+  benchmark(toNumber, "toNumber", 100)
+  benchmark(addition, "addition", 300)
+  benchmark(multiplication, "multiplication", 10)
   //benchmark(division, "division", 2)
   benchmark(ln, "ln", 10)
-  benchmark(exp, "exp", 5)
+  benchmark(exp, "exp", 10)
   //benchmark(decimalLn, "decimal.js ln", 10)
   /*
   benchmark(decimalAddition, "decimal.js addition", 10)

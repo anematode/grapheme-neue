@@ -11,6 +11,10 @@ const BIGFLOAT_WORD_BITS = 30
 const BIGFLOAT_WORD_SIZE = 1 << BIGFLOAT_WORD_BITS
 const BIGFLOAT_WORD_MAX = BIGFLOAT_WORD_SIZE - 1
 
+// Kinda arbitrary, but whatever
+const BIGFLOAT_MIN_PRECISION_BITS = 4
+const BIGFLOAT_MAX_PRECISION_BITS = 1 << 24
+
 let CURRENT_PRECISION = 53
 let CURRENT_ROUNDING_MODE = ROUNDING_MODE.NEAREST
 
@@ -365,7 +369,6 @@ export function addMantissas (mant1, mant2, mant2Shift, precision, targetMantiss
 
   return roundingShift + shift
 }
-
 
 /**
  * Subtract two (positive) mantissas, with mant1 > mant2 and mant2 under a given shift, returning a shift relative to
@@ -1072,9 +1075,9 @@ function slowLn1pBounded (f, precision) {
 
   // The rate of convergence depends on f, with about -log2(abs(f)) bits being generated each time. Since we
   for (let i = 0; i < iterations; ++i) {
-    BigFloat.mul(fExp, f, fExp2, ROUNDING_MODE.WHATEVER)
-    BigFloat.divNumber(fExp2, ((i & 1) ? -1 : 1) * (i + 1), term, ROUNDING_MODE.WHATEVER)
-    BigFloat.add(accum, term, accum2, ROUNDING_MODE.WHATEVER)
+    BigFloat.mulTo(fExp, f, fExp2, ROUNDING_MODE.WHATEVER)
+    BigFloat.divNumberTo(fExp2, ((i & 1) ? -1 : 1) * (i + 1), term, ROUNDING_MODE.WHATEVER)
+    BigFloat.internalAddTo(accum, term, accum2, ROUNDING_MODE.WHATEVER)
 
     // Swap the accumulators
     let tmp = accum
@@ -1098,12 +1101,12 @@ export function lnBaseCase (f, precision) {
   let atanhArg = BF.new(precision)
   let argNum = BF.new(precision), argDen = BF.new(precision)
 
-  BF.subNumber(f, 1, argNum)
-  BF.addNumber(f, 1, argDen)
-  BF.div(argNum, argDen, atanhArg)
+  BF.subNumberTo(f, 1, argNum)
+  BF.addNumberTo(f, 1, argDen)
+  BF.divTo(argNum, argDen, atanhArg)
 
   let result = arctanhSmallRange(atanhArg, precision - 10)
-  BF.mulPowerOfTwo(result, 1, result)
+  BF.mulPowerOfTwoTo(result, 1, result)
 
   return result
 }
@@ -1114,7 +1117,7 @@ export function arctanhSmallRange (f, precision) {
 
   // atanh(x) = x + x^3 / 3 + x^5 / 5 + ... meaning at worst we have convergence at -log2((1/5)^2) = 4.6 bits / iteration
   let accum = BF.new(precision), accumSwap = BF.new(precision), fSq = BF.new(precision), ret = BF.new(precision)
-  BF.mul(f, f, fSq)
+  BF.mulTo(f, f, fSq)
 
   // Compute 1 + x^2 / 3 + x^4 / 5 + ...
   let pow = BF.fromNumber(1)
@@ -1124,17 +1127,17 @@ export function arctanhSmallRange (f, precision) {
   let iterations = precision / bitsPerIteration
 
   for (let i = 0; i < iterations; ++i) {
-    BF.mulNumber(pow, 1 / (2 * i + 1), powDiv)
+    BF.mulNumberTo(pow, 1 / (2 * i + 1), powDiv)
 
-    BF.mul(pow, fSq, powSwap)
+    BF.mulTo(pow, fSq, powSwap)
     ;[ powSwap, pow ] = [ pow, powSwap ]
 
-    BF.add(accum, powDiv, accumSwap)
+    BF.internalAddTo(accum, powDiv, accumSwap)
     ;[ accumSwap, accum ] = [ accum, accumSwap ]
   }
 
   // Multiply by x
-  BF.mul(accum, f, ret)
+  BF.mulTo(accum, f, ret)
 
   return ret
 }
@@ -1159,14 +1162,14 @@ export function expBaseCase (f, precision, target) {
 
   const iters = Math.ceil(-pln2 / (lnf - Math.log(-pln2 / (lnf - lnp + 2)) + 1))
 
-  BigFloat.divNumber(f, iters, tmp)
-  BigFloat.addNumber(tmp, 1, target)
+  BigFloat.divNumberTo(f, iters, tmp)
+  BigFloat.addNumberTo(tmp, 1, target)
 
   for (let m = iters - 1; m > 0; --m) {
-    BigFloat.divNumber(f, m, tmp)
-    BigFloat.mul(tmp, target, tmp2)
+    BigFloat.divNumberTo(f, m, tmp)
+    BigFloat.mulTo(tmp, target, tmp2)
 
-    BigFloat.addNumber(tmp2, 1, target)
+    BigFloat.addNumberTo(tmp2, 1, target)
   }
 }
 
@@ -1201,45 +1204,77 @@ function getCachedLnValue (value, minPrecision) {
   return c
 }
 
+/**
+ * Takes in an arbitrary input and converts to a corresponding big float. If passed a BigFloat, it does nothing; if
+ * passed a number, it converts to BigFloat. Used for user-facing operations
+ * @param arg
+ */
+function cvtToBigFloat (arg) {
+  if (arg instanceof BigFloat) return arg
+  if (typeof arg === "number") return BigFloat.fromNumber(arg, { precision: 53 })
+
+  throw new TypeError(`Cannot convert argument ${arg} to BigFloat`)
+}
+
 export class BigFloat {
-  constructor (sign, exponent, precision, mantissa) {
+
+  /**
+   * BEGIN CONSTRUCTORS
+   */
+
+  /**
+   * Base constructor. Should generally not be called directly by the user.
+   * @param sign {number} Sign of the float (-1, 0, 1, -Infinity, or Infinity)
+   * @param exp {number} Exponent of the float
+   * @param prec {number} Precision, in bits, of the float
+   * @param mant {Int32Array} Storage of the float bits
+   */
+  constructor (sign, exp, prec, mant) {
     this.sign = sign
-    this.exp = exponent
-    this.prec = precision
-    this.mant = mantissa
+    this.exp = exp
+    this.prec = prec
+    this.mant = mant
   }
 
   /**
    * Construct a new BigFloat from a JS number with a given precision and rounding in the correct direction if the
    * precision is less than 53.
-   * @param num {number}
-   * @param precision {number}
-   * @param roundingMode {number}
+   * @param num {number} JS number to convert from
+   * @param prec {number} Precision, in bits, of the float
+   * @param roundingMode {number} Enum of which direction to round in
    * @returns {BigFloat}
    */
-  static fromNumber (num, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
-    let float = BigFloat.new(precision)
+  static fromNumber (num, { prec=CURRENT_PRECISION, roundingMode=CURRENT_ROUNDING_MODE } = {}) {
+    let float = BigFloat.new(prec)
     float.setFromNumber(num, roundingMode)
 
     return float
   }
 
   /**
-   * Create a new BigFloat, initialized to 0
-   * @param precision
+   * Create a new BigFloat with a given precision, initialized to a value of 0.
+   * @param prec {number} Precision, in bits, of the float
    * @returns {BigFloat}
    */
-  static new (precision=CURRENT_PRECISION) {
-    return new BigFloat(0, 0, precision, createMantissa(precision))
+  static new (prec=CURRENT_PRECISION) {
+    if (prec < BIGFLOAT_MIN_PRECISION_BITS || prec > BIGFLOAT_MAX_PRECISION_BITS || !Number.isInteger(prec))
+      throw new RangeError(`BigFloat precision must be an integer in the range [${BIGFLOAT_MIN_PRECISION_BITS}, ${BIGFLOAT_MAX_PRECISION_BITS}]`)
+
+    return new BigFloat(0, 0, prec, createMantissa(prec))
   }
 
+  /*
+   * BEGIN COMPARISON OPERATORS
+   */
+
   /**
-   * Compare the magnitude of two floats, ignoring their signs
-   * @param f1
-   * @param f2
+   * Compare the magnitude of two floats, ignoring their signs entirely. Returns -1 if |f1| < |f2|, 0 if |f1| = |f2|,
+   * and 1 if |f1| > |f2|.
+   * @param f1 {BigFloat}
+   * @param f2 {BigFloat}
    * @returns {number}
    */
-  static cmpMagnitude (f1, f2) {
+  static cmpFloatMagnitudes (f1, f2) {
     if (f1.exp < f2.exp) {
       return -1
     } else if (f1.exp > f2.exp) {
@@ -1250,21 +1285,24 @@ export class BigFloat {
   }
 
   /**
-   * Compare two floats. If either is NaN, return NaN :P
-   * @param f1
-   * @param f2
+   * Compare two floats. Returns -1 if f1 < f2, 0 if f1 = f2, and 1 if f1 > f2. If either is NaN, returns NaN.
+   * @param f1 {BigFloat}
+   * @param f2 {BigFloat}
    * @returns {number}
    */
-  static cmp (f1, f2) {
-    if (f1.sign < f2.sign) return -1
-    if (f1.sign > f2.sign) return 1
+  static cmpFloats (f1, f2) {
+    const f1Sign = f1.sign
+    const f2Sign = f2.sign
 
-    if (f1.sign === 0 && f2.sign === 0) return 0
+    if (f1Sign < f2Sign) return -1
+    if (f1Sign > f2Sign) return 1
 
-    if (!Number.isFinite(f1.sign) || !Number.isFinite(f2.sign)) {
+    if (f1Sign === 0 && f2Sign === 0) return 0
+
+    if (!Number.isFinite(f1Sign) || !Number.isFinite(f2Sign)) {
       // Then they are either both a same signed infinity, or two NaNs
 
-      if (Number.isNaN(f1.sign) || Number.isNaN(f2.sign)) return NaN
+      if (Number.isNaN(f1Sign) || Number.isNaN(f2Sign)) return NaN
       return 0
     }
 
@@ -1278,68 +1316,21 @@ export class BigFloat {
   }
 
   /**
-   * Returns -1 if a is less than b, 0 if they are equal, and 1 if a is greater than b
-   * @param a {BigFloat|number}
-   * @param b {BigFloat|number}
-   */
-  static cmpNumber (a, b) {
-    if (a instanceof BigFloat && b instanceof BigFloat) {
-      return BigFloat.cmp(a, b)
-    }
-
-    if (typeof a === "number" && typeof b === "number") {
-      if (a < b) return -1
-      else if (a === b) return 0
-      else if (a > b) return 1
-      else return NaN
-    }
-
-    if (a instanceof BigFloat && typeof b === "number") {
-      if (BigFloat.isNaN(a) || Number.isNaN(b)) return NaN
-
-      const aSign = a.sign
-      const bSign = Math.sign(b)
-
-      if (aSign < bSign) return -1
-      else if (aSign > bSign) return 1
-
-      if (aSign === Infinity || aSign === -Infinity || aSign === 0) return 0
-
-      let aFlrLog2 = BigFloat.floorLog2(a, true)
-      let bFlrLog2 = flrLog2(b * bSign)
-
-      if (aFlrLog2 < bFlrLog2) {
-        return -aSign
-      } else if (aFlrLog2 > bFlrLog2) {
-        return aSign
-      } else {
-        // Fallback
-        DOUBLE_STORE.setFromNumber(b)
-
-        return BigFloat.cmp(a, DOUBLE_STORE)
-      }
-    } else if (typeof a === "number" && (b instanceof BigFloat)) {
-      return -BigFloat.cmpNumber(b, a)
-    }
-
-    throw new Error("Invalid arguments to cmpNumber")
-  }
-
-  /**
-   * Add floats f1 and f2 to the target float, using the precision of the target. This function does not allow aliasing.
+   * Add floats f1 and f2 to the target float, using the precision of the target. target must not be either of f1 or f2.
+   * This function either calls addMantissas or subtractMantissas, depending on the relative signs.
    * @param f1 {BigFloat} The first float
    * @param f2 {BigFloat} The second float
    * @param target {BigFloat} The target float
    * @param roundingMode {number} The rounding mode
    * @param flipF2Sign {boolean} Whether to flip the sign of f2 (used to simplify the subtraction code)
    */
-  static add (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE, flipF2Sign=false) {
-    // To make subtraction less of a headache
+  static internalAddTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE, flipF2Sign=false) {
     let f1Sign = f1.sign
     let f2Sign = flipF2Sign ? -f2.sign : f2.sign
 
+    // Special cases
     if (!Number.isFinite(f1Sign) || !Number.isFinite(f2Sign)) {
-      target.sign = f1Sign + f2Sign + 0
+      target.sign = f1Sign + f2Sign
       return
     }
 
@@ -1356,16 +1347,22 @@ export class BigFloat {
       return
     }
 
+    // Used to swap it so that f1 > f2
     function swapF1F2 () {
-      [ f1, f2 ] = [ f2, f1 ]
-      ;[ f1Sign, f2Sign ] = [ f2Sign, f1Sign ]
+      let tmp = f1
+      f1 = f2
+      f2 = tmp
+
+      let tmp2 = f1Sign
+      f1Sign = f2Sign
+      f2Sign = tmp2
     }
 
     let targetPrecision = target.prec
     let targetMantissa = target.mant
 
     if (f1Sign !== f2Sign) {
-      let cmp = BigFloat.cmpMagnitude(f1, f2)
+      let cmp = BigFloat.cmpFloatMagnitudes(f1, f2)
       let sign = 0
 
       if (cmp === 0) target.setZero()
@@ -1389,10 +1386,10 @@ export class BigFloat {
     }
   }
 
-  static addNumber (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static addNumberTo (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
     DOUBLE_STORE.setFromNumber(num)
 
-    BigFloat.add(f1, DOUBLE_STORE, target, roundingMode)
+    BigFloat.internalAddTo(f1, DOUBLE_STORE, target, roundingMode)
   }
 
   /**
@@ -1402,14 +1399,14 @@ export class BigFloat {
    * @param target {BigFloat}
    * @param roundingMode {number}
    */
-  static sub (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
-    BigFloat.add(f1, f2, target, roundingMode, true)
+  static subTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
+    BigFloat.internalAddTo(f1, f2, target, roundingMode, true)
   }
 
-  static subNumber (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static subNumberTo (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
     DOUBLE_STORE.setFromNumber(num)
 
-    BigFloat.sub(f1, DOUBLE_STORE, target, roundingMode)
+    BigFloat.subTo(f1, DOUBLE_STORE, target, roundingMode)
   }
 
   /**
@@ -1419,7 +1416,7 @@ export class BigFloat {
    * @param target {BigFloat}
    * @param roundingMode {number}
    */
-  static mul (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static mulTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
     let f1Sign = f1.sign
     let f2Sign = f2.sign
 
@@ -1442,7 +1439,7 @@ export class BigFloat {
    * @param target
    * @param roundingMode
    */
-  static mulNumber (float, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static mulNumberTo (float, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
     let isAliased = float === target
 
     if (num === 0) {
@@ -1470,17 +1467,17 @@ export class BigFloat {
     if (isAliased) {
       let tmp = BigFloat.new(target.prec)
 
-      BigFloat.mul(float, DOUBLE_STORE, tmp, roundingMode)
+      BigFloat.mulTo(float, DOUBLE_STORE, tmp, roundingMode)
       target.set(tmp)
     } else {
-      BigFloat.mul(float, DOUBLE_STORE, target, roundingMode)
+      BigFloat.mulTo(float, DOUBLE_STORE, target, roundingMode)
     }
   }
 
   /**
    * Multiply a float by a power of two, writing the result to the target.
    */
-  static mulPowerOfTwo (float, exponent, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static mulPowerOfTwoTo (float, exponent, target, roundingMode=CURRENT_ROUNDING_MODE) {
     if (float.sign === 0 || !Number.isFinite(float.sign)) {
       target.sign = float.sign
       return
@@ -1510,7 +1507,7 @@ export class BigFloat {
     target.sign = float.sign
   }
 
-  static div (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static divTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
     let f1Sign = f1.sign
     let f2Sign = f2.sign
 
@@ -1540,11 +1537,10 @@ export class BigFloat {
     target.sign = f1Sign / f2Sign
   }
 
-
-  static divNumber (f1, num, target, roundingMode) {
+  static divNumberTo (f1, num, target, roundingMode) {
     DOUBLE_STORE.setFromNumber(num)
 
-    BigFloat.div(f1, DOUBLE_STORE, target, roundingMode)
+    BigFloat.divTo(f1, DOUBLE_STORE, target, roundingMode)
   }
 
   static ln (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
@@ -1563,7 +1559,7 @@ export class BigFloat {
     let shift = BigFloat.floorLog2(f, true) + 1
     let tmp = BigFloat.new(precision), tmp2 = BigFloat.new(precision), m = BigFloat.new(precision)
 
-    BigFloat.mulPowerOfTwo(f, -shift, m)
+    BigFloat.mulPowerOfTwoTo(f, -shift, m)
 
     // 0.5 <= m < 1, integerPart is exponent. We have a lookup table of log(x) for x in 1 to 2, so that m
     // can be put into a quickly converging series based on the inverse hyperbolic tangent. For now we aim for
@@ -1572,15 +1568,15 @@ export class BigFloat {
     let lookup = 1 + Math.floor((( 1 / mAsNumber) - 1) * 8) / 8
 
     // Compute ln(f * lookup) - ln(lookup)
-    BigFloat.mulNumber(m, lookup, tmp)
+    BigFloat.mulNumberTo(m, lookup, tmp)
 
     let part1 = lnBaseCase(tmp, precision)
     let part2 = getCachedLnValue(lookup, precision)
 
-    BigFloat.sub(part1, part2, tmp2)
-    BigFloat.mulNumber(getCachedLnValue(2, precision), shift, tmp)
+    BigFloat.subTo(part1, part2, tmp2)
+    BigFloat.mulNumberTo(getCachedLnValue(2, precision), shift, tmp)
 
-    BigFloat.add(tmp, tmp2, m)
+    BigFloat.internalAddTo(tmp, tmp2, m)
 
     return m
   }
@@ -1604,17 +1600,22 @@ export class BigFloat {
       let tmp = BigFloat.new(precision)
       let mul1 = BigFloat.new(precision)
 
-      BigFloat.mulPowerOfTwo(f, -shifts, tmp)
+      BigFloat.mulPowerOfTwoTo(f, -shifts, tmp)
       expBaseCase(tmp, precision, mul1)
 
       // Repeated squaring; every shift requires one squaring
       for (; shifts >= 0; --shifts) {
-        BigFloat.mul(mul1, mul1, tmp)
+        BigFloat.mulTo(mul1, mul1, tmp)
         ;[ mul1, tmp ] = [ tmp, mul1 ]
       }
 
       return tmp
     }
+  }
+
+  // Principle here is simple: log10 (x) = ln(x) / ln(10)
+  static log10 (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+
   }
 
   /**
@@ -1667,26 +1668,6 @@ export class BigFloat {
    */
   clone () {
     return new BigFloat(this.sign, this.exp, this.prec, new Int32Array(this.mant))
-  }
-
-  equals (f) {
-    return BigFloat.cmpNumber(this, f) === 0
-  }
-
-  greaterEq (f) {
-    return BigFloat.cmpNumber(this, f) >= 0
-  }
-
-  greaterThan (f) {
-    return BigFloat.cmpNumber(this, f) === 1
-  }
-
-  lessEq (f) {
-    return BigFloat.cmpNumber(this, f) <= 0
-  }
-
-  lessThan (f) {
-    return BigFloat.cmpNumber(this, f) === -1
   }
 
   neg () {
@@ -1886,8 +1867,154 @@ export class BigFloat {
     }
   }
 
+  toString () {
+    let mant = this.mant
+
+    let decimalOut = [0]
+    function divPow30 () {
+      let carry = 0
+
+      for (let i = 0; i < decimalOut.length; ++i) {
+        let word = decimalOut[i]
+        let div = word / (2 ** 15)
+        let flr = Math.floor(div)
+
+        let newWord = flr + carry
+
+        decimalOut[i] = newWord
+        carry = (div - flr) * (10 ** 15)
+      }
+
+      decimalOut.push(carry)
+    }
+
+    for (let i = mant.length - 1; i >= 0; --i) {
+      decimalOut[0] += mant[i] & 0x7fff
+      divPow30()
+
+      decimalOut[0] += mant[i] >> 15
+      divPow30()
+    }
+    
+    return decimalOut.map(d => leftZeroPad(d.toString(), 15, '0')).join('')
+  }
+
   toUnderstandableString () {
     return prettyPrintFloat(this.mant, this.prec)
+  }
+
+  /**
+   * BEGIN USER-FRIENDLY FUNCTIONS
+   */
+
+  /**
+   * User-friendly add function that takes in both JS numbers and plain floats.
+   * @param f1 {BigFloat|number}
+   * @param f2 {BigFloat|number}
+   * @param precision
+   * @param roundingMode
+   */
+  static add (f1, f2, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE }) {
+    f1 = cvtToBigFloat(f1)
+    f2 = cvtToBigFloat(f2)
+
+    let ret = BigFloat.new(precision)
+    BigFloat.internalAddTo(f1, f2, ret)
+
+    return ret
+  }
+
+  /**
+   * Returns -1 if a is less than b, 0 if they are equal, and 1 if a is greater than b
+   * @param a {BigFloat|number}
+   * @param b {BigFloat|number}
+   */
+  static cmp (a, b) {
+    if (a instanceof BigFloat && b instanceof BigFloat) {
+      return BigFloat.cmpFloats(a, b)
+    }
+
+    if (typeof a === "number" && typeof b === "number") {
+      if (a < b) return -1
+      else if (a === b) return 0
+      else if (a > b) return 1
+      else return NaN
+    }
+
+    if (a instanceof BigFloat && typeof b === "number") {
+      if (BigFloat.isNaN(a) || Number.isNaN(b)) return NaN
+
+      const aSign = a.sign
+      const bSign = Math.sign(b)
+
+      if (aSign < bSign) return -1
+      else if (aSign > bSign) return 1
+
+      if (aSign === Infinity || aSign === -Infinity || aSign === 0) return 0
+
+      let aFlrLog2 = BigFloat.floorLog2(a, true)
+      let bFlrLog2 = flrLog2(b * bSign)
+
+      if (aFlrLog2 < bFlrLog2) {
+        return -aSign
+      } else if (aFlrLog2 > bFlrLog2) {
+        return aSign
+      } else {
+        // Fallback
+        DOUBLE_STORE.setFromNumber(b)
+
+        return BigFloat.cmpFloats(a, DOUBLE_STORE)
+      }
+    } else if (typeof a === "number" && (b instanceof BigFloat)) {
+      return -BigFloat.cmpNumber(b, a)
+    }
+
+    throw new Error("Invalid arguments to cmpNumber")
+  }
+
+  /**
+   * Returns true if the numbers are equal (allows for JS numbers to be used)
+   * @param f {BigFloat|f}
+   * @returns {boolean}
+   */
+  equals (f) {
+    return BigFloat.cmp(this, f) === 0
+  }
+
+  /**
+   * Returns true if this float is greater than or equal to the argument (allows for JS numbers to be used)
+   * @param f {BigFloat|f}
+   * @returns {boolean}
+   */
+  greaterEq (f) {
+    return BigFloat.cmp(this, f) >= 0
+  }
+
+  /**
+   * Returns true if this float is greater than the argument (allows for JS numbers to be used)
+   * @param f {BigFloat|f}
+   * @returns {boolean}
+   */
+  greaterThan (f) {
+    return BigFloat.cmp(this, f) === 1
+  }
+
+  /**
+   * Returns true if this float is less than or equal to the argument (allows for JS numbers to be used)
+   * @param f {BigFloat|f}
+   * @returns {boolean}
+   */
+  lessEq (f) {
+    return BigFloat.cmp(this, f) <= 0
+  }
+
+  /**
+   * Returns true if this float is less than the argument (allows for JS numbers to be used)
+   * @param f {BigFloat|f}
+   * @returns {boolean}
+   */
+  lessThan (f) {
+    return BigFloat.cmp(this, f) === -1
   }
 }
 

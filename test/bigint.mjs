@@ -132,33 +132,37 @@ let testDoubles = [
   2.2250738585072014e-308, 2 ** 1023, 2 ** -1025, 2 ** -1026 + 2 ** -1072
 ]
 
-describe('BigFloat', function () {
-  it('should have conversion identical to Math.fround', function () {
-    for (const double of testDoubles) {
-      let bf = BigFloat.fromNumber(double)
-      let flt = bf.toNumber({ roundingMode: ROUNDING_MODE.NEAREST, f32: true })
+const BF = BigFloat
 
-      expect(flt, `Expected conversion to f32 on ${double} to be correct`).to.equal(Math.fround(double))
-    }
+describe('BigFloat', function () {
+  it('should have a new function', function () {
+    let flt = BigFloat.new(160)
+
+    expect(flt.prec, `Expected precision to be set`).to.equal(160)
   })
 
-  it('should have lossless conversion between doubles', function () {
+  it('should reject invalid precisions', function () {
+    expect(() => BigFloat.new(3)).to.throw()
+    expect(() => BigFloat.new(2050.4)).to.throw()
+    expect(() => BigFloat.new(241024910947)).to.throw()
+  })
+
+  it('should be constructible from doubles and have lossless conversion', function () {
     for (const double of testDoubles) {
       let bf = BigFloat.fromNumber(double)
-      let flt = bf.toNumber({ roundingMode: ROUNDING_MODE.NEAREST })
+      let flt = bf.toNumber()
 
       expect(flt, `Expected conversion double on ${double} to be correct`).to.equal(double)
     }
   })
 
-  it('should correctly handle special values', function () {
+  it('should have f32 rounding conversion identical to Math.fround', function () {
+    for (const double of testDoubles) {
+      let bf = BigFloat.fromNumber(double)
+      let flt = bf.toNumber(ROUNDING_MODE.NEAREST, true)
 
-  })
-
-  it('should have a new static function', function () {
-    let flt = BigFloat.new(160)
-
-    expect(flt.prec, `Expected precision to be set`).to.equal(160)
+      expect(flt, `Expected conversion to f32 on ${double} to be correct`).to.equal(Math.fround(double))
+    }
   })
 })
 
@@ -297,7 +301,7 @@ describe('addMantissas', function () {
 describe('add', function () {
   function testCase (f1, f2) {
     let res = BigFloat.new()
-    BigFloat.add(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
+    BigFloat.internalAddTo(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
 
     res = res.toNumber()
     if (Number.isNaN(f1 + f2)) {
@@ -319,7 +323,7 @@ describe('add', function () {
 describe('subtract', function () {
   function testCase (f1, f2) {
     let res = BigFloat.new()
-    BigFloat.sub(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
+    BigFloat.subTo(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
 
     res = res.toNumber()
     if (Number.isNaN(f1 - f2)) {
@@ -341,7 +345,7 @@ describe('subtract', function () {
 describe('multiply', function () {
   function testCase (f1, f2) {
     let res = BigFloat.new()
-    BigFloat.mul(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
+    BigFloat.mulTo(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
 
     res = res.toNumber()
     if (Number.isNaN(f1 * f2)) {
@@ -366,7 +370,7 @@ describe('divide', function () {
     if (Math.abs(f1 / f2) < 2 ** -1022) return
 
     let res = BigFloat.new()
-    BigFloat.div(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
+    BigFloat.divTo(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
 
     res = res.toNumber()
     if (Number.isNaN(f1 / f2)) {
