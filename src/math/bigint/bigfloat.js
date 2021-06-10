@@ -24,7 +24,7 @@ let CURRENT_ROUNDING_MODE = ROUNDING_MODE.NEAREST
  * @param prec {number}
  * @returns {number}
  */
-function neededWordsForPrecision (prec) {
+export function neededWordsForPrecision (prec) {
   return ((prec - 1) / BIGFLOAT_WORD_BITS + 2) | 0
 }
 
@@ -110,14 +110,14 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
     return 0
   }
 
-  let targetMantissaLen = target.length
-  let mantissaLen = mant.length
+  let targetLen = target.length
+  let mantLen = mant.length
 
   let offset = -1, shift = 0, bitShift = 0
 
   // How many ghost bits there are at the beginning; in other words, where to start counting precision bits from.
   // Specialized impl of clzMantissa
-  for (let i = 0; i < mantissaLen; ++i) {
+  for (let i = 0; i < mantLen; ++i) {
     if (mant[i]) {
       bitShift = 30 * i
       offset = bitShift + Math.clz32(mant[i]) - 2
@@ -130,7 +130,7 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
 
   if (offset === -1) {
     // Mantissa is all 0s, return
-    for (let i = 0; i < targetMantissaLen; ++i) {
+    for (let i = 0; i < targetLen; ++i) {
       target[i] = 0
     }
 
@@ -152,9 +152,9 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
   let rem = 0, doCarry = false
 
   // If the truncation would happen after the end of the mantissa...
-  if (truncWord >= targetMantissaLen) {
+  if (truncWord >= targetLen) {
     // Whether the truncation bit is on the (nonexistent) word right after the mantissa
-    let isAtVeryEnd = truncWord === targetMantissaLen && truncateLen === BIGFLOAT_WORD_BITS
+    let isAtVeryEnd = truncWord === targetLen && truncateLen === BIGFLOAT_WORD_BITS
 
     // Fake a trailing info after the end. Our general strategy with trailingInfoMode = 1 is to convert it into a form
     // that trailingInfoMode = 0 can handle
@@ -208,7 +208,7 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
     if (rem > 0 || trailing > 0) {
       doCarry = true
     } else if (trailingMode === 0) {
-      for (let i = truncWord + shift + 1; i < mantissaLen; ++i) {
+      for (let i = truncWord + shift + 1; i < mantLen; ++i) {
         if (mant[i] !== 0) {
           doCarry = true
           break
@@ -228,7 +228,7 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
       } else {
         if (trailingMode === 0) {
           // Try to break the tie by looking for nonzero bits
-          for (let i = truncWord + shift + 1; i < mantissaLen; ++i) {
+          for (let i = truncWord + shift + 1; i < mantLen; ++i) {
             if (mant[i] !== 0) {
               doCarry = true
               break doCarry
@@ -255,7 +255,7 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
   }
 
   // Set all the words following the truncated word to 0
-  for (let j = truncWord; ++j < targetMantissaLen;) {
+  for (let j = truncWord; ++j < targetLen;) {
     target[j] = 0
   }
 
@@ -559,7 +559,7 @@ export function leftShiftMantissa (mantissa, shift, targetMantissa=mantissa) {
  * @param int
  * @param targetMantissa
  * @param roundingMode
- * @returns {{shift: number, mantissa: Int32Array}}
+ * @returns {number} The shift of the operation
  */
 export function multiplyMantissaByInteger (mantissa, int, precision, targetMantissa, roundingMode=CURRENT_ROUNDING_MODE) {
   let newMantissa = new Int32Array(neededWordsForPrecision(precision) + 1) // extra word for overflow
@@ -1619,8 +1619,7 @@ export class BigFloat {
     const num = BigFloat.ln(f, { precision })
     const den = BigFloat.ln(BigFloat.fromNumber(10), { precision })
 
-
-
+    return BigFloat.div(num, den)
   }
 
   /**
@@ -1936,7 +1935,7 @@ export class BigFloat {
    * @param precision
    * @param roundingMode
    */
-  static div (f1, f2, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE }) {
+  static div (f1, f2, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
     f1 = cvtToBigFloat(f1)
     f2 = cvtToBigFloat(f2)
 
