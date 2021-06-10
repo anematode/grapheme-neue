@@ -20,7 +20,7 @@ let CURRENT_ROUNDING_MODE = ROUNDING_MODE.NEAREST
 
 /**
  * The minimum number of words needed to store a mantissa with prec bits. The +1 is because the bits need to be stored
- * at any shift within the word, from 1 to 29, so some space may be needed
+ * at any shift within the word, from 1 to 29, so some space may be needed. WELL TESTED
  * @param prec {number}
  * @returns {number}
  */
@@ -29,7 +29,7 @@ export function neededWordsForPrecision (prec) {
 }
 
 /**
- * Get an empty mantissa able to store a mantissa with prec bits.
+ * Get an empty mantissa able to store a mantissa with prec bits. WELL TESTED
  * @param prec
  * @returns {Int32Array}
  */
@@ -122,7 +122,7 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
       bitShift = 30 * i
       offset = bitShift + Math.clz32(mant[i]) - 2
 
-      shift = -i
+      shift = -i | 0
 
       break
     }
