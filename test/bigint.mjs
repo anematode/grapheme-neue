@@ -370,7 +370,7 @@ describe('divide', function () {
     if (Math.abs(f1 / f2) < 2 ** -1022) return
 
     let res = BigFloat.new()
-    BigFloat.divTo(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
+    BigFloat.internalDivTo(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
 
     res = res.toNumber()
     if (Number.isNaN(f1 / f2)) {
