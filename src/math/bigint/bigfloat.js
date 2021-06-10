@@ -152,7 +152,7 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
   let rem = 0, doCarry = false
 
   // If the truncation would happen after the end of the mantissa...
-  if (truncWord >= targetLen) {
+  if (truncWord >= mantLen) {
     // Whether the truncation bit is on the (nonexistent) word right after the mantissa
     let isAtVeryEnd = truncWord === targetLen && truncateLen === BIGFLOAT_WORD_BITS
 
@@ -169,9 +169,9 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
     // is slightly intricate
     if (isAtVeryEnd) {
       if (trailing === 0 || (round === ROUNDING_MODE.DOWN || round === ROUNDING_MODE.TOWARD_ZERO) ||
-        ((trailing === 1) && (round === ROUNDING_MODE.TIES_AWAY || round === ROUNDING_MODE.TOWARD_ZERO))) {
+        ((trailing === 1) && (round === ROUNDING_MODE.TIES_AWAY || round === ROUNDING_MODE.TIES_EVEN))) {
         return shift
-      } else if (trailing === 2 && (round === ROUNDING_MODE.TIES_AWAY || round === ROUNDING_MODE.TOWARD_ZERO)) {
+      } else if (trailing === 2 && (round === ROUNDING_MODE.TIES_AWAY || round === ROUNDING_MODE.TIES_EVEN)) {
         rem = 0x20000000 // emulate tie = BIGFLOAT_WORD_SIZE / 2
       } else {
         rem = 0x30000000 // emulate round up = 3 * BIGFLOAT_WORD_SIZE / 4
@@ -241,6 +241,8 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
           // We only do the carry if it would give an even bit at the end. To do this we query for the bit which will be
           // affected (the truncateLen th bit). If the bit is 1, we do the carry. If truncateLen is 30 then we have to look
           // at the preceding word for the bit, since we truncated *at* a word
+
+
           let bit = (truncateLen === BIGFLOAT_WORD_BITS) ?
             (target[truncWord - 1] & 1) :
             ((target[truncWord] >> truncateLen) & 1)
@@ -326,6 +328,10 @@ export function addMantissas (mant1, mant2, mant2Shift, prec, target, roundingMo
     for (let i = 0; i < mant1Len; ++i) {
       newMant[i] = mant1[i]
     }
+
+    for (let i = mant1Len; i < newMantLen; ++i) {
+      newMant[i] = 0
+    }
   }
 
   let mant2Bound1 = Math.min(mant2End, newMantLen)
@@ -348,10 +354,12 @@ export function addMantissas (mant1, mant2, mant2Shift, prec, target, roundingMo
     }
   }
 
-  // All that remains are the words of mant2 to the right of mant1Len - mant2Shift
+  // All that remains are the words of mant2 to the right of newMantLen - mant2Shift
   let trailingInfo = 0
-  if (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.UP || roundingMode === ROUNDING_MODE.TOWARD_INF || roundingMode === ROUNDING_MODE.NEAREST) {
-    let trailingShift = mant1Len - mant2Shift
+  let needsTrailingInfo = (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.UP || roundingMode === ROUNDING_MODE.TOWARD_INF || roundingMode === ROUNDING_MODE.NEAREST)
+
+  if (needsTrailingInfo) {
+    let trailingShift = newMantLen - mant2Shift
     trailingInfo = getTrailingInfo(mant2, Math.max(trailingShift, 0))
 
     if (trailingShift < 0) trailingInfo = +(!!trailingInfo) // Lol, if the trailing info is shifted, then round it to 0 or 1 as appropriate
@@ -360,7 +368,23 @@ export function addMantissas (mant1, mant2, mant2Shift, prec, target, roundingMo
   let shift = 0
 
   if (carry) {
+    // Get trailing info from beyond the end of the truncation due to right shifting LOL
+    if (needsTrailingInfo) {
+      let lastWord = newMant[newMant.length - 1]
+
+      if (lastWord === 0) {
+        trailingInfo = +(!!trailingInfo)
+      } else if (lastWord < 0x20000000) {
+        trailingInfo = 1
+      } else if (lastWord === 0x20000000) {
+        trailingInfo = trailingInfo ? 3 : 2
+      } else {
+        trailingInfo = 3
+      }
+    }
+
     rightShiftMantissa(newMant, 30)
+
     newMant[0] = 1
     shift += 1
   }
@@ -514,8 +538,15 @@ export function rightShiftMantissa (mantissa, shift, targetMantissa=mantissa) {
 export function leftShiftMantissa (mantissa, shift, targetMantissa=mantissa) {
   if (shift === 0) {
     if (targetMantissa !== mantissa) {
-      for (let i = Math.min(targetMantissa.length, mantissa.length); i >= 0; --i) {
+      let targetMantissaLen = targetMantissa.length
+      let copyLen = Math.min(targetMantissaLen, mantissa.length)
+
+      for (let i = copyLen; i >= 0; --i) {
         targetMantissa[i] = mantissa[i]
+      }
+
+      for (let i = targetMantissaLen - 1; i > copyLen; --i) {
+        targetMantissa[i] = 0
       }
     }
 
@@ -525,7 +556,7 @@ export function leftShiftMantissa (mantissa, shift, targetMantissa=mantissa) {
   let mantissaLen = mantissa.length
   let targetMantissaLen = targetMantissa.length
 
-  let integerShift = Math.floor(shift / 30)
+  let integerShift = (shift / 30) | 0
   let bitShift = shift % 30
 
   if (bitShift === 0) {

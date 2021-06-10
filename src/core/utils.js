@@ -226,6 +226,12 @@ export function leftZeroPad (str, len, char='0') {
   return char.repeat(len - str.length) + str
 }
 
+export function rightZeroPad (str, len, char='0') {
+  if (str.length >= len) return str
+
+  return str + char.repeat(len - str.length)
+}
+
 /**
  * Simple performance testing function
  * @param callback {Function}

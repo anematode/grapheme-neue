@@ -1,5 +1,5 @@
-import {BigFloat, roundMantissaToPrecision} from "../src/math/bigint/bigfloat.js"
-import {deepEquals, leftZeroPad} from "../src/core/utils.js"
+import {addMantissas, BigFloat, rightShiftMantissa, roundMantissaToPrecision} from "../src/math/bigint/bigfloat.js"
+import {deepEquals, leftZeroPad, rightZeroPad} from "../src/core/utils.js"
 import {ROUNDING_MODE} from "../src/math/rounding_modes.js"
 
 import {expect} from "chai"
@@ -51,7 +51,7 @@ export function verifyMantissa (mantissa) {
   }
 }
 
-function wrapError(f) {
+function wrapErr(f) {
   return { toString: f }
 }
 
@@ -89,14 +89,121 @@ export function testMantissaCase (func, args, argNames, expectedTarget, expected
     return out
   }
 
-  expect(target).to.deep.equal(expectedTarget,
-    `Incorrect result while testing function ${func.name}. Arguments are as follows: ${formatArgs()}\nExpected target mantissa: ${prettyPrintArg(expectedTarget)}\nActual mantissa:          ${prettyPrintMantissa(target, '\u001b[31m')}\n`)
+  if (!deepEquals(target, expectedTarget)) {
+    throw new Error(`Incorrect result while testing function ${func.name}. Arguments are as follows: ${formatArgs()}\nExpected target mantissa: ${prettyPrintArg(expectedTarget)}\nActual mantissa:          ${prettyPrintMantissa(target, '\u001b[31m')}\n\n`)
+  }
 
-  expect(ret).to.equal(expectedReturn, `Incorrect result while testing function ${func.name}. Arguments are as follows: ${formatArgs()}\nExpected return: ${prettyPrintArg(expectedReturn)}\nActual return: ${prettyPrintArg(ret)} `)
+  if (!deepEquals(ret, expectedReturn)) {
+    throw new Error(`Incorrect result while testing function ${func.name}. Arguments are as follows: ${formatArgs()}\nExpected return: ${prettyPrintArg(expectedReturn)}\nActual return: ${prettyPrintArg(ret)}\n`)
+  }
 }
+
+function mantissaFromBinaryString (str) {
+  let arr = []
+
+  for (let i = 0; i < str.length; i += 30) {
+    arr.push(parseInt(rightZeroPad(str.slice(i, i + 30), 30), 2))
+  }
+
+  return arr
+}
+
+// Garden variety mantissas
+const typicalMantissas = []
+
+// List of mantissas that are likely to cause trouble
+const difficultMantissas = []
+
+// Mantissas consisting of only ones
+const mantissaAllOnes = []
+
+for (let i = 0; i < 29; ++i) {
+  for (let count = 0; count < 100; ++count) {
+    let str = '0'.repeat(i) + '1'.repeat(count)
+
+    mantissaAllOnes.push(mantissaFromBinaryString(str))
+  }
+}
+
+// Mantissas containing various troublesome words like 0x20000000 and 0x1fffffff
+const troublesomeWords = [ 0x20000000, 0x1fffffff, 0x00000000, 0x00000001, 0x3fffffff, 0x1ffffffe, 0x20000001 ]
+
+troublesomeWords.forEach(w => w ? difficultMantissas.push([ w ]) : 0)
+troublesomeWords.forEach(w1 => w1 ? troublesomeWords.forEach(w2 => difficultMantissas.push([ w1, w2 ])) : 0)
+troublesomeWords.forEach(w1 => w1 ? troublesomeWords.forEach(w2 => troublesomeWords.forEach(w3 => difficultMantissas.push([ w1, w2, w3 ]))) : 0)
 
 describe("roundMantissaToPrecision", () => {
   const argNames = ["mant", "prec", "target", "round", "trailing", "trailingInfo"]
 
-  testMantissaCase(roundMantissaToPrecision, [ [ 0x1fffffff, 0 ], 20, 2, RM.NEAREST, 0, 0 ], argNames, [ 0x20000000, 0 ], 0)
+  it('fills in unused words with 0', () => {
+    testMantissaCase(roundMantissaToPrecision, [ [ 0x1fffffff, 0 ], 20, 200 /* excess target length */, RM.NEAREST, 0, 0 ], argNames, [ 0x20000000, 0 ], 0)
+  })
+})
+
+// Reference function. Slow but (hopefully) accurate
+function referenceAddMantissas (mant1, mant2, mant2Shift, prec, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  let output = new Int32Array(Math.max(mant1.length, mant2.length + mant2Shift) + 1)
+
+  for (let i = 0; i < mant1.length; ++i) {
+    output[i] += mant1[i]
+  }
+
+  for (let i = 0; i < mant2.length; ++i) {
+    output[i + mant2Shift] += mant2[i]
+  }
+
+  let carry = 0
+  for (let i = output.length - 1; i >= 0; --i) {
+    let word = output[i] + carry
+
+    if (word > 0x3fffffff) {
+      word -= 0x40000000
+      carry = 1
+    } else {
+      carry = 0
+    }
+
+    output[i] = word
+  }
+
+  if (carry === 1) {
+    rightShiftMantissa(output, 30, output)
+    output[0] = carry
+  }
+
+  let roundingShift = roundMantissaToPrecision(output, prec, target, roundingMode)
+
+  return carry + roundingShift
+}
+
+describe("addMantissas", () => {
+  let argNames = ["mant1", "mant2", "mant2Shift", "prec", "target", "round"]
+
+  let cases = 0
+  let startTime = Date.now()
+
+  // About two million test cases, but should be somewhat thorough in terms of carry checking
+  for (let i = 0; i < difficultMantissas.length; ++i) {
+    const m1 = difficultMantissas[i]
+    for (const m2 of difficultMantissas) {
+      for (let shift = 0; shift < 5; ++shift) {
+        for (let targetSize = 0; targetSize < 5; ++targetSize) {
+          for (let precision of [ 30, 53, 59, 60, 120 ]) {
+            for (let roundingMode of [ 0, 1, 2, 3, 4, 5, 6 ]) {
+              let target = new Int32Array(targetSize)
+              let ret = referenceAddMantissas(m1, m2, shift, precision, target, roundingMode)
+
+              testMantissaCase(addMantissas, [m1, m2, shift, precision, targetSize, roundingMode], argNames, target, ret)
+              cases++
+            }
+          }
+        }
+      }
+    }
+
+    (!(i%10)) ? console.log(`Progress: ${(i / difficultMantissas.length * 100).toPrecision(4)}% complete`) : 0
+  }
+
+  let endTime = Date.now()
+  console.log(`Completed ${cases} test cases for addMantissas, comparing to referenceAddMantissas, in ${(endTime - startTime) / 1000} seconds.`)
 })
