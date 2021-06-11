@@ -182,7 +182,7 @@ describe("addMantissas", () => {
   let cases = 0
   let startTime = Date.now()
 
-  // About two million test cases, but should be somewhat thorough in terms of carry checking
+  // About 102 million test cases, should be somewhat thorough in terms of carry and rounding checking
   for (let i = 0; i < difficultMantissas.length; ++i) {
     const m1 = difficultMantissas[i]
     for (const m2 of difficultMantissas) {

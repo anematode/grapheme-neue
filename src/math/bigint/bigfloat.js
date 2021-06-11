@@ -1106,8 +1106,8 @@ function slowLn1pBounded (f, precision) {
 
   // The rate of convergence depends on f, with about -log2(abs(f)) bits being generated each time. Since we
   for (let i = 0; i < iterations; ++i) {
-    BigFloat.mulTo(fExp, f, fExp2, ROUNDING_MODE.WHATEVER)
-    BigFloat.divNumberTo(fExp2, ((i & 1) ? -1 : 1) * (i + 1), term, ROUNDING_MODE.WHATEVER)
+    BigFloat.internalMulTo(fExp, f, fExp2, ROUNDING_MODE.WHATEVER)
+    BigFloat.internalDivNumberTo(fExp2, ((i & 1) ? -1 : 1) * (i + 1), term, ROUNDING_MODE.WHATEVER)
     BigFloat.internalAddTo(accum, term, accum2, ROUNDING_MODE.WHATEVER)
 
     // Swap the accumulators
@@ -1132,12 +1132,12 @@ export function lnBaseCase (f, precision) {
   let atanhArg = BF.new(precision)
   let argNum = BF.new(precision), argDen = BF.new(precision)
 
-  BF.subNumberTo(f, 1, argNum)
-  BF.addNumberTo(f, 1, argDen)
+  BF.internalSubNumberTo(f, 1, argNum)
+  BF.internalAddNumberTo(f, 1, argDen)
   BF.internalDivTo(argNum, argDen, atanhArg)
 
   let result = arctanhSmallRange(atanhArg, precision - 10)
-  BF.mulPowerOfTwoTo(result, 1, result)
+  BF.internalMulPowTwoTo(result, 1, result)
 
   return result
 }
@@ -1148,7 +1148,7 @@ export function arctanhSmallRange (f, precision) {
 
   // atanh(x) = x + x^3 / 3 + x^5 / 5 + ... meaning at worst we have convergence at -log2((1/5)^2) = 4.6 bits / iteration
   let accum = BF.new(precision), accumSwap = BF.new(precision), fSq = BF.new(precision), ret = BF.new(precision)
-  BF.mulTo(f, f, fSq)
+  BF.internalMulTo(f, f, fSq)
 
   // Compute 1 + x^2 / 3 + x^4 / 5 + ...
   let pow = BF.fromNumber(1)
@@ -1158,9 +1158,9 @@ export function arctanhSmallRange (f, precision) {
   let iterations = precision / bitsPerIteration
 
   for (let i = 0; i < iterations; ++i) {
-    BF.mulNumberTo(pow, 1 / (2 * i + 1), powDiv)
+    BF.internalMulNumberTo(pow, 1 / (2 * i + 1), powDiv)
 
-    BF.mulTo(pow, fSq, powSwap)
+    BF.internalMulTo(pow, fSq, powSwap)
     ;[ powSwap, pow ] = [ pow, powSwap ]
 
     BF.internalAddTo(accum, powDiv, accumSwap)
@@ -1168,7 +1168,7 @@ export function arctanhSmallRange (f, precision) {
   }
 
   // Multiply by x
-  BF.mulTo(accum, f, ret)
+  BF.internalMulTo(accum, f, ret)
 
   return ret
 }
@@ -1193,14 +1193,14 @@ export function expBaseCase (f, precision, target) {
 
   const iters = Math.ceil(-pln2 / (lnf - Math.log(-pln2 / (lnf - lnp + 2)) + 1))
 
-  BigFloat.divNumberTo(f, iters, tmp)
-  BigFloat.addNumberTo(tmp, 1, target)
+  BigFloat.internalDivNumberTo(f, iters, tmp)
+  BigFloat.internalAddNumberTo(tmp, 1, target)
 
   for (let m = iters - 1; m > 0; --m) {
-    BigFloat.divNumberTo(f, m, tmp)
-    BigFloat.mulTo(tmp, target, tmp2)
+    BigFloat.internalDivNumberTo(f, m, tmp)
+    BigFloat.internalMulTo(tmp, target, tmp2)
 
-    BigFloat.addNumberTo(tmp2, 1, target)
+    BigFloat.internalAddNumberTo(tmp2, 1, target)
   }
 }
 
@@ -1212,7 +1212,7 @@ const recip2Pow30 = pow2(-BIGFLOAT_WORD_BITS)
 const recip2Pow60 = pow2(-2 * BIGFLOAT_WORD_BITS)
 
 /**
- * Compute and return ln(x), intended for x between 1 and 2 for higher series convergence in ln
+ * Compute and return ln(x), intended for x between 1 and 2 for higher series convergence in ln. +- 1 ulp
  * @param value
  * @param minPrecision
  * @returns {any|BigFloat}
@@ -1223,7 +1223,7 @@ function getCachedLnValue (value, minPrecision) {
   if (c && c.prec >= minPrecision) return c
 
   if (value > 2 || value < 1) {
-    c = BigFloat.ln(value, { precision: minPrecision })
+    c = BigFloat.ln(value, { precision: minPrecision, roundingMode: ROUNDING_MODE.WHATEVER })
   } else {
     let f = BigFloat.fromNumber(value)
 
@@ -1231,6 +1231,23 @@ function getCachedLnValue (value, minPrecision) {
   }
 
   CACHED_CONSTANTS.lnValues.set(value, c)
+
+  return c
+}
+
+/**
+ * Compute and return 1/ln(x), intended for x = 10 and 2 for base conversions and the like.
+ * @param value {number}
+ * @param minPrecision {number}
+ * @returns {any|BigFloat}
+ */
+function getCachedRecipLnValue (value, minPrecision) {
+  let c = CACHED_CONSTANTS.lnValues.get(value)
+
+  if (c && c.prec >= minPrecision) return c
+
+  c = BigFloat.ln(value, { precision: minPrecision + 1 })
+  CACHED_CONSTANTS.lnValues.set(value, BigFloat.div(1, c))
 
   return c
 }
@@ -1347,8 +1364,15 @@ export class BigFloat {
   }
 
   /**
+   * BEGIN PRIMITIVE OPERATORS (ADDITION, MULTIPLICATION, ETC.).
+   *
+   * For maximum speed, these operators are provided in a "write-to" format to limit the number of needed allocations
+   * of mantissas, et cetera. Seems annoying, but it actually provides a huge speedup relative to returning floats. More
+   * convenient operations are provided as add(...), sub(...), and so on.
+   */
+
+  /**
    * Add floats f1 and f2 to the target float, using the precision of the target. target must not be either of f1 or f2.
-   * This function either calls addMantissas or subtractMantissas, depending on the relative signs.
    * @param f1 {BigFloat} The first float
    * @param f2 {BigFloat} The second float
    * @param target {BigFloat} The target float
@@ -1396,8 +1420,10 @@ export class BigFloat {
       let cmp = BigFloat.cmpFloatMagnitudes(f1, f2)
       let sign = 0
 
-      if (cmp === 0) target.setZero()
-      if (cmp === 1)
+      if (cmp === 0) {
+        target.setZero()
+        return
+      } else if (cmp === 1)
         sign = f1Sign
       else
         sign = f2Sign
@@ -1417,7 +1443,14 @@ export class BigFloat {
     }
   }
 
-  static addNumberTo (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  /**
+   * Add a JS number to the given float, writing the result to target
+   * @param f1 {BigFloat}
+   * @param num {number}
+   * @param target {BigFloat}
+   * @param roundingMode {number}
+   */
+  static internalAddNumberTo (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
     DOUBLE_STORE.setFromNumber(num)
 
     BigFloat.internalAddTo(f1, DOUBLE_STORE, target, roundingMode)
@@ -1430,24 +1463,31 @@ export class BigFloat {
    * @param target {BigFloat}
    * @param roundingMode {number}
    */
-  static subTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static internalSubTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
     BigFloat.internalAddTo(f1, f2, target, roundingMode, true)
   }
 
-  static subNumberTo (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  /**
+   * Subtract a JS number from the given float, writing the result to target
+   * @param f1 {BigFloat}
+   * @param num {number}
+   * @param target {BigFloat}
+   * @param roundingMode {number}
+   */
+  static internalSubNumberTo (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
     DOUBLE_STORE.setFromNumber(num)
 
-    BigFloat.subTo(f1, DOUBLE_STORE, target, roundingMode)
+    BigFloat.internalSubTo(f1, DOUBLE_STORE, target, roundingMode)
   }
 
   /**
-   * Multiply two numbers and write the result to the target.
+   * Multiply two big floats and write the result to the target.
    * @param f1 {BigFloat}
    * @param f2 {BigFloat}
    * @param target {BigFloat}
    * @param roundingMode {number}
    */
-  static mulTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static internalMulTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
     let f1Sign = f1.sign
     let f2Sign = f2.sign
 
@@ -1464,17 +1504,20 @@ export class BigFloat {
   }
 
   /**
-   * Multiply a float by a JS number and write the result to the target. This function does support aliasing.
-   * @param float
-   * @param num
-   * @param target
-   * @param roundingMode
+   * Multiply a float by a JS number and write the result to the target. This function supports aliasing; the target
+   * float may be the same float as the first float. Aliasing should generally only be used when the number is a small
+   * integer.
+   * @param float {BigFloat}
+   * @param num {number}
+   * @param target {BigFloat}
+   * @param roundingMode {number}
    */
-  static mulNumberTo (float, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static internalMulNumberTo (float, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
     let isAliased = float === target
 
     if (num === 0) {
       target.setZero()
+      return
     } else if (num === 1) {
       if (!isAliased) target.setFromFloat(float)
       return
@@ -1498,17 +1541,22 @@ export class BigFloat {
     if (isAliased) {
       let tmp = BigFloat.new(target.prec)
 
-      BigFloat.mulTo(float, DOUBLE_STORE, tmp, roundingMode)
+      BigFloat.internalMulTo(float, DOUBLE_STORE, tmp, roundingMode)
       target.set(tmp)
     } else {
-      BigFloat.mulTo(float, DOUBLE_STORE, target, roundingMode)
+      BigFloat.internalMulTo(float, DOUBLE_STORE, target, roundingMode)
     }
   }
 
   /**
-   * Multiply a float by a power of two, writing the result to the target.
+   * Multiply a float by a power of two, writing the result to the target. This operation is very fast because it can
+   * be accomplished via only bitshifts.
+   * @param float
+   * @param exponent
+   * @param target
+   * @param roundingMode
    */
-  static mulPowerOfTwoTo (float, exponent, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static internalMulPowTwoTo (float, exponent, target, roundingMode=CURRENT_ROUNDING_MODE) {
     if (float.sign === 0 || !Number.isFinite(float.sign)) {
       target.sign = float.sign
       return
@@ -1538,6 +1586,13 @@ export class BigFloat {
     target.sign = float.sign
   }
 
+  /**
+   * Subtract two numbers and write the result to the target.
+   * @param f1 {BigFloat}
+   * @param f2 {BigFloat}
+   * @param target {BigFloat}
+   * @param roundingMode {number}
+   */
   static internalDivTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
     let f1Sign = f1.sign
     let f2Sign = f2.sign
@@ -1553,64 +1608,94 @@ export class BigFloat {
     target.sign = f1Sign / f2Sign
   }
 
-  static div2 (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
-    let f1Sign = f1.sign
-    let f2Sign = f2.sign
-
-    if (f1Sign === 0 || f2Sign === 0 || !Number.isFinite(f1Sign) || !Number.isFinite(f2Sign)) {
-      target.sign = f1Sign / f2Sign
-      return
-    }
-
-    let shift = divMantissas2(f1.mant, f2.mant, target.prec, target.mant, roundingMode)
-
-    target.exp = f1.exp - f2.exp + shift
-    target.sign = f1Sign / f2Sign
-  }
-
-  static divNumberTo (f1, num, target, roundingMode) {
+  /**
+   * Divide a float by a JS number and write the result to the target.
+   * @param f1 {BigFloat}
+   * @param num {number}
+   * @param target {BigFloat}
+   * @param roundingMode {number}
+   */
+  static internalDivNumberTo (f1, num, target, roundingMode) {
     DOUBLE_STORE.setFromNumber(num)
 
     BigFloat.internalDivTo(f1, DOUBLE_STORE, target, roundingMode)
   }
 
-  static ln (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
-    f = cvtToBigFloat(f)
-    let f1Sign = f.sign
+  /**
+   * Split a float f1 into an integer part and a fractional part, such that int + frac = f1, int and frac do not have
+   * opposite sign, and |frac| < 1.
+   * @param f1
+   * @param integerPart
+   * @param fracPart
+   * @param roundingMode
+   */
+  static internalSplitIntegerTo (f1, integerPart, fracPart, roundingMode) {
+    if (f1.sign === 0) {
+      integerPart.setZero()
+      fracPart.setZero()
+      return
+    } else if (!Number.isFinite(f1.sign)) {
+      if (Number.isNaN(f1.sign)) {
+        integerPart.setNaN()
+        fracPart.setNaN()
+      } else {
+        integerPart.sign = f1.sign
+        fracPart.setZero()
+      }
 
-    // Special cases
-    if (f1Sign === 0) {
-      return BigFloat.NegativeInfinity(precision)
-    } else if (f1Sign < 0) {
-      return BigFloat.NaN(precision)
-    } else if (!Number.isFinite(f1Sign)) {
-      return BigFloat.fromNumber(f1Sign, { precision })
+      return
     }
 
-    // By what power of two to shift f, so that we get a number between 0.5 and 1
-    let shift = BigFloat.floorLog2(f, true) + 1
-    let tmp = BigFloat.new(precision), tmp2 = BigFloat.new(precision), m = BigFloat.new(precision)
+    // We identify which word within f1 is the one right after the decimal point and chop it there. Note the property
+    // that the exponent of the integer part is always the same as f1.
+    let word = f1.exp, mantLen = f1.length
+    if (word <= 0) { // |f1| < 1
+      fracPart.setFromFloat(f1)
+      integerPart.setZero()
+    } else if (word >= mantLen) {
+      integerPart.setFromFloat(f1)
+      fracPart.setZero()
+    } else {
+      // word lies within [1, mantissaLen) and thus we need to chop it.
+      let intWordCount = word
 
-    BigFloat.mulPowerOfTwoTo(f, -shift, m)
+      let mant = f1.mant, intPartMant = integerPart.mant, fracPartMant = fracPart.mant
 
-    // 0.5 <= m < 1, integerPart is exponent. We have a lookup table of log(x) for x in 1 to 2, so that m
-    // can be put into a quickly converging series based on the inverse hyperbolic tangent. For now we aim for
-    // |1-x| < 0.125, meaning 8 brackets.
-    let mAsNumber = m.toNumber(ROUNDING_MODE.WHATEVER) // Makes things easier
-    let lookup = 1 + Math.floor((( 1 / mAsNumber) - 1) * 8) / 8
+      if (intPartMant.length > intWordCount) {
+        for (let i = 0; i < intWordCount; ++i) intPartMant[i] = mant[i]
+        for (let i = intPartMant.length - 1; i >= intWordCount; --i) intPartMant[i] = 0
 
-    // Compute ln(f * lookup) - ln(lookup)
-    BigFloat.mulNumberTo(m, lookup, tmp)
+        roundMantissaToPrecision(intPartMant, integerPart.prec, intPartMant, roundingMode)
+      } else {
+        // I am lazy to optimize this
+        roundMantissaToPrecision(mant.subarray(0, word), integerPart.prec, intPartMant, roundingMode)
+      }
 
-    let part1 = lnBaseCase(tmp, precision)
-    let part2 = getCachedLnValue(lookup, precision)
+      integerPart.exp = f1.exp
+      integerPart.sign = f1.sign
 
-    BigFloat.subTo(part1, part2, tmp2)
-    BigFloat.mulNumberTo(getCachedLnValue(2, precision), shift, tmp)
+      let shift
+      for (shift = word; (shift < mantLen) && mant[shift] === 0; ++shift);
 
-    BigFloat.internalAddTo(tmp, tmp2, m)
+      if (shift === mantLen) {
+        fracPart.setZero()
+        return
+      }
 
-    return m
+      let fracWordCount = mantLen - shift
+
+      if (fracPartMant.length > fracWordCount) {
+        for (let i = 0; i < fracWordCount; ++i) fracPartMant[i] = mant[i + shift]
+        for (let i = fracPartMant.length - 1; i >= mantLen; --i) fracPartMant[i] = 0
+
+        roundMantissaToPrecision(fracPartMant, fracPart.prec, fracPartMant, roundingMode)
+      } else {
+        roundMantissaToPrecision(mant.subarray(word), fracPart.prec, fracPartMant, roundingMode)
+      }
+
+      fracPart.exp = word - shift
+      fracPart.sign = f1.sign
+    }
   }
 
   // We'll deal with rounding later...
@@ -1632,25 +1717,17 @@ export class BigFloat {
       let tmp = BigFloat.new(precision)
       let mul1 = BigFloat.new(precision)
 
-      BigFloat.mulPowerOfTwoTo(f, -shifts, tmp)
+      BigFloat.internalMulPowTwoTo(f, -shifts, tmp)
       expBaseCase(tmp, precision, mul1)
 
       // Repeated squaring; every shift requires one squaring
       for (; shifts >= 0; --shifts) {
-        BigFloat.mulTo(mul1, mul1, tmp)
+        BigFloat.internalMulTo(mul1, mul1, tmp)
         ;[ mul1, tmp ] = [ tmp, mul1 ]
       }
 
       return tmp
     }
-  }
-
-  // Principle here is simple: log10 (x) = ln(x) / ln(10)
-  static log10 (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
-    const num = BigFloat.ln(f, { precision })
-    const den = BigFloat.ln(BigFloat.fromNumber(10), { precision })
-
-    return BigFloat.div(num, den)
   }
 
   /**
@@ -1902,38 +1979,6 @@ export class BigFloat {
     }
   }
 
-  toString () {
-    let mant = this.mant
-
-    let decimalOut = [0]
-    function divPow30 () {
-      let carry = 0
-
-      for (let i = 0; i < decimalOut.length; ++i) {
-        let word = decimalOut[i]
-        let div = word / (2 ** 15)
-        let flr = Math.floor(div)
-
-        let newWord = flr + carry
-
-        decimalOut[i] = newWord
-        carry = (div - flr) * (10 ** 15)
-      }
-
-      decimalOut.push(carry)
-    }
-
-    for (let i = mant.length - 1; i >= 0; --i) {
-      decimalOut[0] += mant[i] & 0x7fff
-      divPow30()
-
-      decimalOut[0] += mant[i] >> 15
-      divPow30()
-    }
-
-    return decimalOut.map(d => leftZeroPad(d.toString(), 15, '0')).join('')
-  }
-
   toUnderstandableString () {
     return prettyPrintFloat(this.mant, this.prec)
   }
@@ -1954,7 +1999,24 @@ export class BigFloat {
     f2 = cvtToBigFloat(f2)
 
     let ret = BigFloat.new(precision)
-    BigFloat.internalAddTo(f1, f2, ret)
+    BigFloat.internalAddTo(f1, f2, ret, roundingMode)
+
+    return ret
+  }
+
+  /**
+   * User-friendly subtraction function that takes in both JS numbers and plain floats.
+   * @param f1 {BigFloat|number}
+   * @param f2 {BigFloat|number}
+   * @param precision
+   * @param roundingMode
+   */
+  static sub (f1, f2, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE }) {
+    f1 = cvtToBigFloat(f1)
+    f2 = cvtToBigFloat(f2)
+
+    let ret = BigFloat.new(precision)
+    BigFloat.internalSubTo(f1, f2, ret, roundingMode)
 
     return ret
   }
@@ -1971,7 +2033,24 @@ export class BigFloat {
     f2 = cvtToBigFloat(f2)
 
     let ret = BigFloat.new(precision)
-    BigFloat.internalDivTo(f1, f2, ret)
+    BigFloat.internalDivTo(f1, f2, ret, roundingMode)
+
+    return ret
+  }
+
+  /**
+   * User-friendly divide function that takes in both JS numbers and plain floats.
+   * @param f1 {BigFloat|number}
+   * @param f2 {BigFloat|number}
+   * @param precision
+   * @param roundingMode
+   */
+  static mul (f1, f2, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+    f1 = cvtToBigFloat(f1)
+    f2 = cvtToBigFloat(f2)
+
+    let ret = BigFloat.new(precision)
+    BigFloat.internalMulTo(f1, f2, ret, roundingMode)
 
     return ret
   }
@@ -2067,6 +2146,123 @@ export class BigFloat {
    */
   lessThan (f) {
     return BigFloat.cmp(this, f) === -1
+  }
+
+  /**
+   * Returns the natural logarithm of f.
+   * @param f
+   * @param precision
+   * @param roundingMode
+   * @returns {BigFloat}
+   */
+  static ln (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+    f = cvtToBigFloat(f)
+    let f1Sign = f.sign
+
+    // Special cases
+    if (f1Sign === 0) {
+      return BigFloat.NegativeInfinity(precision)
+    } else if (f1Sign < 0) {
+      return BigFloat.NaN(precision)
+    } else if (!Number.isFinite(f1Sign)) {
+      return BigFloat.fromNumber(f1Sign, { precision })
+    }
+
+    // By what power of two to shift f, so that we get a number between 0.5 and 1
+    let shift = BigFloat.floorLog2(f, true) + 1
+    let tmp = BigFloat.new(precision), tmp2 = BigFloat.new(precision), m = BigFloat.new(precision)
+
+    BigFloat.internalMulPowTwoTo(f, -shift, m)
+
+    // 0.5 <= m < 1, integerPart is exponent. We have a lookup table of log(x) for x in 1 to 2, so that m
+    // can be put into a quickly converging series based on the inverse hyperbolic tangent. For now we aim for
+    // |1-x| < 0.125, meaning 8 brackets.
+    let mAsNumber = m.toNumber(ROUNDING_MODE.WHATEVER) // Makes things easier
+    let lookup = 1 + Math.floor((( 1 / mAsNumber) - 1) * 8) / 8
+
+    // Compute ln(f * lookup) - ln(lookup)
+    BigFloat.internalMulNumberTo(m, lookup, tmp)
+
+    let part1 = lnBaseCase(tmp, precision)
+    let part2 = getCachedLnValue(lookup, precision)
+
+    BigFloat.internalSubTo(part1, part2, tmp2)
+    BigFloat.internalMulNumberTo(getCachedLnValue(2, precision), shift, tmp)
+
+    BigFloat.internalAddTo(tmp, tmp2, m)
+
+    return m
+  }
+
+  /**
+   * Compute the standard logarithm of f.
+   * @param f {BigFloat}
+   * @param precision {number}
+   * @param roundingMode {number}
+   * @returns {BigFloat}
+   */
+  static log10 (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+    f = cvtToBigFloat(f)
+
+    // log10 (x) = ln(x) / ln(10)
+    const num = BigFloat.ln(f, { precision })
+    const den = getCachedRecipLnValue(10, precision)
+
+    return BigFloat.div(num, den, { precision })
+  }
+
+  /**
+   * Return floats f1, f2 such that f1+f2 = f, f1 and f2 have the same sign, f2 is an integer and |f1| < 1
+   * @param f
+   * @param precision
+   * @param roundingMode
+   */
+  static splitIntegerPart (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+
+  }
+
+  /**
+   * Convert a float to a readable base-10 representation.
+   */
+  toString () {
+    // f = m * 2^e; log10(f) = log10(m) + log10(2) * e
+    // f = frac(log10(f)) * 10^floor(log10(f))
+
+    let precision = this.prec
+    let log10 = BigFloat.log10(this, { precision })
+
+    let [ floor, frac ] = BigFloat.splitIntegerPart(log10, { precision })
+
+    let mant = this.mant
+
+    let decimalOut = [0]
+
+    function divPow30 () {
+      let carry = 0
+
+      for (let i = 0; i < decimalOut.length; ++i) {
+        let word = decimalOut[i]
+        let div = word / (2 ** 15)
+        let flr = Math.floor(div)
+
+        let newWord = flr + carry
+
+        decimalOut[i] = newWord
+        carry = (div - flr) * (10 ** 15)
+      }
+
+      if (carry)
+        decimalOut.push(carry)
+    }
+
+    for (let i = mant.length - 2; i >= 0; --i) {
+      decimalOut[0] += mant[i] & 0x7fff
+      divPow30()
+
+      decimalOut[0] += mant[i] >> 15
+      divPow30()
+    }
+
   }
 }
 

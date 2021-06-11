@@ -104,7 +104,7 @@
 
     for (let i = 0; i < floats.length; ++i) {
       for (let j = 0; j < floats.length; ++j) {
-        BF.mulTo(bigFloats[i], bigFloats[j], res, Grapheme.ROUNDING_MODE.WHATEVER)
+        BF.internalMulTo(bigFloats[i], bigFloats[j], res, Grapheme.ROUNDING_MODE.WHATEVER)
       }
     }
   }
