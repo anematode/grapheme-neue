@@ -665,7 +665,7 @@ export function multiplyMantissas (mant1, mant2, precision, targetMantissa, roun
       let mant2WordHi = mant2Word >> 15
 
       let low = Math.imul(mant1WordLo, mant2WordLo), high = Math.imul(mant1WordHi, mant2WordHi)
-      let middle = Math.imul(mant2WordLo, mant1WordHi) + Math.imul(mant1WordLo, mant2WordHi)
+      let middle = (Math.imul(mant2WordLo, mant1WordHi) + Math.imul(mant1WordLo, mant2WordHi)) | 0
 
       low += ((middle & 0x7FFF) << 15) + carry + arr[i + j + 1]
       low >>>= 0
@@ -735,9 +735,9 @@ export function multiplyMantissas2 (mant1, mant2, precision, targetMantissa, rou
 
       let low = Math.imul(mant1Lo, mant2Lo)
       let high = Math.imul(mant1Hi, mant2Hi)
-      let middle = Math.imul(mant1Hi, mant2Lo) + Math.imul(mant1Lo, mant2Hi)
+      let middle = (Math.imul(mant1Hi, mant2Lo) + Math.imul(mant1Lo, mant2Hi)) | 0
 
-      low = low + ((middle & 0x7FFF) << 15) + ((writeIndex < targetMantissaLen) ? targetMantissa[writeIndex] : 0) + carry
+      low += ((middle & 0x7FFF) << 15) + ((writeIndex < targetMantissaLen) ? targetMantissa[writeIndex] : 0) + carry
       low >>>= 0
 
       if (low > 0x3FFFFFFF) {
@@ -1151,14 +1151,14 @@ export function arctanhSmallRange (f, precision) {
   BF.internalMulTo(f, f, fSq)
 
   // Compute 1 + x^2 / 3 + x^4 / 5 + ...
-  let pow = BF.fromNumber(1)
-  let powSwap = BF.new(), powDiv = BF.new()
+  let pow = BF.fromNumber(1, { prec: precision })
+  let powSwap = BF.new(precision), powDiv = BF.new(precision)
 
   let bitsPerIteration = -BigFloat.floorLog2(fSq)
   let iterations = precision / bitsPerIteration
 
   for (let i = 0; i < iterations; ++i) {
-    BF.internalMulNumberTo(pow, 1 / (2 * i + 1), powDiv)
+    BF.internalDivNumberTo(pow, 2 * i + 1, powDiv)
 
     BF.internalMulTo(pow, fSq, powSwap)
     ;[ powSwap, pow ] = [ pow, powSwap ]
@@ -1205,7 +1205,8 @@ export function expBaseCase (f, precision, target) {
 }
 
 const CACHED_CONSTANTS = {
-  lnValues: new Map()
+  lnValues: new Map(),
+  recipLnValues: new Map()
 }
 
 const recip2Pow30 = pow2(-BIGFLOAT_WORD_BITS)
@@ -1241,13 +1242,15 @@ function getCachedLnValue (value, minPrecision) {
  * @param minPrecision {number}
  * @returns {any|BigFloat}
  */
-function getCachedRecipLnValue (value, minPrecision) {
-  let c = CACHED_CONSTANTS.lnValues.get(value)
+export function getCachedRecipLnValue (value, minPrecision) {
+  let c = CACHED_CONSTANTS.recipLnValues.get(value)
 
   if (c && c.prec >= minPrecision) return c
 
   c = BigFloat.ln(value, { precision: minPrecision + 1 })
-  CACHED_CONSTANTS.lnValues.set(value, BigFloat.div(1, c))
+  c = BigFloat.div(1, c, { precision: minPrecision + 1 })
+
+  CACHED_CONSTANTS.recipLnValues.set(value, c)
 
   return c
 }
@@ -1646,6 +1649,7 @@ export class BigFloat {
       return
     }
 
+
     // We identify which word within f1 is the one right after the decimal point and chop it there. Note the property
     // that the exponent of the integer part is always the same as f1.
     let word = f1.exp, mantLen = f1.length
@@ -1700,6 +1704,7 @@ export class BigFloat {
 
   // We'll deal with rounding later...
   static exp (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+    f = cvtToBigFloat(f)
     let sign = f.sign
 
     if (Number.isNaN(sign)) return BigFloat.NaN({ precision })
@@ -2208,32 +2213,55 @@ export class BigFloat {
     const num = BigFloat.ln(f, { precision })
     const den = getCachedRecipLnValue(10, precision)
 
-    return BigFloat.div(num, den, { precision })
+    return BigFloat.mul(num, den, { precision })
   }
 
   /**
-   * Return floats f1, f2 such that f1+f2 = f, f1 and f2 have the same sign, f2 is an integer and |f1| < 1
+   * Compute x raised to the power y.
+   * @param x
+   * @param y
+   * @param precision
+   * @param roundingMode
+   */
+  static pow (x, y, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+    // x^y = exp(y ln x)
+  }
+
+  /**
+   * Compute 10^f.
    * @param f
    * @param precision
    * @param roundingMode
    */
-  static splitIntegerPart (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+  static pow10 (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+    f = cvtToBigFloat(f)
+    let ln10 = getCachedLnValue(10, precision)
 
+    return BigFloat.exp(BigFloat.mul(f, ln10, { precision }), { precision })
   }
 
   /**
    * Convert a float to a readable base-10 representation.
    */
-  toString () {
+  toPrecision (prec=this.prec / 3.23 /* log2(10) */) {
     // f = m * 2^e; log10(f) = log10(m) + log10(2) * e
     // f = frac(log10(f)) * 10^floor(log10(f))
 
-    let precision = this.prec
-    let log10 = BigFloat.log10(this, { precision })
+    prec = prec | 0
 
-    let [ floor, frac ] = BigFloat.splitIntegerPart(log10, { precision })
+    let workingPrecision = ((prec * 3.23) | 0) + 5
+    let log10 = BigFloat.log10(this, { precision: workingPrecision })
 
-    let mant = this.mant
+    let floor = BigFloat.new(53), frac = BigFloat.new(workingPrecision)
+    BigFloat.internalSplitIntegerTo(log10, floor, frac, ROUNDING_MODE.NEAREST)
+
+    console.log(floor.toNumber())
+
+    let base10mant = BigFloat.div(BigFloat.pow10(frac, { precision: workingPrecision }), 10, { precision: workingPrecision })
+
+    // We convert the base 10 mant to decimal and then round it to the
+
+    let mant = base10mant.mant
 
     let decimalOut = [0]
 
@@ -2263,6 +2291,7 @@ export class BigFloat {
       divPow30()
     }
 
+    return decimalOut
   }
 }
 

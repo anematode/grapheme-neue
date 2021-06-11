@@ -15,8 +15,8 @@
 
   var canvas = document.createElement("canvas")
 
-  canvas.width = 1000
-  canvas.height = 500
+  canvas.width = 500
+  canvas.height = 300
 
   document.body.appendChild(canvas)
 
@@ -42,11 +42,11 @@
       for (let x = 0; x < w; ++x) {
         fracX.setFromNumber(x / w - 0.5)
 
-        BF.mul(fracX, viewport.w, plotRe)
-        BF.add(plotRe, viewport.cx, plotRe)
+        BF.internalMulTo(fracX, viewport.w, plotRe)
+        BF.internalAddTo(plotRe, viewport.cx, plotRe)
 
-        BF.mul(fracY, viewport.h, plotIm)
-        BF.add(plotIm, viewport.cy, plotIm)
+        BF.internalMulTo(fracY, viewport.h, plotIm)
+        BF.internalAddTo(plotIm, viewport.cy, plotIm)
 
         zRe.setFromFloat(plotRe)
         zIm.setFromFloat(plotIm)
@@ -55,16 +55,16 @@
         let maxIterations = 100
 
         for (; iterations < maxIterations; ++iterations) {
-          BF.mul(zRe, zRe, tmp1)
-          BF.mul(zIm, zIm, tmp2)
+          BF.internalMulTo(zRe, zRe, tmp1)
+          BF.internalMulTo(zIm, zIm, tmp2)
 
-          BF.sub(tmp1, tmp2, tmp3)
-          BF.add(tmp3, plotRe, newRe)
+          BF.internalSubTo(tmp1, tmp2, tmp3)
+          BF.internalAddTo(tmp3, plotRe, newRe)
 
-          BF.mul(zRe, zIm, tmp1)
-          BF.add(tmp1, tmp1, tmp2)
+          BF.internalMulTo(zRe, zIm, tmp1)
+          BF.internalAddTo(tmp1, tmp1, tmp2)
 
-          BF.add(tmp2, plotIm, newIm)
+          BF.internalAddTo(tmp2, plotIm, newIm)
 
           if (newRe.toNumber() ** 2 + newIm.toNumber() ** 2 > 2) break
 
