@@ -49,6 +49,8 @@ function getTrailingInfo (mantissa, index) {
       if (mantissa[i] !== 0) return 3
     }
     return 2
+  } else if (mantissa[index] > 1 << 29) {
+    return 3
   }
 
   for (let i = index; i < mantissa.length; ++i) {
@@ -98,8 +100,24 @@ export function setGlobalPrecision (precision) {
  */
 export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUNDING_MODE, trailing=0, trailingMode=0) {
   let isAliased = mant === target
+  let mantLen = mant.length
 
   if (round === ROUNDING_MODE.WHATEVER) {
+    if (mant[0] === 0) {
+      // Shifting needs to be done
+      let shift = 0
+
+      for (let i = 1; i < mantLen; ++i) {
+        if (mant[i]) {
+          shift = i
+          break
+        }
+      }
+
+      leftShiftMantissa(mant, shift * 30, target)
+      return -shift
+    }
+
     if (isAliased) return 0
 
     // Copy over the mantissa without rounding
@@ -111,7 +129,6 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
   }
 
   let targetLen = target.length
-  let mantLen = mant.length
 
   let offset = -1, shift = 0, bitShift = 0
 
@@ -152,7 +169,7 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
   let rem = 0, doCarry = false
 
   // If the truncation would happen after the end of the mantissa...
-  if (truncWord >= mantLen) {
+  if (truncWord >= mantLen + shift) {
     // Whether the truncation bit is on the (nonexistent) word right after the mantissa
     let isAtVeryEnd = truncWord === targetLen && truncateLen === BIGFLOAT_WORD_BITS
 
@@ -208,7 +225,7 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
     if (rem > 0 || trailing > 0) {
       doCarry = true
     } else if (trailingMode === 0) {
-      for (let i = truncWord + shift + 1; i < mantLen; ++i) {
+      for (let i = truncWord - shift + 1; i < mantLen; ++i) {
         if (mant[i] !== 0) {
           doCarry = true
           break
@@ -228,7 +245,7 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
       } else {
         if (trailingMode === 0) {
           // Try to break the tie by looking for nonzero bits
-          for (let i = truncWord + shift + 1; i < mantLen; ++i) {
+          for (let i = truncWord - shift + 1; i < mantLen; ++i) {
             if (mant[i] !== 0) {
               doCarry = true
               break doCarry
@@ -295,6 +312,7 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
   return shift
 }
 
+
 /**
  * Add two mantissas together, potentially with an integer word shift on the second mantissa. The result mantissa may
  * also have a shift applied to it, which is relative to mant1. This function seems like it would be relatively simple,
@@ -307,9 +325,9 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
  * @param mant2Shift {number}
  * @param prec {number}
  * @param target {Int32Array} The mantissa that is written to
- * @param roundingMode {number}
+ * @param round {number}
  */
-export function addMantissas (mant1, mant2, mant2Shift, prec, target, roundingMode=CURRENT_ROUNDING_MODE) {
+export function addMantissas (mant1, mant2, mant2Shift, prec, target, round=CURRENT_ROUNDING_MODE) {
   let isAliased = mant1 === target
 
   let mant1Len = mant1.length, mant2Len = mant2.length, mant2End = mant2Len + mant2Shift
@@ -356,7 +374,7 @@ export function addMantissas (mant1, mant2, mant2Shift, prec, target, roundingMo
 
   // All that remains are the words of mant2 to the right of newMantLen - mant2Shift
   let trailingInfo = 0
-  let needsTrailingInfo = (roundingMode === ROUNDING_MODE.TIES_AWAY || roundingMode === ROUNDING_MODE.UP || roundingMode === ROUNDING_MODE.TOWARD_INF || roundingMode === ROUNDING_MODE.NEAREST)
+  let needsTrailingInfo = (round === ROUNDING_MODE.TIES_AWAY || round === ROUNDING_MODE.UP || round === ROUNDING_MODE.TOWARD_INF || round === ROUNDING_MODE.NEAREST)
 
   if (needsTrailingInfo) {
     let trailingShift = newMantLen - mant2Shift
@@ -389,94 +407,247 @@ export function addMantissas (mant1, mant2, mant2Shift, prec, target, roundingMo
     shift += 1
   }
 
-  let roundingShift = roundMantissaToPrecision(newMant, prec, target, roundingMode, trailingInfo)
+  let roundingShift = roundMantissaToPrecision(newMant, prec, target, round, trailingInfo)
 
   return roundingShift + shift
 }
 
 /**
  * Subtract two (positive) mantissas, with mant1 > mant2 and mant2 under a given shift, returning a shift relative to
- * the first word of mantissa 1 depending on the result. TODO implement very correct rounding
+ * the first word of mantissa 1 depending on the result.
  * @param mant1 {Int32Array}
  * @param mant2 {Int32Array}
  * @param mant2Shift {number}
- * @param precision {number}
- * @param targetMantissa {Int32Array} The mantissa to write to
- * @param roundingMode {number}
+ * @param prec {number}
+ * @param target {Int32Array} The mantissa to write to
+ * @param round {number}
  */
-export function subtractMantissas (mant1, mant2, mant2Shift, precision, targetMantissa, roundingMode=CURRENT_ROUNDING_MODE) {
+export function subtractMantissas (mant1, mant2, mant2Shift, prec, target, round=CURRENT_ROUNDING_MODE) {
   let mant1Len = mant1.length, mant2Len = mant2.length, mant2End = mant2Len + mant2Shift
+  let targetLen = target.length
 
-  // This function is slightly tricky, but not too bad. The main question is how much stuff cancels out before the
-  // actual mantissa starts. Since we're guaranteed mant1 > mant2 the question is a bit easier to answer; we step along
-  // the words of mant1 until we get to a word of mant1 which is strictly greater than that of mant2. Then, we repeatedly
-  // subtract the words of mant2 from mant1, do the full carry, then examine the "negative carry" from the trailing
-  // words of mant2; this is essentially subtracting one, then calling roundMantissaToPrecision with a flipped trailing
-  // value. In the case of round whatever and round up, this rounding step is skipped.
+  let maxEnd = Math.max(mant1Len, mant2End)
 
-  // Index of the first word which is different
-  let subtractionShift = 0
-
-  findShift: if (mant2Shift === 0) {
-    // Figure out where the subtraction starts
-    for (let i = 0; i < mant1Len; ++i) {
-      let mant1Word = mant1[i]
-      let mant2Index = i - mant2Shift
-      let mant2Word = (0 <= mant2Index && mant2Index < mant2Len) ? mant2[mant2Index] : 0
-
-      if (mant1Word > mant2Word) {
-        subtractionShift = i
-        break findShift
+  let firstDiff = 0
+  if (mant2Shift === 0) {
+    // Since we're guaranteed mant1 > mant2, this will always find the first word that is different
+    let max = Math.min(mant1Len, mant2Len)
+    for (; firstDiff < max; ++firstDiff) {
+      if (mant1[firstDiff] !== mant2[firstDiff]) {
+        break
       }
     }
-  }
 
-  let newMantissa = targetMantissa
-  let newMantissaLen = newMantissa.length
+    if (firstDiff === mant2Len) {
+      // The result is just everything to the right of mant2Len in mant1
+      let resultLen = mant1Len - mant2Len
+      let trailingInfo = 0
 
-  if (newMantissaLen < mant1Len - subtractionShift) {
-    newMantissaLen = Math.max(neededWordsForPrecision(precision), mant1Len - subtractionShift)
-    newMantissa = new Int32Array(newMantissaLen)
-  }
+      // Just copy it in
+      if (targetLen >= resultLen) {
+        for (let i = mant2Len; i < mant1Len; ++i) {
+          target[i - mant2Len] = mant1[i]
+        }
+        for (let i = resultLen; i < targetLen; ++i) {
+          target[i] = 0
+        }
+      } else {
+        let lastCopyableWord = targetLen + mant2Len - 1
+        trailingInfo = getTrailingInfo(mant1, lastCopyableWord + 1)
 
-  // Fill new mantissa with stuff from mant1
-  for (let i = subtractionShift; i < mant1Len; ++i) {
-    newMantissa[i - subtractionShift] = mant1[i]
-  }
+        for (let i = mant2Len; i < lastCopyableWord; ++i) {
+          target[i - mant2Len] = mant1[i]
+        }
+      }
 
-  for (let i = mant1Len - subtractionShift; i < newMantissaLen; ++i) {
-    newMantissa[i] = 0
-  }
-
-  // Indexing over words where 0 = first word of mant1
-  let mant2Bound = Math.min(mant2End, newMantissaLen + subtractionShift)
-  for (let i = mant2Shift; i < mant2Bound; ++i) {
-    newMantissa[i - subtractionShift] -= mant2[i - mant2Shift]
-  }
-
-  let carry = 0
-  for (let i = newMantissaLen - 1; i >= 0; --i) {
-    let word = newMantissa[i] - carry
-
-    if (word < 0) {
-      word += BIGFLOAT_WORD_SIZE
-      newMantissa[i] = word
-      carry = 1
-    } else {
-      newMantissa[i] = word
-      carry = 0
+      return roundMantissaToPrecision(target, prec, target, round, trailingInfo) - firstDiff
     }
   }
 
-  let shift = 0
-  if (newMantissa[0] === 0) {
-    leftShiftMantissa(newMantissa, 30)
-    shift -= 1
+  let trailingInfo = 0
+  if (maxEnd - firstDiff <= targetLen) {
+    // If everything fits in the target, just do the subtraction
+
+    for (let i = firstDiff; i < mant1Len; ++i) {
+      target[i - firstDiff] = mant1[i]
+    }
+
+    for (let i = mant1Len - firstDiff; i < targetLen; ++i) {
+      target[i] = 0
+    }
+
+    for (let i = firstDiff; i < mant2Len; ++i) {
+      target[i + mant2Shift - firstDiff] -= mant2[i]
+    }
+
+    let carry = 0
+    for (let i = maxEnd - firstDiff; i >= 0; --i) {
+      let word = target[i] - carry
+
+      if (word < 0) {
+        word += 0x40000000
+        carry = 1
+      } else {
+        carry = 0
+      }
+
+      target[i] = word
+    }
+  } else if (mant2End - firstDiff <= targetLen) {
+    // Then the target contains all of mant2, with trailing words of mant1. Calculate all within the target, then
+    // compute a trailing info on the remaining words of mant1.
+    let max = Math.min(mant1Len, targetLen + firstDiff)
+
+    for (let i = firstDiff; i < max; ++i) {
+      target[i - firstDiff] = mant1[i]
+    }
+
+    for (let i = firstDiff; i < mant2Len; ++i) {
+      target[i + mant2Shift - firstDiff] -= mant2[i]
+    }
+
+    let carry = 0
+    for (let i = mant2End - firstDiff; i >= 0; --i) {
+      let word = target[i] - carry
+
+      if (word < 0) {
+        word += 0x40000000
+        carry = 1
+      } else {
+        carry = 0
+      }
+
+      target[i] = word
+    }
+
+    trailingInfo = getTrailingInfo(mant1, max)
+  } else if (mant1Len - firstDiff <= targetLen) {
+    // Then the target contains all of mant1, with negative trailing words of mant2. We deal with negative trailing
+    // words by "faking" positive trailing info and subtracting 1. If trailing info is 0, we set trailing info to 0;
+    // if trailing info is 1, we set trailing info to 3 and subtract 1; etc. This code is the most likely to be entered,
+    // so should be optimized to hell and back if at all possible
+
+    for (let i = firstDiff; i < mant1Len; ++i) {
+      target[i - firstDiff] = mant1[i]
+    }
+
+    for (let i = mant1Len - firstDiff; i < targetLen; ++i) {
+      target[i] = 0
+    }
+
+    let max = targetLen + firstDiff - mant2Shift
+
+    for (let i = firstDiff; i < max; ++i) {
+      target[i + mant2Shift - firstDiff] -= mant2[i]
+    }
+
+    let carry = 0
+    if (round !== ROUNDING_MODE.WHATEVER) {
+      trailingInfo = getTrailingInfo(mant2, max)
+
+      if (trailingInfo > 0) {
+        carry = 1
+        trailingInfo = 4 - trailingInfo  // tie -> tie, >0.5 -> <0.5, <0.5 -> >0.5
+      }
+    }
+
+    console.log(target, carry, trailingInfo)
+
+    for (let i = targetLen - 1; i >= 0; --i) {
+      let word = target[i] - carry
+
+      if (word < 0) {
+        word += 0x40000000
+        carry = 1
+      } else {
+        carry = 0
+      }
+
+      target[i] = word
+    }
+
+    console.log(target)
+
+  } else {
+    // The target is shorter than both mant1 and mant2. This might happen when computing something like pi - e, where pi
+    // and e are precomputed constants to many bits of precision, but only a few bits are needed. In this case, we
+    // compute all the needed bits, then continue to compute words until we can be sure no carries are needed. (pain)
+
+    let max = targetLen + firstDiff
+    let followingWord = mant1[max] - mant2[max]
+
+    let carry = 0
+    if (followingWord < 0) {
+      carry = 1
+      followingWord += 0x40000000
+    }
+
+    if (followingWord === 0) {
+      for (let i = max + 1; i < maxEnd; ++i) {
+        let w = mant1[i] - mant2[i - mant2Shift]
+
+        if (w > 0) {
+          trailingInfo = 1
+          break
+        } else if (w < 0) {
+          carry = 1
+          trailingInfo = 3
+          break
+        }
+      }
+    } else if (followingWord < 0x20000000) {
+      trailingInfo = 1
+    } else if (followingWord === 0x20000000) {
+      trailingInfo = 2
+      for (let i = max + 1; i < maxEnd; ++i) {
+        let w = mant1[i] - mant2[i - mant2Shift]
+
+        if (w > 0) {
+          trailingInfo = 3
+          break
+        } else if (w < 0) {
+          trailingInfo = 1
+          break
+        }
+      }
+    } else {
+      trailingInfo = 3
+    }
+
+    for (let i = firstDiff; i < max; ++i) {
+      target[i - firstDiff] = mant1[i]
+    }
+
+    for (let i = firstDiff; i < max; ++i) {
+      target[i + mant2Shift - firstDiff] -= mant2[i]
+    }
+
+    for (let i = max - firstDiff - 1; i >= 0; --i) {
+      let word = target[i] - carry
+
+      if (word < 0) {
+        word += 0x40000000
+        carry = 1
+      } else {
+        carry = 0
+      }
+
+      target[i] = word
+    }
+
+    // Computed all the stuff that fits in target. We now compute the word immediately after. If the word carries, do
+    // the carry; if the word is strictly greater than 0, don't carry; if 0, we have to continue. We
+    // also have to determine the trailing info, if applicable, during this process. Carry is needed, trailing info is
+    // conditionally needed. DOWN needs no trailing info; UP needs to know whether trailing info > 1; NEAREST needs to
+    // know the full value of trailing info. Really, they only need this info in certain cases, but there's no point
+    // checking for them because the overhead is minimal
   }
 
-  const roundingShift = roundMantissaToPrecision(newMantissa, precision, targetMantissa, roundingMode)
+  for (let i = targetLen; i > maxEnd - firstDiff; --i) {
+    target[i] = 0
+  }
 
-  return shift + roundingShift - subtractionShift
+  return roundMantissaToPrecision(target, prec, target, round, trailingInfo) - firstDiff
 }
 
 /**
@@ -1027,7 +1198,11 @@ function dM (m, e=0) {
 export function compareMantissas (mant1, mant2) {
   let swapResult = false
   if (mant1.length < mant2.length) {
-    [ mant1, mant2 ] = [ mant2, mant1 ]
+    let tmp = mant1
+    mant1 = mant2
+    mant2 = tmp
+
+    swapResult = true
   }
 
   let mant1Len = mant1.length, mant2Len = mant2.length

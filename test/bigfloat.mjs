@@ -1,8 +1,13 @@
-import {addMantissas, BigFloat, rightShiftMantissa, roundMantissaToPrecision} from "../src/math/bigint/bigfloat.js"
+import {
+  addMantissas,
+  BigFloat,
+  compareMantissas, neededWordsForPrecision,
+  rightShiftMantissa,
+  roundMantissaToPrecision,
+  subtractMantissas
+} from "../src/math/bigint/bigfloat.js"
 import {deepEquals, leftZeroPad, rightZeroPad} from "../src/core/utils.js"
 import {ROUNDING_MODE} from "../src/math/rounding_modes.js"
-
-import {expect} from "chai"
 
 const BF = BigFloat
 const RM = ROUNDING_MODE
@@ -141,7 +146,7 @@ describe("roundMantissaToPrecision", () => {
 })
 
 // Reference function. Slow but (hopefully) accurate
-function referenceAddMantissas (mant1, mant2, mant2Shift, prec, target, roundingMode=CURRENT_ROUNDING_MODE) {
+function referenceAddMantissas (mant1, mant2, mant2Shift, prec, target, round=CURRENT_ROUNDING_MODE) {
   let output = new Int32Array(Math.max(mant1.length, mant2.length + mant2Shift) + 1)
 
   for (let i = 0; i < mant1.length; ++i) {
@@ -170,40 +175,116 @@ function referenceAddMantissas (mant1, mant2, mant2Shift, prec, target, rounding
     rightShiftMantissa(output, 30, output)
     output[0] = carry
   }
-
-  let roundingShift = roundMantissaToPrecision(output, prec, target, roundingMode)
+  let roundingShift = roundMantissaToPrecision(output, prec, target, round)
 
   return carry + roundingShift
 }
 
 describe("addMantissas", () => {
-  let argNames = ["mant1", "mant2", "mant2Shift", "prec", "target", "round"]
+  it("should behave identically to the reference implementation", () => {
+    let argNames = ["mant1", "mant2", "mant2Shift", "prec", "target", "round"]
 
-  let cases = 0
-  let startTime = Date.now()
+    let cases = 0
+    let startTime = Date.now()
 
-  // About 102 million test cases, should be somewhat thorough in terms of carry and rounding checking
-  for (let i = 0; i < difficultMantissas.length; ++i) {
-    const m1 = difficultMantissas[i]
-    for (const m2 of difficultMantissas) {
-      for (let shift = 0; shift < 5; ++shift) {
-        for (let targetSize = 0; targetSize < 5; ++targetSize) {
-          for (let precision of [ 30, 53, 59, 60, 120 ]) {
-            for (let roundingMode of [ 0, 1, 2, 3, 4, 5, 6 ]) {
-              let target = new Int32Array(targetSize)
-              let ret = referenceAddMantissas(m1, m2, shift, precision, target, roundingMode)
+    // About 102 million test cases, should be somewhat thorough in terms of carry and rounding checking
+    for (let i = 0; i < difficultMantissas.length; ++i) {
+      const m1 = difficultMantissas[i]
+      for (const m2 of difficultMantissas) {
+        for (let shift = 0; shift < 5; ++shift) {
+          for (let targetSize = 1; targetSize < 5; ++targetSize) {
+            for (let precision of [30, 53, 59, 60, 120]) {
+              for (let roundingMode of [0, 1, 2, 3, 4, 5, 6]) {
+                let target = new Int32Array(Math.max(neededWordsForPrecision(precision), targetSize))
+                let ret = referenceAddMantissas(m1, m2, shift, precision, target, roundingMode)
 
-              testMantissaCase(addMantissas, [m1, m2, shift, precision, targetSize, roundingMode], argNames, target, ret)
-              cases++
+                testMantissaCase(addMantissas, [m1, m2, shift, precision, target.length, roundingMode], argNames, target, ret)
+                cases++
+              }
             }
           }
         }
       }
+
+      (!(i % 10)) ? console.log(`Progress: ${(i / difficultMantissas.length * 100).toPrecision(4)}% complete`) : 0
     }
 
-    (!(i%10)) ? console.log(`Progress: ${(i / difficultMantissas.length * 100).toPrecision(4)}% complete`) : 0
+    let endTime = Date.now()
+    console.log(`Completed ${cases} test cases for addMantissas, comparing to referenceAddMantissas, in ${(endTime - startTime) / 1000} seconds.`)
+  })
+})
+
+// Reference function
+function referenceSubtractMantissas (mant1, mant2, mant2Shift, prec, target, round=CURRENT_ROUNDING_MODE) {
+  let output = new Int32Array(Math.max(mant1.length, mant2.length + mant2Shift) + 1)
+
+  for (let i = 0; i < mant1.length; ++i) {
+    output[i] += mant1[i]
   }
 
-  let endTime = Date.now()
-  console.log(`Completed ${cases} test cases for addMantissas, comparing to referenceAddMantissas, in ${(endTime - startTime) / 1000} seconds.`)
+  for (let i = 0; i < mant2.length; ++i) {
+    output[i + mant2Shift] -= mant2[i]
+  }
+
+  let carry = 0
+  for (let i = output.length - 1; i >= 0; --i) {
+    let word = output[i] - carry
+
+    if (word < 0) {
+      word += 0x40000000
+      carry = 1
+    } else {
+      carry = 0
+    }
+
+    output[i] = word
+  }
+
+  if (carry === 1) {
+    throw new Error(`Invalid mantissas ${prettyPrintMantissa(mant1)}, ${prettyPrintMantissa(mant2)}`)
+  }
+
+  console.log(output)
+
+  return roundMantissaToPrecision(output, prec, target, round)
+}
+
+describe("subtractMantissas", () => {
+  it("should behave identically to the reference implementation", () => {
+    let argNames = ["mant1", "mant2", "mant2Shift", "prec", "target", "round"]
+
+    let cases = 0
+    let startTime = Date.now()
+
+    // About 102 million test cases, should be somewhat thorough in terms of carry and rounding checking
+    for (let i = 0; i < difficultMantissas.length; ++i) {
+      const m1 = difficultMantissas[i]
+      for (const m2 of difficultMantissas) {
+        for (let shift = 0; shift < 5; ++shift) {
+          // Eliminate invalid cases
+          if (shift === 0) {
+            let cmp = compareMantissas(m1, m2)
+            if (cmp !== 1) continue
+          }
+
+          for (let targetSize = 0; targetSize < 5; ++targetSize) {
+            for (let precision of [30, 53, 59, 60, 120]) {
+              for (let roundingMode of [0, 1, 2, 3, 4, 5]) {
+                let target = new Int32Array(neededWordsForPrecision(precision))
+                let ret = referenceSubtractMantissas(m1, m2, shift, precision, target, roundingMode)
+
+                testMantissaCase(subtractMantissas, [m1, m2, shift, precision, target.length, roundingMode], argNames, target, ret)
+                cases++
+              }
+            }
+          }
+        }
+      }
+
+      (!(i % 10)) ? console.log(`Progress: ${(i / difficultMantissas.length * 100).toPrecision(4)}% complete`) : 0
+    }
+
+    let endTime = Date.now()
+    console.log(`Completed ${cases} test cases for addMantissas, comparing to referenceAddMantissas, in ${(endTime - startTime) / 1000} seconds.`)
+  })
 })
