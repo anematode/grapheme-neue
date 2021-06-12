@@ -1,13 +1,14 @@
 import {
   addMantissas,
   BigFloat,
-  compareMantissas, neededWordsForPrecision,
+  compareMantissas, getTrailingInfo, neededWordsForPrecision,
   rightShiftMantissa,
   roundMantissaToPrecision,
   subtractMantissas
 } from "../src/math/bigint/bigfloat.js"
 import {deepEquals, leftZeroPad, rightZeroPad} from "../src/core/utils.js"
 import {ROUNDING_MODE} from "../src/math/rounding_modes.js"
+import { expect } from "chai"
 
 const BF = BigFloat
 const RM = ROUNDING_MODE
@@ -244,8 +245,6 @@ function referenceSubtractMantissas (mant1, mant2, mant2Shift, prec, target, rou
     throw new Error(`Invalid mantissas ${prettyPrintMantissa(mant1)}, ${prettyPrintMantissa(mant2)}`)
   }
 
-  console.log(output)
-
   return roundMantissaToPrecision(output, prec, target, round)
 }
 
@@ -286,5 +285,21 @@ describe("subtractMantissas", () => {
 
     let endTime = Date.now()
     console.log(`Completed ${cases} test cases for addMantissas, comparing to referenceAddMantissas, in ${(endTime - startTime) / 1000} seconds.`)
+  })
+})
+
+describe("getTrailingInfo", () => {
+  it("should return correct results", () => {
+    expect(getTrailingInfo([0,0x20000000], 1)).to.equal(2)
+    expect(getTrailingInfo([0,0x20000001], 1)).to.equal(3)
+    expect(getTrailingInfo([0,0x20000000,0], 1)).to.equal(2)
+    expect(getTrailingInfo([0,0x20000000,0,1], 1)).to.equal(3)
+    expect(getTrailingInfo([0,0x20000000], 0)).to.equal(1)
+    expect(getTrailingInfo([0,0], 0)).to.equal(0)
+    expect(getTrailingInfo([0x25000000], 0)).to.equal(3)
+    expect(getTrailingInfo([0x25000000], 1)).to.equal(0)
+    expect(getTrailingInfo([0x1f000000], 0)).to.equal(1)
+    expect(getTrailingInfo([0x25000000], -1)).to.equal(1)
+    expect(getTrailingInfo([0], -1)).to.equal(0)
   })
 })

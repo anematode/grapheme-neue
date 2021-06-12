@@ -43,15 +43,22 @@ function createMantissa (prec) {
  * @param index {number}
  * @returns {number}
  */
-function getTrailingInfo (mantissa, index) {
-  if (mantissa[index] === 1 << 29) {
-    for (let i = index+1; i < mantissa.length; ++i) {
-      if (mantissa[i] !== 0) return 3
-    }
-    return 2
-  } else if (mantissa[index] > 1 << 29) {
-    return 3
-  }
+export function getTrailingInfo (mantissa, index) {
+  let mantissaLen = mantissa.length
+
+  if (index >= 0) {
+    if (index < mantissaLen) {
+      if (mantissa[index] === 1 << 29) {
+        // Potential tie
+        for (let i = index + 1; i < mantissaLen; ++i) {
+          if (mantissa[i] !== 0) return 3
+        }
+        return 2
+      } else if (mantissa[index] > 1 << 29) {
+        return 3
+      }
+    } else return 0
+  } else index = 0
 
   for (let i = index; i < mantissa.length; ++i) {
     if (mantissa[i] !== 0) return 1
@@ -61,7 +68,8 @@ function getTrailingInfo (mantissa, index) {
 }
 
 /**
- * Count the number of leading zeros in a mantissa
+ * Count the number of leading zeros in a mantissa, including invalid mantissas in which the first word is not 0.
+ * Returns -1 if the mantissa is all zeros.
  * @param mantissa {Int32Array}
  * @returns {number}
  */
@@ -423,6 +431,35 @@ export function addMantissas (mant1, mant2, mant2Shift, prec, target, round=CURR
  * @param round {number}
  */
 export function subtractMantissas (mant1, mant2, mant2Shift, prec, target, round=CURRENT_ROUNDING_MODE) {
+  // Important length variables
+  let mant1Len = mant1.length, mant2Len = mant2.length, mant2End = mant2Len + mant2Shift, maxEnd = Math.max(mant1Len, mant2End)
+  let targetLen = target.length
+
+  if (maxEnd <= targetLen) {
+    for (let i = 0; i < mant1Len; ++i) target[i] = mant1[i]
+    for (let i = mant1Len; i < targetLen; ++i) target[i] = 0
+    for (let i = 0; i < mant2Len; ++i) target[i + mant2Shift] -= mant2[i]
+
+    let carry = 0
+    for (let i = maxEnd - 1; i >= 0; --i) {
+      let word = target[i]
+
+      if (carry) {
+        word -= carry
+        target[i] = word
+      }
+
+      if (word < 0) {
+        target[i] += 0x40000000
+        carry = 1
+      } else {
+        carry = 0
+      }
+    }
+
+    return roundMantissaToPrecision(target, prec, target, round)
+  }
+
   let output = new Int32Array(Math.max(mant1.length, mant2.length + mant2Shift) + 1)
 
   for (let i = 0; i < mant1.length; ++i) {
@@ -1079,9 +1116,9 @@ function slowLn1pBounded (f, precision) {
 
   // The rate of convergence depends on f, with about -log2(abs(f)) bits being generated each time. Since we
   for (let i = 0; i < iterations; ++i) {
-    BigFloat.internalMulTo(fExp, f, fExp2, ROUNDING_MODE.WHATEVER)
-    BigFloat.internalDivNumberTo(fExp2, ((i & 1) ? -1 : 1) * (i + 1), term, ROUNDING_MODE.WHATEVER)
-    BigFloat.internalAddTo(accum, term, accum2, ROUNDING_MODE.WHATEVER)
+    BigFloat.mulTo(fExp, f, fExp2, ROUNDING_MODE.WHATEVER)
+    BigFloat.divNumberTo(fExp2, ((i & 1) ? -1 : 1) * (i + 1), term, ROUNDING_MODE.WHATEVER)
+    BigFloat.addTo(accum, term, accum2, ROUNDING_MODE.WHATEVER)
 
     // Swap the accumulators
     let tmp = accum
@@ -1105,12 +1142,12 @@ export function lnBaseCase (f, precision) {
   let atanhArg = BF.new(precision)
   let argNum = BF.new(precision), argDen = BF.new(precision)
 
-  BF.internalSubNumberTo(f, 1, argNum)
-  BF.internalAddNumberTo(f, 1, argDen)
-  BF.internalDivTo(argNum, argDen, atanhArg)
+  BF.subNumberTo(f, 1, argNum)
+  BF.addNumberTo(f, 1, argDen)
+  BF.divTo(argNum, argDen, atanhArg)
 
   let result = arctanhSmallRange(atanhArg, precision - 10)
-  BF.internalMulPowTwoTo(result, 1, result)
+  BF.mulPowTwoTo(result, 1, result)
 
 
   return result
@@ -1122,27 +1159,27 @@ export function arctanhSmallRange (f, precision) {
 
   // atanh(x) = x + x^3 / 3 + x^5 / 5 + ... meaning at worst we have convergence at -log2((1/5)^2) = 4.6 bits / iteration
   let accum = BF.new(precision), accumSwap = BF.new(precision), fSq = BF.new(precision), ret = BF.new(precision)
-  BF.internalMulTo(f, f, fSq)
+  BF.mulTo(f, f, fSq)
 
   // Compute 1 + x^2 / 3 + x^4 / 5 + ...
-  let pow = BF.fromNumber(1, { precision })
+  let pow = BF.fromNumber(1, precision)
   let powSwap = BF.new(precision), powDiv = BF.new(precision)
 
   let bitsPerIteration = -BigFloat.floorLog2(fSq)
   let iterations = precision / bitsPerIteration
 
   for (let i = 0; i < iterations; ++i) {
-    BF.internalDivNumberTo(pow, 2 * i + 1, powDiv)
+    BF.divNumberTo(pow, 2 * i + 1, powDiv)
 
-    BF.internalMulTo(pow, fSq, powSwap)
+    BF.mulTo(pow, fSq, powSwap)
     ;[ powSwap, pow ] = [ pow, powSwap ]
 
-    BF.internalAddTo(accum, powDiv, accumSwap)
+    BF.addTo(accum, powDiv, accumSwap)
     ;[ accumSwap, accum ] = [ accum, accumSwap ]
   }
 
   // Multiply by x
-  BF.internalMulTo(accum, f, ret)
+  BF.mulTo(accum, f, ret)
 
   return ret
 }
@@ -1167,14 +1204,14 @@ export function expBaseCase (f, precision, target) {
 
   const iters = Math.ceil(-pln2 / (lnf - Math.log(-pln2 / (lnf - lnp + 2)) + 1))
 
-  BigFloat.internalDivNumberTo(f, iters, tmp)
-  BigFloat.internalAddNumberTo(tmp, 1, target)
+  BigFloat.divNumberTo(f, iters, tmp)
+  BigFloat.addNumberTo(tmp, 1, target)
 
   for (let m = iters - 1; m > 0; --m) {
-    BigFloat.internalDivNumberTo(f, m, tmp)
-    BigFloat.internalMulTo(tmp, target, tmp2)
+    BigFloat.divNumberTo(f, m, tmp)
+    BigFloat.mulTo(tmp, target, tmp2)
 
-    BigFloat.internalAddNumberTo(tmp2, 1, target)
+    BigFloat.addNumberTo(tmp2, 1, target)
   }
 }
 
@@ -1198,7 +1235,7 @@ function getCachedLnValue (value, minPrecision) {
   if (c && c.prec >= minPrecision) return c
 
   if (value > 2 || value < 1) {
-    c = BigFloat.ln(value, { precision: minPrecision, roundingMode: ROUNDING_MODE.WHATEVER })
+    c = BigFloat.ln(value, minPrecision, ROUNDING_MODE.WHATEVER)
   } else {
     let f = BigFloat.fromNumber(value)
 
@@ -1221,8 +1258,8 @@ export function getCachedRecipLnValue (value, minPrecision) {
 
   if (c && c.prec >= minPrecision) return c
 
-  c = BigFloat.ln(value, { precision: minPrecision + 1 })
-  c = BigFloat.div(1, c, { precision: minPrecision + 1 })
+  c = BigFloat.ln(value, minPrecision + 1)
+  c = BigFloat.div(1, c, minPrecision + 1)
 
   CACHED_CONSTANTS.recipLnValues.set(value, c)
 
@@ -1236,7 +1273,7 @@ export function getCachedRecipLnValue (value, minPrecision) {
  */
 function cvtToBigFloat (arg) {
   if (arg instanceof BigFloat) return arg
-  if (typeof arg === "number") return BigFloat.fromNumber(arg, { precision: 53 })
+  if (typeof arg === "number") return BigFloat.fromNumber(arg, 53)
 
   throw new TypeError(`Cannot convert argument ${arg} to BigFloat`)
 }
@@ -1269,7 +1306,7 @@ export class BigFloat {
    * @param roundingMode {number} Enum of which direction to round in
    * @returns {BigFloat}
    */
-  static fromNumber (num, { precision = CURRENT_PRECISION, roundingMode=CURRENT_ROUNDING_MODE } = {}) {
+  static fromNumber (num, precision = CURRENT_PRECISION, roundingMode=CURRENT_ROUNDING_MODE) {
     let float = BigFloat.new(precision)
     float.setFromNumber(num, roundingMode)
 
@@ -1356,7 +1393,7 @@ export class BigFloat {
    * @param roundingMode {number} The rounding mode
    * @param flipF2Sign {boolean} Whether to flip the sign of f2 (used to simplify the subtraction code)
    */
-  static internalAddTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE, flipF2Sign=false) {
+  static addTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE, flipF2Sign=false) {
     let f1Sign = f1.sign
     let f2Sign = flipF2Sign ? -f2.sign : f2.sign
 
@@ -1427,10 +1464,10 @@ export class BigFloat {
    * @param target {BigFloat}
    * @param roundingMode {number}
    */
-  static internalAddNumberTo (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static addNumberTo (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
     DOUBLE_STORE.setFromNumber(num)
 
-    BigFloat.internalAddTo(f1, DOUBLE_STORE, target, roundingMode)
+    BigFloat.addTo(f1, DOUBLE_STORE, target, roundingMode)
   }
 
   /**
@@ -1440,8 +1477,8 @@ export class BigFloat {
    * @param target {BigFloat}
    * @param roundingMode {number}
    */
-  static internalSubTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
-    BigFloat.internalAddTo(f1, f2, target, roundingMode, true)
+  static subTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
+    BigFloat.addTo(f1, f2, target, roundingMode, true)
   }
 
   /**
@@ -1451,10 +1488,10 @@ export class BigFloat {
    * @param target {BigFloat}
    * @param roundingMode {number}
    */
-  static internalSubNumberTo (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static subNumberTo (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
     DOUBLE_STORE.setFromNumber(num)
 
-    BigFloat.internalSubTo(f1, DOUBLE_STORE, target, roundingMode)
+    BigFloat.subTo(f1, DOUBLE_STORE, target, roundingMode)
   }
 
   /**
@@ -1464,7 +1501,7 @@ export class BigFloat {
    * @param target {BigFloat}
    * @param roundingMode {number}
    */
-  static internalMulTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static mulTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
     let f1Sign = f1.sign
     let f2Sign = f2.sign
 
@@ -1489,7 +1526,7 @@ export class BigFloat {
    * @param target {BigFloat}
    * @param roundingMode {number}
    */
-  static internalMulNumberTo (float, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static mulNumberTo (float, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
     let isAliased = float === target
 
     if (num === 0) {
@@ -1518,10 +1555,10 @@ export class BigFloat {
     if (isAliased) {
       let tmp = BigFloat.new(target.prec)
 
-      BigFloat.internalMulTo(float, DOUBLE_STORE, tmp, roundingMode)
+      BigFloat.mulTo(float, DOUBLE_STORE, tmp, roundingMode)
       target.set(tmp)
     } else {
-      BigFloat.internalMulTo(float, DOUBLE_STORE, target, roundingMode)
+      BigFloat.mulTo(float, DOUBLE_STORE, target, roundingMode)
     }
   }
 
@@ -1533,7 +1570,7 @@ export class BigFloat {
    * @param target
    * @param roundingMode
    */
-  static internalMulPowTwoTo (float, exponent, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static mulPowTwoTo (float, exponent, target, roundingMode=CURRENT_ROUNDING_MODE) {
     if (float.sign === 0 || !Number.isFinite(float.sign)) {
       target.sign = float.sign
       return
@@ -1570,7 +1607,7 @@ export class BigFloat {
    * @param target {BigFloat}
    * @param roundingMode {number}
    */
-  static internalDivTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
+  static divTo (f1, f2, target, roundingMode=CURRENT_ROUNDING_MODE) {
     let f1Sign = f1.sign
     let f2Sign = f2.sign
 
@@ -1592,10 +1629,10 @@ export class BigFloat {
    * @param target {BigFloat}
    * @param roundingMode {number}
    */
-  static internalDivNumberTo (f1, num, target, roundingMode) {
+  static divNumberTo (f1, num, target, roundingMode=CURRENT_ROUNDING_MODE) {
     DOUBLE_STORE.setFromNumber(num)
 
-    BigFloat.internalDivTo(f1, DOUBLE_STORE, target, roundingMode)
+    BigFloat.divTo(f1, DOUBLE_STORE, target, roundingMode)
   }
 
   /**
@@ -1606,7 +1643,7 @@ export class BigFloat {
    * @param fracPart
    * @param roundingMode
    */
-  static internalSplitIntegerTo (f1, integerPart, fracPart, roundingMode) {
+  static splitIntegerTo (f1, integerPart, fracPart, roundingMode) {
     if (f1.sign === 0) {
       integerPart.setZero()
       fracPart.setZero()
@@ -1677,12 +1714,12 @@ export class BigFloat {
   }
 
   // We'll deal with rounding later...
-  static exp (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+  static exp (f, precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE) {
     f = cvtToBigFloat(f)
     let sign = f.sign
 
-    if (Number.isNaN(sign)) return BigFloat.NaN({ precision })
-    if (sign === 0) return BigFloat.fromNumber(1, { precision })
+    if (Number.isNaN(sign)) return BigFloat.NaN(precision)
+    if (sign === 0) return BigFloat.fromNumber(1,  precision)
 
     let shifts = BigFloat.floorLog2(f, true)
 
@@ -1696,12 +1733,12 @@ export class BigFloat {
       let tmp = BigFloat.new(precision)
       let mul1 = BigFloat.new(precision)
 
-      BigFloat.internalMulPowTwoTo(f, -shifts, tmp)
+      BigFloat.mulPowTwoTo(f, -shifts, tmp)
       expBaseCase(tmp, precision, mul1)
 
       // Repeated squaring; every shift requires one squaring
       for (; shifts >= 0; --shifts) {
-        BigFloat.internalMulTo(mul1, mul1, tmp)
+        BigFloat.mulTo(mul1, mul1, tmp)
         ;[ mul1, tmp ] = [ tmp, mul1 ]
       }
 
@@ -1722,19 +1759,19 @@ export class BigFloat {
     return f1.exp * 30 - Math.clz32(f1.mant[0]) + 1
   }
 
-  static zero ({ precision = CURRENT_PRECISION } = {}) {
+  static zero (precision = CURRENT_PRECISION) {
     return new BigFloat(0, 0, precision, createMantissa(precision))
   }
 
-  static NaN ({ precision = CURRENT_PRECISION } = {}) {
+  static NaN (precision = CURRENT_PRECISION) {
     return new BigFloat(NaN, 0, precision, createMantissa(precision))
   }
 
-  static Infinity ({ precision = CURRENT_PRECISION } = {}) {
+  static Infinity (precision = CURRENT_PRECISION) {
     return new BigFloat(Infinity, 0, precision, createMantissa(precision))
   }
 
-  static NegativeInfinity ({ precision = CURRENT_PRECISION } = {}) {
+  static NegativeInfinity (precision = CURRENT_PRECISION) {
     return new BigFloat(-Infinity, 0, precision, createMantissa(precision))
   }
 
@@ -1750,8 +1787,8 @@ export class BigFloat {
     return f.sign === 0
   }
 
-  static ZERO = Object.freeze(BigFloat.fromNumber(0, { precision: 53 }))
-  static ONE = Object.freeze(BigFloat.fromNumber(1, { precision: 53 }))
+  static ZERO = Object.freeze(BigFloat.fromNumber(0, 53 ))
+  static ONE = Object.freeze(BigFloat.fromNumber(1, 53 ))
 
   /**
    * Clone this big float
@@ -1808,7 +1845,7 @@ export class BigFloat {
 
     // In the odd case we want a lower precision, we create a normal precision and then downcast
     if (this.prec < 53) {
-      this.set(BigFloat.fromNumber(num, { precision: 53, roundingMode }).toBigFloat({ precision: this.prec }))
+      this.set(BigFloat.fromNumber(num, 53, roundingMode).toBigFloat(this.prec))
       return
     }
 
@@ -1847,13 +1884,19 @@ export class BigFloat {
     }
 
     this.exp = newExp
-    this.sign = Math.sign(num) + 0
+    this.sign = Math.sign(num)
   }
 
+  /**
+   * Set this number to NaN. Doesn't actually touch the mantissa
+   */
   setNaN () {
     this.sign = NaN
   }
 
+  /**
+   * Set this number to 0. Doesn't actually touch the mantissa
+   */
   setZero () {
     this.sign = 0
   }
@@ -1863,7 +1906,7 @@ export class BigFloat {
    * @param precision
    * @param roundingMode
    */
-  toBigFloat ({ precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE }) {
+  toBigFloat (precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE) {
     let newMantissa = createMantissa(precision)
     let { mant, sign, exp } = this
 
@@ -1973,12 +2016,12 @@ export class BigFloat {
    * @param precision
    * @param roundingMode
    */
-  static add (f1, f2, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE }) {
+  static add (f1, f2, precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE) {
     f1 = cvtToBigFloat(f1)
     f2 = cvtToBigFloat(f2)
 
     let ret = BigFloat.new(precision)
-    BigFloat.internalAddTo(f1, f2, ret, roundingMode)
+    BigFloat.addTo(f1, f2, ret, roundingMode)
 
     return ret
   }
@@ -1990,12 +2033,12 @@ export class BigFloat {
    * @param precision
    * @param roundingMode
    */
-  static sub (f1, f2, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE }) {
+  static sub (f1, f2, precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE) {
     f1 = cvtToBigFloat(f1)
     f2 = cvtToBigFloat(f2)
 
     let ret = BigFloat.new(precision)
-    BigFloat.internalSubTo(f1, f2, ret, roundingMode)
+    BigFloat.subTo(f1, f2, ret, roundingMode)
 
     return ret
   }
@@ -2007,12 +2050,12 @@ export class BigFloat {
    * @param precision
    * @param roundingMode
    */
-  static div (f1, f2, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+  static div (f1, f2, precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE) {
     f1 = cvtToBigFloat(f1)
     f2 = cvtToBigFloat(f2)
 
     let ret = BigFloat.new(precision)
-    BigFloat.internalDivTo(f1, f2, ret, roundingMode)
+    BigFloat.divTo(f1, f2, ret, roundingMode)
 
     return ret
   }
@@ -2024,12 +2067,12 @@ export class BigFloat {
    * @param precision
    * @param roundingMode
    */
-  static mul (f1, f2, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+  static mul (f1, f2, precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE) {
     f1 = cvtToBigFloat(f1)
     f2 = cvtToBigFloat(f2)
 
     let ret = BigFloat.new(precision)
-    BigFloat.internalMulTo(f1, f2, ret, roundingMode)
+    BigFloat.mulTo(f1, f2, ret, roundingMode)
 
     return ret
   }
@@ -2134,7 +2177,7 @@ export class BigFloat {
    * @param roundingMode
    * @returns {BigFloat}
    */
-  static ln (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+  static ln (f, precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE) {
     f = cvtToBigFloat(f)
     let f1Sign = f.sign
 
@@ -2144,14 +2187,14 @@ export class BigFloat {
     } else if (f1Sign < 0) {
       return BigFloat.NaN(precision)
     } else if (!Number.isFinite(f1Sign)) {
-      return BigFloat.fromNumber(f1Sign, { precision })
+      return BigFloat.fromNumber(f1Sign, precision)
     }
 
     // By what power of two to shift f, so that we get a number between 0.5 and 1
     let shift = BigFloat.floorLog2(f, true) + 1
     let tmp = BigFloat.new(precision), tmp2 = BigFloat.new(precision), m = BigFloat.new(precision)
 
-    BigFloat.internalMulPowTwoTo(f, -shift, m)
+    BigFloat.mulPowTwoTo(f, -shift, m)
 
     // 0.5 <= m < 1, integerPart is exponent. We have a lookup table of log(x) for x in 1 to 2, so that m
     // can be put into a quickly converging series based on the inverse hyperbolic tangent. For now we aim for
@@ -2160,15 +2203,15 @@ export class BigFloat {
     let lookup = 1 + Math.floor((( 1 / mAsNumber) - 1) * 8) / 8
 
     // Compute ln(f * lookup) - ln(lookup)
-    BigFloat.internalMulNumberTo(m, lookup, tmp)
+    BigFloat.mulNumberTo(m, lookup, tmp)
 
     let part1 = lnBaseCase(tmp, precision)
     let part2 = getCachedLnValue(lookup, precision)
 
-    BigFloat.internalSubTo(part1, part2, tmp2)
-    BigFloat.internalMulNumberTo(getCachedLnValue(2, precision), shift, tmp)
+    BigFloat.subTo(part1, part2, tmp2)
+    BigFloat.mulNumberTo(getCachedLnValue(2, precision), shift, tmp)
 
-    BigFloat.internalAddTo(tmp, tmp2, m)
+    BigFloat.addTo(tmp, tmp2, m)
 
     return m
   }
@@ -2180,14 +2223,14 @@ export class BigFloat {
    * @param roundingMode {number}
    * @returns {BigFloat}
    */
-  static log10 (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+  static log10 (f, precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE) {
     f = cvtToBigFloat(f)
 
     // log10 (x) = ln(x) / ln(10)
-    const num = BigFloat.ln(f, { precision })
+    const num = BigFloat.ln(f, precision)
     const den = getCachedRecipLnValue(10, precision)
 
-    return BigFloat.mul(num, den, { precision })
+    return BigFloat.mul(num, den, precision)
   }
 
   /**
@@ -2197,7 +2240,7 @@ export class BigFloat {
    * @param precision
    * @param roundingMode
    */
-  static pow (x, y, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+  static pow (x, y, precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE) {
     // x^y = exp(y ln x)
   }
 
@@ -2207,11 +2250,11 @@ export class BigFloat {
    * @param precision
    * @param roundingMode
    */
-  static pow10 (f, { precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE } = {}) {
+  static pow10 (f, precision = CURRENT_PRECISION, roundingMode = CURRENT_ROUNDING_MODE) {
     f = cvtToBigFloat(f)
     let ln10 = getCachedLnValue(10, precision)
 
-    return BigFloat.exp(BigFloat.mul(f, ln10, { precision }), { precision })
+    return BigFloat.exp(BigFloat.mul(f, ln10, precision), precision)
   }
 
   /**
@@ -2224,14 +2267,14 @@ export class BigFloat {
     prec = prec | 0
 
     let workingPrecision = ((prec * 3.23) | 0) + 5
-    let log10 = BigFloat.log10(this, { precision: workingPrecision })
+    let log10 = BigFloat.log10(this, workingPrecision)
 
     let floor = BigFloat.new(53), frac = BigFloat.new(workingPrecision)
-    BigFloat.internalSplitIntegerTo(log10, floor, frac, ROUNDING_MODE.NEAREST)
+    BigFloat.splitIntegerTo(log10, floor, frac, ROUNDING_MODE.NEAREST)
 
     console.log(floor.toNumber())
 
-    let base10mant = BigFloat.div(BigFloat.pow10(frac, { precision: workingPrecision }), 10, { precision: workingPrecision })
+    let base10mant = BigFloat.div(BigFloat.pow10(frac, workingPrecision), 10, workingPrecision)
 
     // We convert the base 10 mant to decimal and then round it to the
 

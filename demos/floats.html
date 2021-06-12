@@ -37,6 +37,19 @@
     var arr4 = new Int32Array(4)
     var arr1 = new Int32Array(1)
 
+    var arr10000 = new Int32Array(10000)
+    var numerator = new Int32Array(9994)
+    var denom = new Int32Array(9992)
+
+    for (let i = 0; i < 10000; ++i) {
+      numerator[i] = (Math.random() * (2 ** 30)) | 0
+      denom[i] = (Math.random() * (2 ** 30)) | 0
+    }
+
+    function testLargeSubtraction() {
+      Grapheme.subtractMantissas(numerator, denom, 2, 30000, arr10000, Grapheme.ROUNDING_MODE.WHATEVER)
+    }
+
 </script>
 
 <script src="test_setup.js"></script>

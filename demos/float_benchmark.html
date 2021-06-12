@@ -66,7 +66,7 @@
 
     for (let i = 0; i < floats.length; ++i) {
       for (let j = 0; j < floats.length; ++j) {
-        BF.internalAddTo(boundedFloats[i], boundedFloats[j], res, Grapheme.ROUNDING_MODE.WHATEVER)
+        BF.addTo(boundedFloats[i], boundedFloats[j], res, Grapheme.ROUNDING_MODE.WHATEVER)
       }
     }
   }
@@ -104,7 +104,7 @@
 
     for (let i = 0; i < floats.length; ++i) {
       for (let j = 0; j < floats.length; ++j) {
-        BF.internalMulTo(bigFloats[i], bigFloats[j], res, Grapheme.ROUNDING_MODE.WHATEVER)
+        BF.mulTo(bigFloats[i], bigFloats[j], res, Grapheme.ROUNDING_MODE.WHATEVER)
       }
     }
   }

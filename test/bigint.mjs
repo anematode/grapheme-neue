@@ -219,7 +219,7 @@ describe('addMantissas', function () {
 describe('add', function () {
   function testCase (f1, f2) {
     let res = BigFloat.new()
-    BigFloat.internalAddTo(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
+    BigFloat.addTo(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
 
     res = res.toNumber()
     if (Number.isNaN(f1 + f2)) {
@@ -241,7 +241,7 @@ describe('add', function () {
 describe('subtract', function () {
   function testCase (f1, f2) {
     let res = BigFloat.new()
-    BigFloat.internalSubTo(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
+    BigFloat.subTo(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
 
     res = res.toNumber()
     if (Number.isNaN(f1 - f2)) {
@@ -263,7 +263,7 @@ describe('subtract', function () {
 describe('multiply', function () {
   function testCase (f1, f2) {
     let res = BigFloat.new()
-    BigFloat.internalMulTo(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
+    BigFloat.mulTo(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
 
     res = res.toNumber()
     if (Number.isNaN(f1 * f2)) {
@@ -288,7 +288,7 @@ describe('divide', function () {
     if (Math.abs(f1 / f2) < 2 ** -1022) return
 
     let res = BigFloat.new()
-    BigFloat.internalDivTo(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
+    BigFloat.divTo(BigFloat.fromNumber(f1), BigFloat.fromNumber(f2), res)
 
     res = res.toNumber()
     if (Number.isNaN(f1 / f2)) {
