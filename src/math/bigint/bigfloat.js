@@ -423,231 +423,31 @@ export function addMantissas (mant1, mant2, mant2Shift, prec, target, round=CURR
  * @param round {number}
  */
 export function subtractMantissas (mant1, mant2, mant2Shift, prec, target, round=CURRENT_ROUNDING_MODE) {
-  let mant1Len = mant1.length, mant2Len = mant2.length, mant2End = mant2Len + mant2Shift
-  let targetLen = target.length
+  let output = new Int32Array(Math.max(mant1.length, mant2.length + mant2Shift) + 1)
 
-  let maxEnd = Math.max(mant1Len, mant2End)
-
-  let firstDiff = 0
-  if (mant2Shift === 0) {
-    // Since we're guaranteed mant1 > mant2, this will always find the first word that is different
-    let max = Math.min(mant1Len, mant2Len)
-    for (; firstDiff < max; ++firstDiff) {
-      if (mant1[firstDiff] !== mant2[firstDiff]) {
-        break
-      }
-    }
-
-    if (firstDiff === mant2Len) {
-      // The result is just everything to the right of mant2Len in mant1
-      let resultLen = mant1Len - mant2Len
-      let trailingInfo = 0
-
-      // Just copy it in
-      if (targetLen >= resultLen) {
-        for (let i = mant2Len; i < mant1Len; ++i) {
-          target[i - mant2Len] = mant1[i]
-        }
-        for (let i = resultLen; i < targetLen; ++i) {
-          target[i] = 0
-        }
-      } else {
-        let lastCopyableWord = targetLen + mant2Len - 1
-        trailingInfo = getTrailingInfo(mant1, lastCopyableWord + 1)
-
-        for (let i = mant2Len; i < lastCopyableWord; ++i) {
-          target[i - mant2Len] = mant1[i]
-        }
-      }
-
-      return roundMantissaToPrecision(target, prec, target, round, trailingInfo) - firstDiff
-    }
+  for (let i = 0; i < mant1.length; ++i) {
+    output[i] += mant1[i]
   }
 
-  let trailingInfo = 0
-  if (maxEnd - firstDiff <= targetLen) {
-    // If everything fits in the target, just do the subtraction
+  for (let i = 0; i < mant2.length; ++i) {
+    output[i + mant2Shift] -= mant2[i]
+  }
 
-    for (let i = firstDiff; i < mant1Len; ++i) {
-      target[i - firstDiff] = mant1[i]
-    }
+  let carry = 0
+  for (let i = output.length - 1; i >= 0; --i) {
+    let word = output[i] - carry
 
-    for (let i = mant1Len - firstDiff; i < targetLen; ++i) {
-      target[i] = 0
-    }
-
-    for (let i = firstDiff; i < mant2Len; ++i) {
-      target[i + mant2Shift - firstDiff] -= mant2[i]
-    }
-
-    let carry = 0
-    for (let i = maxEnd - firstDiff; i >= 0; --i) {
-      let word = target[i] - carry
-
-      if (word < 0) {
-        word += 0x40000000
-        carry = 1
-      } else {
-        carry = 0
-      }
-
-      target[i] = word
-    }
-  } else if (mant2End - firstDiff <= targetLen) {
-    // Then the target contains all of mant2, with trailing words of mant1. Calculate all within the target, then
-    // compute a trailing info on the remaining words of mant1.
-    let max = Math.min(mant1Len, targetLen + firstDiff)
-
-    for (let i = firstDiff; i < max; ++i) {
-      target[i - firstDiff] = mant1[i]
-    }
-
-    for (let i = firstDiff; i < mant2Len; ++i) {
-      target[i + mant2Shift - firstDiff] -= mant2[i]
-    }
-
-    let carry = 0
-    for (let i = mant2End - firstDiff; i >= 0; --i) {
-      let word = target[i] - carry
-
-      if (word < 0) {
-        word += 0x40000000
-        carry = 1
-      } else {
-        carry = 0
-      }
-
-      target[i] = word
-    }
-
-    trailingInfo = getTrailingInfo(mant1, max)
-  } else if (mant1Len - firstDiff <= targetLen) {
-    // Then the target contains all of mant1, with negative trailing words of mant2. We deal with negative trailing
-    // words by "faking" positive trailing info and subtracting 1. If trailing info is 0, we set trailing info to 0;
-    // if trailing info is 1, we set trailing info to 3 and subtract 1; etc. This code is the most likely to be entered,
-    // so should be optimized to hell and back if at all possible
-
-    for (let i = firstDiff; i < mant1Len; ++i) {
-      target[i - firstDiff] = mant1[i]
-    }
-
-    for (let i = mant1Len - firstDiff; i < targetLen; ++i) {
-      target[i] = 0
-    }
-
-    let max = targetLen + firstDiff - mant2Shift
-
-    for (let i = firstDiff; i < max; ++i) {
-      target[i + mant2Shift - firstDiff] -= mant2[i]
-    }
-
-    let carry = 0
-    if (round !== ROUNDING_MODE.WHATEVER) {
-      trailingInfo = getTrailingInfo(mant2, max)
-
-      if (trailingInfo > 0) {
-        carry = 1
-        trailingInfo = 4 - trailingInfo  // tie -> tie, >0.5 -> <0.5, <0.5 -> >0.5
-      }
-    }
-
-    console.log(target, carry, trailingInfo)
-
-    for (let i = targetLen - 1; i >= 0; --i) {
-      let word = target[i] - carry
-
-      if (word < 0) {
-        word += 0x40000000
-        carry = 1
-      } else {
-        carry = 0
-      }
-
-      target[i] = word
-    }
-
-    console.log(target)
-
-  } else {
-    // The target is shorter than both mant1 and mant2. This might happen when computing something like pi - e, where pi
-    // and e are precomputed constants to many bits of precision, but only a few bits are needed. In this case, we
-    // compute all the needed bits, then continue to compute words until we can be sure no carries are needed. (pain)
-
-    let max = targetLen + firstDiff
-    let followingWord = mant1[max] - mant2[max]
-
-    let carry = 0
-    if (followingWord < 0) {
+    if (word < 0) {
+      word += 0x40000000
       carry = 1
-      followingWord += 0x40000000
-    }
-
-    if (followingWord === 0) {
-      for (let i = max + 1; i < maxEnd; ++i) {
-        let w = mant1[i] - mant2[i - mant2Shift]
-
-        if (w > 0) {
-          trailingInfo = 1
-          break
-        } else if (w < 0) {
-          carry = 1
-          trailingInfo = 3
-          break
-        }
-      }
-    } else if (followingWord < 0x20000000) {
-      trailingInfo = 1
-    } else if (followingWord === 0x20000000) {
-      trailingInfo = 2
-      for (let i = max + 1; i < maxEnd; ++i) {
-        let w = mant1[i] - mant2[i - mant2Shift]
-
-        if (w > 0) {
-          trailingInfo = 3
-          break
-        } else if (w < 0) {
-          trailingInfo = 1
-          break
-        }
-      }
     } else {
-      trailingInfo = 3
+      carry = 0
     }
 
-    for (let i = firstDiff; i < max; ++i) {
-      target[i - firstDiff] = mant1[i]
-    }
-
-    for (let i = firstDiff; i < max; ++i) {
-      target[i + mant2Shift - firstDiff] -= mant2[i]
-    }
-
-    for (let i = max - firstDiff - 1; i >= 0; --i) {
-      let word = target[i] - carry
-
-      if (word < 0) {
-        word += 0x40000000
-        carry = 1
-      } else {
-        carry = 0
-      }
-
-      target[i] = word
-    }
-
-    // Computed all the stuff that fits in target. We now compute the word immediately after. If the word carries, do
-    // the carry; if the word is strictly greater than 0, don't carry; if 0, we have to continue. We
-    // also have to determine the trailing info, if applicable, during this process. Carry is needed, trailing info is
-    // conditionally needed. DOWN needs no trailing info; UP needs to know whether trailing info > 1; NEAREST needs to
-    // know the full value of trailing info. Really, they only need this info in certain cases, but there's no point
-    // checking for them because the overhead is minimal
+    output[i] = word
   }
 
-  for (let i = targetLen; i > maxEnd - firstDiff; --i) {
-    target[i] = 0
-  }
-
-  return roundMantissaToPrecision(target, prec, target, round, trailingInfo) - firstDiff
+  return roundMantissaToPrecision(output, prec, target, round)
 }
 
 /**
@@ -1050,7 +850,7 @@ export function divMantissas (mant1, mant2, precision, targetMantissa, roundingM
 
     // Subtract mant2 from mant1
     let carry = 0
-    for (let i = mant2.length; i >= 0; --i) {
+    for (let i = mant2.length - 1; i >= 0; --i) {
       let word = mant1Copy[i] - mant2[i] - carry
       if (word < 0) {
         word += BIGFLOAT_WORD_SIZE
@@ -1277,8 +1077,6 @@ function slowLn1pBounded (f, precision) {
   let bitsPerIteration = -BigFloat.floorLog2(f, true)
   let iterations = precision / bitsPerIteration
 
-  console.log(iterations)
-
   // The rate of convergence depends on f, with about -log2(abs(f)) bits being generated each time. Since we
   for (let i = 0; i < iterations; ++i) {
     BigFloat.internalMulTo(fExp, f, fExp2, ROUNDING_MODE.WHATEVER)
@@ -1314,6 +1112,7 @@ export function lnBaseCase (f, precision) {
   let result = arctanhSmallRange(atanhArg, precision - 10)
   BF.internalMulPowTwoTo(result, 1, result)
 
+
   return result
 }
 
@@ -1326,7 +1125,7 @@ export function arctanhSmallRange (f, precision) {
   BF.internalMulTo(f, f, fSq)
 
   // Compute 1 + x^2 / 3 + x^4 / 5 + ...
-  let pow = BF.fromNumber(1, { prec: precision })
+  let pow = BF.fromNumber(1, { precision })
   let powSwap = BF.new(precision), powDiv = BF.new(precision)
 
   let bitsPerIteration = -BigFloat.floorLog2(fSq)
@@ -1466,12 +1265,12 @@ export class BigFloat {
    * Construct a new BigFloat from a JS number with a given precision and rounding in the correct direction if the
    * precision is less than 53.
    * @param num {number} JS number to convert from
-   * @param prec {number} Precision, in bits, of the float
+   * @param precision {number} Precision, in bits, of the float
    * @param roundingMode {number} Enum of which direction to round in
    * @returns {BigFloat}
    */
-  static fromNumber (num, { prec=CURRENT_PRECISION, roundingMode=CURRENT_ROUNDING_MODE } = {}) {
-    let float = BigFloat.new(prec)
+  static fromNumber (num, { precision = CURRENT_PRECISION, roundingMode=CURRENT_ROUNDING_MODE } = {}) {
+    let float = BigFloat.new(precision)
     float.setFromNumber(num, roundingMode)
 
     return float

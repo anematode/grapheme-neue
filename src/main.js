@@ -41,6 +41,3 @@ export * from './elements/polyline_element.js'
 export * from './math/bigint/bigint.js'
 export * from './math/bigint/bigfloat.js'
 export * from './math/rounding_modes.js'
-
-import * as BFVERIFY from './math/bigint/bigfloat_verification.js'
-export { BFVERIFY }
