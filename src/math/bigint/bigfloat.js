@@ -179,7 +179,7 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
   // If the truncation would happen after the end of the mantissa...
   if (truncWord >= mantLen + shift) {
     // Whether the truncation bit is on the (nonexistent) word right after the mantissa
-    let isAtVeryEnd = truncWord === targetLen && truncateLen === BIGFLOAT_WORD_BITS
+    let isAtVeryEnd = truncWord === mantLen + shift && truncateLen === BIGFLOAT_WORD_BITS
 
     // Fake a trailing info after the end. Our general strategy with trailingInfoMode = 1 is to convert it into a form
     // that trailingInfoMode = 0 can handle
@@ -266,7 +266,6 @@ export function roundMantissaToPrecision (mant, prec, target, round=CURRENT_ROUN
           // We only do the carry if it would give an even bit at the end. To do this we query for the bit which will be
           // affected (the truncateLen th bit). If the bit is 1, we do the carry. If truncateLen is 30 then we have to look
           // at the preceding word for the bit, since we truncated *at* a word
-
 
           let bit = (truncateLen === BIGFLOAT_WORD_BITS) ?
             (target[truncWord - 1] & 1) :
@@ -435,10 +434,20 @@ export function subtractMantissas (mant1, mant2, mant2Shift, prec, target, round
   let mant1Len = mant1.length, mant2Len = mant2.length, mant2End = mant2Len + mant2Shift, maxEnd = Math.max(mant1Len, mant2End)
   let targetLen = target.length
 
+  let shift = 0
+
   if (maxEnd <= targetLen) {
-    for (let i = 0; i < mant1Len; ++i) target[i] = mant1[i]
-    for (let i = mant1Len; i < targetLen; ++i) target[i] = 0
-    for (let i = 0; i < mant2Len; ++i) target[i + mant2Shift] -= mant2[i]
+    for (let i = 0; i < mant2Shift; ++i) target[i] = mant1[i]
+
+    if (mant1Len >= mant2End) {
+      for (let i = mant2Shift, j = 0; i < mant2End; ++i, ++j) target[i] = mant1[i] - mant2[j]
+      for (let i = mant2End; i < mant1Len; ++i) target[i] = mant1[i]
+    } else {
+      for (let i = mant2Shift, j = 0; i < mant1Len; ++i, ++j) target[i] = mant1[i] - mant2[j]
+      for (let i = mant1Len, j = mant1Len - mant2Shift; i < mant2End; ++i, ++j) target[i] = -mant2[j]
+    }
+
+    for (let i = maxEnd; i < targetLen; ++i) target[i] = 0
 
     let carry = 0
     for (let i = maxEnd - 1; i >= 0; --i) {
@@ -458,6 +467,65 @@ export function subtractMantissas (mant1, mant2, mant2Shift, prec, target, round
     }
 
     return roundMantissaToPrecision(target, prec, target, round)
+  } else if (mant1Len <= targetLen) {
+    // Mantissa 1 is entirely in the target, with trailing words of mantissa 2
+    let max = Math.min(mant2Shift, targetLen)
+
+    for (let i = 0; i < max; ++i) target[i] = mant1[i]
+    for (let i = mant2Shift; i < mant1Len; ++i) target[i] = mant1[i] - mant2[i - mant2Shift]
+    for (let i = mant1Len, j = mant1Len - mant2Shift; i < targetLen; ++i, ++j) target[i] = -mant2[j]
+
+    // First word of mant2 that isn't in the target is at index targetLen - mant2Shift, which may be negative
+
+    let carry = 0
+    let trailingInfo = getTrailingInfo(mant2, targetLen - mant2Shift)
+
+    if (trailingInfo) {
+      carry = 1
+      trailingInfo = 4 - trailingInfo
+    }
+
+    for (let i = targetLen - 1; i >= 0; --i) {
+      let word = target[i]
+
+      if (carry) {
+        word -= carry
+        target[i] = word
+      }
+
+      if (word < 0) {
+        target[i] += 0x40000000
+        carry = 1
+      } else {
+        carry = 0
+      }
+    }
+
+    if (target[0] === 0 && trailingInfo) { // Extremely weird annoying edge case
+      let index = targetLen - mant2Shift
+
+      if (index >= 0) {
+        trailingInfo = getTrailingInfo(mant2, index + 1)
+        let w = mant2[index]
+
+        if (trailingInfo > 0) {
+          w += 1
+        }
+
+        console.log(target, trailingInfo, index, w)
+
+        if (w !== 0) {
+          leftShiftMantissa(target, 30, target)
+          shift -= 1
+
+          target[targetLen - 1] = 0x40000000 - w
+        }
+      }
+    }
+
+    let roundingShift = roundMantissaToPrecision(target, prec, target, round, trailingInfo)
+
+    return shift + roundingShift
   }
 
   let output = new Int32Array(Math.max(mant1.length, mant2.length + mant2Shift) + 1)
