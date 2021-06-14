@@ -1,14 +1,23 @@
-import { Group } from "./group.js"
+import {Group} from "./group.js"
 import {BoundingBox} from "../math/bounding_box.js"
 import {attachGettersAndSetters, constructInterface} from "./interface.js"
+import {Color, Colors} from "../styles/definitions.js"
 
 // Example interface
 const sceneInterface = constructInterface({
   "dpr": { typecheck: "number", description: "The device pixel ratio of the scene." },
   "width": { typecheck: "number", description: "The width, in CSS pixels, of the scene." },
   "height": { typecheck: "number", description: "The height, in CSS pixels, of the scene." },
-  "sceneDimensions": { readOnly: true, aliases: [ "dimensions" ], description: "An aggregate of the width, height, canvasWidth, canvasHeight, and dpr of the scene." }
+  "sceneDims": { readOnly: true, aliases: [ "dimensions" ], description: "An aggregate of the width, height, canvasWidth, canvasHeight, and dpr of the scene." },
+  "backgroundColor": { conversion: Color.fromObj, description: "The background color of the scene."}
 })
+
+const defaults = {
+  width: 640,
+  height: 480,
+  dpr: 1,
+  backgroundColor: Colors.WHITE
+}
 
 /**
  * Passed to children as the parameter "sceneDimensions"
@@ -46,8 +55,7 @@ export class Scene extends Group {
   init (params) {
     this.scene = this
 
-    this.props.setProperties({ width: 640, height: 480, dpr: 1 })
-    this.props.setPropertyInheritance("sceneDimensions", true)
+    this.props.setPropertyInheritance("sceneDims", true)
   }
 
   /**
@@ -61,8 +69,15 @@ export class Scene extends Group {
       const sceneDimensions = new SceneDimensions(width, height, dpr)
 
       // Equality check of 2 for deep comparison, in case width, height, dpr have not actually changed
-      props.set("sceneDimensions", sceneDimensions, 2)
+      props.set("sceneDims", sceneDimensions, 2)
     }
+  }
+
+  updateProps () {
+    const { props } = this
+
+    this.forwardDefaults(defaults, "real")
+    this.calculateSceneDimensions()
   }
 
   /**
@@ -83,7 +98,17 @@ export class Scene extends Group {
   }
 
   _update () {
-    this.calculateSceneDimensions()
+    this.updateProps()
+
+    this.internal.renderInfo = {
+      contexts: {
+        type: "scene",
+        sceneDims: this.get("sceneDims"),
+        backgroundColor: this.get("backgroundColor")
+      }
+    }
+
+    this.props.markAllUpdated()
   }
 
   /**
@@ -96,6 +121,7 @@ export class Scene extends Group {
     // Mark the update as completed (WIP)
     this.apply(child => child.props.markGlobalUpdateComplete())
   }
+
 }
 
 attachGettersAndSetters (Scene.prototype, sceneInterface)

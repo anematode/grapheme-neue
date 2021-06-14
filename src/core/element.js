@@ -85,8 +85,9 @@ export class Element extends Eventful {
       this.props.inheritPropertiesFrom(this.parent.props, this.updateStage === -1)
   }
 
-  getRenderingInstructions () {
-    if (this.internal.instructions) return this.internal.instructions
+  getRenderingInfo () {
+    if (this.internal.renderInfo)
+      return this.internal.renderInfo
   }
 
   isChild (child, recursive=true) {
@@ -107,6 +108,25 @@ export class Element extends Eventful {
 
   get (propName) {
     return this.getInterface().get(this, propName)
+  }
+
+  getDict (propNames) {
+    return this.getInterface().getDict(this, propNames)
+  }
+
+  forwardDefaults (defaults, as="user") {
+    const { props } = this
+
+    let updateStage = this.updateStage
+
+    // Compute font, fontSize, align, baseline, color, shadowRadius, shadowColor
+    for (const key in defaults) {
+      if (updateStage === -1 || props.hasChanged(key)) {
+        let value = defaults[key]
+
+        props.forwardValue(key, value, as)
+      }
+    }
   }
 
   getInterface () {

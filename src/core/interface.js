@@ -130,7 +130,6 @@ export function constructInterface (interfaceDescription) {
       // First typecheck, then convert, then destructure, then target, then onSet
       if (needsSetter) {
         if (set) {
-          // Specific instructions for setting
           setters[propName] = set
         } else {
           const steps = []
@@ -221,9 +220,11 @@ export function constructInterface (interfaceDescription) {
           } else if (step.type === "conversion") {
             value = step.conversion(value)
           } else if (step.type === "typecheck") {
-            let typecheck = step.typecheck(value)
-            if (typecheck !== true) {
-              throw new TypeError(`Failed typecheck on parameter '${name}' on element #${element.id}. Error message: ${typecheck}`)
+            if (value !== undefined) {
+              let typecheck = step.typecheck(value)
+              if (typecheck !== true) {
+                throw new TypeError(`Failed typecheck on parameter '${name}' on element #${element.id}. Error message: ${typecheck}`)
+              }
             }
           } else if (step.type === "onSet") {
             step.onSet.bind(element)(value)
@@ -267,9 +268,20 @@ export function constructInterface (interfaceDescription) {
     }
   }
 
+  function getDict (element, names) {
+    let dict = {}
+
+    for (const name of names) {
+      dict[name] = get(element, name)
+    }
+
+    return dict
+  }
+
   return {
     set,
     get,
+    getDict,
     setters,
     getters,
     description: interfaceDescription

@@ -12,20 +12,24 @@ const figureInterface = constructInterface({
   marginLeft: true, marginRight: true, marginTop: true, marginBottom: true,
   margins: { destructuring: { left: "marginLeft", right: "marginRight", bottom: "marginBottom", top: "marginTop"} },
   margin: { get: "marginLeft", set: [ "marginLeft", "marginRight", "marginBottom", "marginTop" ] },
-  interactivity: { onSet: function (v) { this._interactivityEnabled(v) } }
+  interactivity: { onSet: function (v) { this._interactivityEnabled(v) } },
+  clipPlottingBox: true
 })
+
+let defaults = {
+  figureBoundingBox: new BoundingBox(0, 0, 100, 100),
+  plottingBox: new BoundingBox(0, 0, 640, 480),
+  plotTransform: new LinearPlot2DTransform(0, 0, 640, 480, -1, -1, 4, 2),
+  margin: 0,
+  interactivity: true,
+  clipPlottingBox: true
+}
 
 export class Figure extends Group {
   init () {
-    this.props.setProperties({
-      figureBoundingBox: new BoundingBox(0, 0, 100, 100),
-      plottingBox: new BoundingBox(0, 0, 640, 480),
-      plotTransform: new LinearPlot2DTransform(0, 0, 640, 480, -1, -1, 4, 2)
-    }).configureProperties(["figureBoundingBox", "plotTransform"], {
+    this.props.configureProperties(["figureBoundingBox", "plotTransform"], {
       inherit: true
     })
-
-    this.set({ margin: 0, interactivity: true })
   }
 
   getInterface () {
@@ -105,8 +109,8 @@ export class Figure extends Group {
   updateBoxes () {
     const { props } = this
 
-    if (props.haveChanged(["sceneDimensions", "marginLeft", "marginRight",  "marginTop", "marginBottom", "figureBoundingBox"])) {
-      const boundingBox = props.set("figureBoundingBox", props.get("sceneDimensions").getBoundingBox(), 2)
+    if (props.haveChanged(["sceneDims", "marginLeft", "marginRight",  "marginTop", "marginBottom", "figureBoundingBox"])) {
+      const boundingBox = props.set("figureBoundingBox", props.get("sceneDims").getBoundingBox(), 2)
       const margins = this.get("margins")
 
       let plottingBox = boundingBox.squishAsymmetrically(margins.left, margins.right, margins.bottom, margins.top) ?? boundingBox.clone()
@@ -129,10 +133,24 @@ export class Figure extends Group {
     }
   }
 
-  _update () {
+  updateProps() {
     this.defaultInheritProps()
 
+    this.forwardDefaults(defaults)
     this.updateBoxes()
     this.updatePlotTransform()
+
+    let clipPlottingBox = this.get("clipPlottingBox")
+    if (clipPlottingBox) {
+      let plottingBox = this.get("plottingBox")
+
+      this.internal.renderInfo = { contexts: { scissor: plottingBox } }
+    } else {
+      this.internal.renderInfo = null
+    }
+  }
+
+  _update () {
+    this.updateProps()
   }
 }

@@ -16,7 +16,7 @@ export class PlotBoxOutline extends Element {
     } : null
   }
 
-  getRenderingInstructions () {
+  getRenderingInfo () {
     return this.internal.instructions
   }
 }

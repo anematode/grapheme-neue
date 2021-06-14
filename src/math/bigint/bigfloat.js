@@ -420,6 +420,49 @@ export function addMantissas (mant1, mant2, mant2Shift, prec, target, round=CURR
 }
 
 /**
+ * Returns whether a mantissa can be correctly rounded, assuming a maximum error of maxNeg and maxPos in the last word.
+ * This often allows rounding to happen before extra computation is requested. Assumes maxNeg and maxPos can actually
+ * be subtracted; a mantissa has to have length at least 2 anyway.
+ * @param mantissa {Int32Array}
+ * @param precision {number}
+ * @param round {number}
+ * @param maxNeg {number}
+ * @param maxPos {number}
+ */
+export function canMantissaBeRounded (mantissa, precision, round, maxNeg, maxPos) {
+  if (maxNeg === 0 && maxPos === 0) return true
+
+  let zeros = clzMantissa(mantissa)
+
+  let endOfPrec = zeros + precision
+  let endWord = (endOfPrec / 30) | 0
+
+  if (endWord >= mantissa.length) {
+    return false
+  }
+
+  let truncateLen = BIGFLOAT_WORD_BITS - (endOfPrec - endWord * BIGFLOAT_WORD_BITS)
+  let truncatedWord = (mantissa[endWord] >> truncateLen) << truncateLen
+  let rem = mantissa[endWord] - truncatedWord
+
+  if (round === ROUNDING_MODE.WHATEVER) {
+    // We use a tighter bound (truncateLen - 2) because subtracting may require an extra bit of precision
+    let lower = truncateLen === 1 ? 0 : (1 << (truncateLen - 2))
+    let higher = 1 << (truncateLen - 1)
+
+    if (rem - maxNeg < lower) {
+      return false
+    } else if (rem + maxPos > higher) {
+      return false
+    }
+
+    return true
+  }
+
+  return false
+}
+
+/**
  * Subtract two (positive) mantissas, with mant1 > mant2 and mant2 under a given shift, returning a shift relative to
  * the first word of mantissa 1 depending on the result.
  * @param mant1 {Int32Array}
@@ -434,125 +477,75 @@ export function subtractMantissas (mant1, mant2, mant2Shift, prec, target, round
   let mant1Len = mant1.length, mant2Len = mant2.length, mant2End = mant2Len + mant2Shift, maxEnd = Math.max(mant1Len, mant2End)
   let targetLen = target.length
 
+  // New strategy; we iteratively compute words of the result until we get to the end of target, at which point we do
+  // the carry. If the result has any leading zeros, shift left and continue computing words; if not, return if in
+  // rounding mode: whatever, and if in a different rounding mode, compute whether a delta of -1 on the last word would
+  // change the result. If it won't, round and return. If it will, compute words after the target until a carry and
+  // trailing value are determined, which is a rather finnicky process that hopefully the fuzzer will help with
+
+  // shift of the target relative to mant1
   let shift = 0
 
-  if (maxEnd <= targetLen) {
-    for (let i = 0; i < mant2Shift; ++i) target[i] = mant1[i]
-
-    if (mant1Len >= mant2End) {
-      for (let i = mant2Shift, j = 0; i < mant2End; ++i, ++j) target[i] = mant1[i] - mant2[j]
-      for (let i = mant2End; i < mant1Len; ++i) target[i] = mant1[i]
-    } else {
-      for (let i = mant2Shift, j = 0; i < mant1Len; ++i, ++j) target[i] = mant1[i] - mant2[j]
-      for (let i = mant1Len, j = mant1Len - mant2Shift; i < mant2End; ++i, ++j) target[i] = -mant2[j]
-    }
-
-    for (let i = maxEnd; i < targetLen; ++i) target[i] = 0
-
-    let carry = 0
-    for (let i = maxEnd - 1; i >= 0; --i) {
-      let word = target[i]
-
-      if (carry) {
-        word -= carry
-        target[i] = word
-      }
-
-      if (word < 0) {
-        target[i] += 0x40000000
-        carry = 1
-      } else {
-        carry = 0
-      }
-    }
-
-    return roundMantissaToPrecision(target, prec, target, round)
-  } else if (mant1Len <= targetLen) {
-    // Mantissa 1 is entirely in the target, with trailing words of mantissa 2
-    let max = Math.min(mant2Shift, targetLen)
-
-    for (let i = 0; i < max; ++i) target[i] = mant1[i]
-    for (let i = mant2Shift; i < mant1Len; ++i) target[i] = mant1[i] - mant2[i - mant2Shift]
-    for (let i = mant1Len, j = mant1Len - mant2Shift; i < targetLen; ++i, ++j) target[i] = -mant2[j]
-
-    // First word of mant2 that isn't in the target is at index targetLen - mant2Shift, which may be negative
-
-    let carry = 0
-    let trailingInfo = getTrailingInfo(mant2, targetLen - mant2Shift)
-
-    if (trailingInfo) {
-      carry = 1
-      trailingInfo = 4 - trailingInfo
-    }
-
-    for (let i = targetLen - 1; i >= 0; --i) {
-      let word = target[i]
-
-      if (carry) {
-        word -= carry
-        target[i] = word
-      }
-
-      if (word < 0) {
-        target[i] += 0x40000000
-        carry = 1
-      } else {
-        carry = 0
-      }
-    }
-
-    if (target[0] === 0 && trailingInfo) { // Extremely weird annoying edge case
-      let index = targetLen - mant2Shift
-
-      if (index >= 0) {
-        trailingInfo = getTrailingInfo(mant2, index + 1)
-        let w = mant2[index]
-
-        if (trailingInfo > 0) {
-          w += 1
-        }
-
-        console.log(target, trailingInfo, index, w)
-
-        if (w !== 0) {
-          leftShiftMantissa(target, 30, target)
-          shift -= 1
-
-          target[targetLen - 1] = 0x40000000 - w
-        }
-      }
-    }
-
-    let roundingShift = roundMantissaToPrecision(target, prec, target, round, trailingInfo)
-
-    return shift + roundingShift
-  }
-
-  let output = new Int32Array(Math.max(mant1.length, mant2.length + mant2Shift) + 1)
-
-  for (let i = 0; i < mant1.length; ++i) {
-    output[i] += mant1[i]
-  }
-
-  for (let i = 0; i < mant2.length; ++i) {
-    output[i + mant2Shift] -= mant2[i]
-  }
+  // shift of the current uncomputed word relative to mant1
+  let writeShift = 0
 
   let carry = 0
-  for (let i = output.length - 1; i >= 0; --i) {
-    let word = output[i] - carry
 
-    if (word < 0) {
-      word += 0x40000000
-      carry = 1
-    } else {
-      carry = 0
+  while (1) {
+    // Compute the words of target
+    let i = writeShift
+
+    for (; i < targetLen + shift; ++i) {
+      let word1 = mant1[i] | 0
+      let word2 = mant2[i - mant2Shift] | 0
+
+      target[i - shift] = word1 - word2
     }
 
-    output[i] = word
+    writeShift = i
+
+    for (let i = targetLen - 1; i >= 0; --i) {
+      let word = target[i] | 0
+
+      if (carry) {
+        word -= carry
+        target[i] = word
+      }
+
+      if (word < 0) {
+        target[i] += 0x40000000
+        carry = 1
+      } else {
+        carry = 0
+      }
+    }
+
+    if (target[0] === 0) {
+      let i = 0
+      for (; !target[i] && i < targetLen; ++i);
+
+      leftShiftMantissa(target, 30 * i, target)
+      shift += i
+      break
+    } else {
+      if (round === ROUNDING_MODE.WHATEVER)
+        break
+
+      let canBeRounded = canMantissaBeRounded(target, prec, round, 2, 0)
+      if (canBeRounded) break
+
+      // TODO
+
+      break
+
+
+      // Considering the words >= writeShift, we have 7 possibilities: less than -0x20000000, =-0x20000000, between
+      // that and 0, 0 itself, between 0 and 0x20000000, 0x20000000, and greater than that. Negative results require
+      // a negative carry
+    }
   }
 
-  return roundMantissaToPrecision(output, prec, target, round)
+  return roundMantissaToPrecision(target, prec, target, round) - shift
 }
 
 /**
@@ -730,13 +723,13 @@ export function multiplyMantissas (mant1, mant2, precision, targetMantissa, roun
 
   // Will definitely optimise later
   for (let i = mant1.length; i >= 0; --i) {
-    let mant1Word = mant1[i]
+    let mant1Word = mant1[i] | 0
     let mant1WordLo = mant1Word & 0x7FFF
     let mant1WordHi = mant1Word >> 15
 
     let carry = 0, j = mant2.length - 1
     for (; j >= 0; --j) {
-      let mant2Word = mant2[j]
+      let mant2Word = mant2[j] | 0
       let mant2WordLo = mant2Word & 0x7FFF
       let mant2WordHi = mant2Word >> 15
 

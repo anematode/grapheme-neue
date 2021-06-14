@@ -10,7 +10,7 @@ class MandelbrotViewer extends Element {
     this.defaultInheritProps()
   }
 
-  getRenderingInstructions () {
+  getRenderingInfo () {
     let plotTransform = this.props.get("plotTransform")
 
     return { type: "function", function: (renderer) => {

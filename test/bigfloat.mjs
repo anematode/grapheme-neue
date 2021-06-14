@@ -195,7 +195,7 @@ describe("addMantissas", () => {
         for (let shift = 0; shift < 5; ++shift) {
           for (let targetSize = 1; targetSize < 5; ++targetSize) {
             for (let precision of [30, 53, 59, 60, 120]) {
-              for (let roundingMode of [0, 1, 2, 3, 4, 5, 6]) {
+              for (let roundingMode of [0, 1, 2, 5]) {
                 let target = new Int32Array(Math.max(neededWordsForPrecision(precision), targetSize))
                 let ret = referenceAddMantissas(m1, m2, shift, precision, target, roundingMode)
 
@@ -268,7 +268,7 @@ describe("subtractMantissas", () => {
 
           for (let targetSize = 0; targetSize < 5; ++targetSize) {
             for (let precision of [30, 53, 59, 60, 120]) {
-              for (let roundingMode of [0, 1, 2, 3, 4, 5]) {
+              for (let roundingMode of [0, 1, 2, 5]) {
                 let target = new Int32Array(neededWordsForPrecision(precision))
                 let ret = referenceSubtractMantissas(m1, m2, shift, precision, target, roundingMode)
 

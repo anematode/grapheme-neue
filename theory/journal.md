@@ -378,3 +378,8 @@ Currently, precision is given as a number of *bits*, not as a number of *words*,
 There are seven rounding modes: NEAREST, TIES_AWAY, DOWN, UP, TOWARD_INF, TOWARD_ZERO, WHATEVER. NEAREST is ties to even; ties--results which lay exactly half way between representable numbers--are rounded so the least significant bit is even. TIES_AWAY always ties results towards the infinities. DOWN and UP are self-explanatory; TOWARD_INF and TOWARD_ZERO are towards the infinities and towards zero, respectively.
 
 
+# June 12
+
+BigFloats are going reasonably well, but I'm setting myself a pretty difficult goal of having a relatively functional Mandelbrot viewer by June 18. Not really achievable, I know, but if I really put my mind to it ... ?
+
+I'm going to partially rewrite the elements code to include stuff about instructions and contexts so the elements have richer control over what the renderer does. A lot of the code can still work; I'll just start with a simple text element and rewrite the renderer code.

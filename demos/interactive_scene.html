@@ -11,21 +11,18 @@
 <noscript id="setup">
     const renderer = new Grapheme.WebGLRenderer()
 
-    const scene = new Grapheme.InteractiveScene({ id: "main" })
+    const scene = new Grapheme.InteractiveScene({ id: "main", interactivity: true })
     const figure = new Grapheme.Figure({ id: "figure" })
 
     scene.add(figure)
 
-    function render () {
-    renderer.renderDOMScene(scene)
-    }
-
+    figure.set("marginTop", 50)
     scene.updateAll()
 
-    figure.set("marginTop", 50)
-
-    document.body.appendChild(renderer.canvas)
-    const gl = renderer.gl
+    function render () {
+        renderer.renderDOMScene(scene)
+        requestAnimationFrame(render)
+    }
 
     const baubles = new Grapheme.PlotBaubles({ id: "baubles" })
 

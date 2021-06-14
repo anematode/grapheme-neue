@@ -45,6 +45,6 @@ export class PointCloudElement extends Element {
       verticesOffset += circle.length
     }
 
-    this.internal.instructions = { type: "triangle_strip", vertices, color }
+    this.internal.renderInfo = { instructions: { type: "triangle_strip", vertices, color } }
   }
 }

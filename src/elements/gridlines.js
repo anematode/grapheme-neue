@@ -76,7 +76,7 @@ export class GridlinesElement extends Element {
     this.internal.instructions = instructions
   }
 
-  getRenderingInstructions() {
+  getRenderingInfo() {
     return this.internal.instructions
   }
 }

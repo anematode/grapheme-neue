@@ -368,6 +368,14 @@ export class Props {
       }
     }
 
+    function doMarkChanged () {
+      switch (as) {
+        case "user": store.changed |= 0b10; break
+        case "program": store.changed |= 0b100; break
+        default: store.changed |= 1
+      }
+    }
+
     if (value === undefined) {
       // Special case of deletion. If the property exists, we set its value to undefined, and if that property is
       // defined to be inheritable, we set this.hasChangedInheritableProperties to 2. Note that an inheritED property
@@ -392,7 +400,7 @@ export class Props {
       }
 
       if (markChanged) {
-        store.changed = true
+        doMarkChanged()
         this.hasChangedProperties = true
       }
 
@@ -414,9 +422,9 @@ export class Props {
 
     // Set the value and changed values
     setStoreValue(value)
-    store.changed = store.changed || markChanged
 
     if (markChanged) {
+      doMarkChanged()
       this.markHasChangedProperties()
 
       // For values to be inherited, store the version of this value. Only for inherit: 2 properties
@@ -435,6 +443,17 @@ export class Props {
     }
 
     return this
+  }
+
+  /**
+   * A common operation: forward the user-defined value to the actual value, if the value is not undefined
+   * @param propName
+   * @param defaultValue
+   */
+  forwardValue (propName, defaultValue, as="user") {
+    let m = this.get(propName, as)
+
+    this.set(propName, m ?? defaultValue)
   }
 
   markHasChangedProperties () {
@@ -528,7 +547,7 @@ export class Props {
   markAllUpdated () {
     this.hasChangedProperties = false
 
-    this.forEachStore(store => { store.changed = false })
+    this.forEachStore(store => { store.changed = 0 })
   }
 
   /**
@@ -538,7 +557,7 @@ export class Props {
   markPropertyUpdated (propName) {
     const store = this.getPropertyStore(propName)
 
-    if (store) store.changed = false
+    if (store) store.changed = 0
   }
 
   /**
@@ -548,7 +567,7 @@ export class Props {
   markChanged (propName) {
     let store = this.getPropertyStore(propName)
 
-    store.changed = true
+    store.changed = 1
     this.hasChangedProperties = true
 
     // If the store is inheritable, we need to generate a version ID

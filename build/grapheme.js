@@ -3126,7 +3126,7 @@
       const renderingInstructions = []; // This function is applied to every element in the scene
 
       scene.apply(child => {
-        const instructions = child.getRenderingInstructions(this);
+        const instructions = child.getRenderingInfo(this);
         renderingInstructions.push(instructions);
       });
 

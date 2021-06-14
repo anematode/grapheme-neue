@@ -22,7 +22,7 @@ export class PolylineElement extends Element {
     return polylineInterface
   }
 
-  getRenderingInstructions () {
+  getRenderingInfo () {
     let { vertices, pen } = this.props.proxy
     if (!vertices || !pen) return
 

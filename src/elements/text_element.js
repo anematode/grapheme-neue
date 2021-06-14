@@ -5,14 +5,14 @@ import {constructInterface} from "../core/interface.js"
 import { Colors } from "../styles/definitions.js"
 
 const textElementInterface = constructInterface({
-  font: true,
-  fontSize: true,
+  font: { setAs: "user" },
+  fontSize: { setAs: "user" },
   text: true,
-  align: true,
-  baseline: true,
-  color: true,
-  shadowRadius: true,
-  shadowColor: true,
+  align: { setAs: "user" },
+  baseline: { setAs: "user" },
+  color: { setAs: "user" },
+  shadowRadius: { setAs: "user" },
+  shadowColor: { setAs: "user" },
   position: { conversion: Vec2.fromObj }
 })
 
@@ -24,37 +24,41 @@ const textElementInterface = constructInterface({
 // of these factors. In general, it is the bounding box of the piece of text without a shadow, expanded outwards by the
 // shadow radius.
 
+const userDefaults = {
+  "font": "Cambria",
+  "fontSize": 10,
+  "align": "left",
+  "baseline": "top",
+  "color": Colors.BLACK,
+  "shadowRadius": 0,
+  "shadowColor": Colors.WHITE
+}
+
 /**
  * Let's try designing a relatively clean element. Won't be SUPER lightweight because that'll be reserved for primitives
  * later.
  */
 export class TextElement extends Element {
   init (params) {
-    this.set({
-      font: "Cambria",
-      fontSize: 50,
-      text: "Text",
-      align: "center", // top, center, bottom
-      baseline: "center", // top, center, bottom
-      position: new Vec2(100, 200),
-      color: Colors.BLACK,
-      shadowRadius: 8,
-      shadowColor: Colors.WHITE
-    })
+    this.set(params)
   }
 
   getInterface () {
     return textElementInterface
   }
 
-  _update () {
-
-
+  computeProps () {
+    this.forwardDefaults(userDefaults, "user")
   }
 
-  getRenderingInstructions () {
-    const { font, fontSize, text, position, align, baseline, color, shadowRadius, shadowColor } = this.props.proxy
+  _update () {
+    this.computeProps()
 
-    return { type: "text", text: text, fontSize, font, x: position.x, y: position.y, align, baseline, color, shadowRadius, shadowColor }
+    const { font, fontSize, text, position, align, baseline, color, shadowRadius, shadowColor } = this.props.proxy
+    this.internal.renderInfo = {
+      instructions: { type: "text", text: text, fontSize, font, x: position.x, y: position.y, align, baseline, color, shadowRadius, shadowColor }
+    }
+
+    this.props.markAllUpdated()
   }
 }

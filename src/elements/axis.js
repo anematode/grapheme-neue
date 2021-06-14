@@ -67,7 +67,7 @@ export class AxisElement extends Element {
 
   }
 
-  getRenderingInstructions() {
+  getRenderingInfo() {
     return this.internal.instructions
   }
 }
