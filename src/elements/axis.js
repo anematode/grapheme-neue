@@ -56,7 +56,7 @@ export class AxisElement extends Element {
       const { start, end, graphStart, graphEnd, ticks, tickStyles } = props.proxy
 
       if ([ticks, start, end, graphStart, graphEnd].some(x => x === undefined)) return
-      let instructions = this.internal.instructions = []
+      let instructions = []
 
       for (const [style, positions] of Object.entries(ticks)) {
         console.log(style, positions)
@@ -65,9 +65,5 @@ export class AxisElement extends Element {
       instructions.push()
     }
 
-  }
-
-  getRenderingInfo() {
-    return this.internal.instructions
   }
 }

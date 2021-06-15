@@ -75,9 +75,9 @@ import { combineColoredTriangleStrips,  combineTriangleStrips, fillRepeating, fl
 } from "../algorithm/misc_geometry.js"
 import {BoundingBox} from "../math/bounding_box.js"
 import {calculatePolylineVertices} from "../algorithm/polyline_triangulation.js"
-import {Pen} from "../styles/definitions.js"
+import {Colors, Pen} from "../styles/definitions.js"
 import {Vec2} from "../math/vec/vec2.js"
-import {buildGraph} from "./build_graph.js"
+import {SceneGraph} from "./scene_graph.js"
 
 // Functions taken from Mozilla docs
 function createShaderFromSource (gl, shaderType, shaderSource) {
@@ -112,7 +112,8 @@ function createGLProgram (gl, vertexShader, fragShader) {
   throw err
 }
 
-const MonochromaticGeometryProgram = [`
+const MonochromaticGeometryProgram = {
+  vert: `
 precision highp float;
 attribute vec2 vertexPosition;
 // Transforms a vertex from pixel coordinates to clip space
@@ -121,16 +122,14 @@ vec2 displacement = vec2(-1, 1);
          
 void main() {
    gl_Position = vec4(vertexPosition * xyScale + displacement, 0, 1);
-}`, `
-precision highp float;
+}`,
+  frag: `precision highp float;
 uniform vec4 color;
         
 void main() {
    gl_FragColor = color;
-}`,
-
-  ["vertexPosition"], ["color", "xyScale"]
-]
+}`
+}
 
 const MulticolorGeometryProgram = [`
 precision highp float;
@@ -158,7 +157,7 @@ void main() {
   ["vertexPosition", "vertexColor"], ["xyScale"]
 ]
 
-const TextProgram = [`
+const TextProgram = { vert: `
 precision highp float;
 attribute vec2 vertexPosition;
 attribute vec2 texCoords;
@@ -172,7 +171,7 @@ vec2 displace = vec2(-1, 1);
 void main() {
   gl_Position = vec4(vertexPosition * xyScale + displace, 0, 1);
   texCoord = texCoords / textureSize;
-}`, `
+}`, frag: `
 precision highp float;
         
 uniform vec4 color;
@@ -182,14 +181,7 @@ varying vec2 texCoord;
         
 void main() {
   gl_FragColor = texture2D(textAtlas, texCoord);
-}`,
-  ["vertexPosition", "texCoords"], ["textureSize", "xyScale", "textAtlas", "color"]
-]
-
-// Given a map of zIndex -> list of instructions, generate a list of equivalent instructions
-function compactInstructions (instructionMap) {
-
-}
+}`}
 
 /**
  * Currently accepted draw calls:
@@ -232,20 +224,23 @@ export class WebGLRenderer {
 
     this.textures = new Map()
 
+    this.vaos = new Map()
+
     this.textRenderer = new TextRenderer()
   }
 
   /**
    * Create and link a program and store it in the form { glProgram, attribs, uniforms }, where glProgram is the
-   * underlying program and attribs and uniforms are a dictionary of attributes and uniforms from the program.
+   * underlying program and attribs and uniforms are a dictionary of attributes and uniforms from the program. The
+   * attributes are given as an object, of manually assigned indices
    * @param programName {string}
    * @param vertexShaderSource {string}
    * @param fragShaderSource {string}
-   * @param attributeNames {string[]}
+   * @param attributeBindings {{}}
    * @param uniformNames {string[]}
    * @return  {{glProgram: WebGLProgram, attribs: {}, uniforms: {}}} The program
    */
-  createProgram (programName, vertexShaderSource, fragShaderSource, attributeNames=[], uniformNames=[]) {
+  createProgram (programName, vertexShaderSource, fragShaderSource, attributeBindings={}, uniformNames=[]) {
     this.deleteProgram(programName)
 
     const { gl } = this
@@ -254,9 +249,10 @@ export class WebGLRenderer {
       createShaderFromSource(gl, gl.VERTEX_SHADER, vertexShaderSource),
       createShaderFromSource(gl, gl.FRAGMENT_SHADER, fragShaderSource))
 
-    const attribs = {}
-    for (const name of attributeNames) {
-      attribs[name] = gl.getAttribLocation(glProgram, name)
+    for (let name in attributeBindings) {
+      let loc = attributeBindings[name]
+
+      gl.bindAttribLocation(glProgram, loc, name)
     }
 
     const uniforms = {}
@@ -264,7 +260,7 @@ export class WebGLRenderer {
       uniforms[name] = gl.getUniformLocation(glProgram, name)
     }
 
-    const program = { glProgram, attribs, uniforms }
+    const program = { glProgram, attribs: attributeBindings, uniforms }
     this.programs.set(programName, program)
 
     return program
@@ -337,13 +333,66 @@ export class WebGLRenderer {
     }
   }
 
+  getVAO (vaoName) {
+    return this.vaos.get(vaoName)
+  }
+
+  createVAO (vaoName) {
+    let vao = this.getVAO(vaoName)
+
+    if (!vao) {
+      vao = this.gl.createVertexArray()
+      this.vaos.set(vaoName, vao)
+    }
+
+    return vao
+  }
+
+  deleteVAO (vaoName) {
+    const vao = this.getVAO(vaoName)
+
+    if (vao !== undefined) {
+      this.vaos.delete(vaoName)
+      this.gl.deleteBuffer(vao)
+    }
+  }
+
+  monochromaticGeometryProgram () {
+    let program = this.getProgram("__MonochromaticGeometry")
+
+    if (!program) {
+      const programDesc = MonochromaticGeometryProgram
+      program = this.createProgram("__MonochromaticGeometry",
+        programDesc.vert,
+        programDesc.frag,
+        { vertexPosition: 0 }, ['xyScale', 'color'])
+    }
+
+    return program
+  }
+
+  textProgram () {
+    let program = this.getProgram("__Text")
+
+    if (!program) {
+      const programDesc = TextProgram
+      program = this.createProgram("__Text",
+        programDesc.vert,
+        programDesc.frag,
+        { vertexPosition: 0, texCoords: 1}, ["textureSize", "xyScale", "textAtlas", "color"])
+    }
+
+    return program
+  }
+
   /**
    * Resize and clear the canvas, only clearing if the dimensions haven't changed, since the buffer will be erased.
    * @param width
    * @param height
    * @param dpr
+   * @param clear {Color}
    */
-  clearAndResizeCanvas (width, height, dpr=1) {
+  clearAndResizeCanvas (width, height, dpr=1, clear=Colors.TRANSPARENT) {
     const { canvas } = this
 
     this.dpr = dpr
@@ -351,27 +400,86 @@ export class WebGLRenderer {
     height *= dpr
 
     if (canvas.width === width && canvas.height === height) {
-      this.clearCanvas()
+      this.clearCanvas(clear)
     } else {
       canvas.width = width
       canvas.height = height
 
-      this.gl.viewport(0, 0, width, height)
+      // lol, use the given background color
+      if (clear.r || clear.g || clear.b || clear.a) {
+        this.clearCanvas(clear)
+      }
     }
+
+    this.gl.viewport(0, 0, width, height)
   }
 
-  clearCanvas () {
+  clearCanvas (clearColor) {
     const { gl } = this
 
-    gl.clearColor(0, 0, 0, 0)
+    gl.clearColor(clearColor.r / 255, clearColor.g / 255, clearColor.b / 255, clearColor.a / 255)
     gl.clear(gl.COLOR_BUFFER_BIT)
+  }
+
+  getXYScale () {
+    return [ 2 / this.canvas.width, -2 / this.canvas.height ]
   }
 
   renderScene (scene) {
     scene.updateAll()
 
-    const graph = buildGraph(scene)
+    const graph = new SceneGraph()
+    graph.renderer = this
+
+    graph.constructFromScene(scene)
     graph.computeInstructions()
+    graph.compile()
+
+    const { gl } = this
+
+    graph.forEachCompiledInstruction(instruction => {
+      switch (instruction.type) {
+        case "scene": {
+          const { dims, backgroundColor } = instruction
+
+          this.clearAndResizeCanvas(dims.canvasWidth, dims.canvasHeight, dims.dpr, backgroundColor)
+
+          break
+        }
+        case "text": {
+          const program = this.textProgram()
+          gl.useProgram(program.glProgram)
+
+          gl.bindVertexArray(instruction.vao)
+
+          let { id: atlasID, width: atlasWidth, height: atlasHeight } = graph.resources.textAtlas
+          let texture = this.getTexture(atlasID)
+
+          gl.activeTexture(gl.TEXTURE0)
+          gl.bindTexture(gl.TEXTURE_2D, texture)
+
+          gl.uniform1i(program.uniforms.textAtlas, 0)
+          gl.uniform2f(program.uniforms.textureSize, atlasWidth, atlasHeight)
+          gl.uniform2fv(program.uniforms.xyScale, this.getXYScale())
+
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, instruction.vertexCount)
+
+          break
+        }
+        case "triangle_strip": {
+          const program = this.monochromaticGeometryProgram()
+          gl.useProgram(program.glProgram)
+
+          gl.bindVertexArray(instruction.vao)
+          const color = instruction.color
+
+          gl.uniform4f(program.uniforms.color, color.r / 255, color.g / 255, color.b / 255, color.a / 255)
+          gl.uniform2fv(program.uniforms.xyScale, this.getXYScale())
+
+          gl.drawArrays(gl.TRIANGLE_STRIP, 0, instruction.vertexCount)
+        }
+      }
+    })
 
     return graph
   }

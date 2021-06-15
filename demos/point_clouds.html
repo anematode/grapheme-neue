@@ -13,18 +13,21 @@
 
     const renderer = new Grapheme.WebGLRenderer()
     const scene = new Grapheme.InteractiveScene({ id: "main", interactivity: true })
-    document.body.appendChild(scene.domElement)
+    document.body.appendChild(renderer.canvas)
 
     scene.setSize(640, 480)
 
     let elem = new Grapheme.TextElement({ text: "good", position: [ 200, 300 ], fontSize: 30 })
     scene.add(elem)
 
-    elem = new Grapheme.TextElement({ text: "fine", position: [ 400, 500 ], fontSize: 30 })
+    elem = new Grapheme.TextElement({ text: "fine", position: [ 0, 0 ], fontSize: 30 })
     scene.add(elem)
 
     figure = new Grapheme.Figure()
     scene.add(figure)
+
+    baubles = new Grapheme.PlotBaubles()
+    figure.add(baubles)
 
     point = new Grapheme.PointCloudElement({ data: [ 2, 3, 1, 3, 0.2, 0.4 ] })
     figure.add(point)

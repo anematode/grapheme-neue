@@ -1,5 +1,6 @@
 import {Element} from "../core/element.js"
 import {generateRectangleCycle} from "../algorithm/misc_geometry.js"
+import {Pen} from "../styles/definitions.js"
 
 
 export class PlotBoxOutline extends Element {
@@ -10,13 +11,11 @@ export class PlotBoxOutline extends Element {
   _update () {
     const plottingBox = this.parent.props.get("plotTransform").pixelCoordinatesBox()
 
-    this.internal.instructions = plottingBox ? {
-      type: "polyline", vertices: generateRectangleCycle(plottingBox),
-      pen: { thickness: 5, join: 'miter', endcap: 'square' }
+    this.internal.renderInfo = plottingBox ? {
+      instructions: {
+        type: "polyline", vertices: generateRectangleCycle(plottingBox),
+        pen: Pen.create({thickness: 5, join: 'miter', endcap: 'square'})
+      }
     } : null
-  }
-
-  getRenderingInfo () {
-    return this.internal.instructions
   }
 }

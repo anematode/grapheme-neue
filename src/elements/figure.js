@@ -144,7 +144,7 @@ export class Figure extends Group {
     if (clipPlottingBox) {
       let plottingBox = this.get("plottingBox")
 
-      this.internal.renderInfo = { contexts: { scissor: plottingBox } }
+      this.internal.renderInfo = { contexts: { type: "scissor", scissor: plottingBox } }
     } else {
       this.internal.renderInfo = null
     }

@@ -56,7 +56,7 @@ export class TextElement extends Element {
 
     const { font, fontSize, text, position, align, baseline, color, shadowRadius, shadowColor } = this.props.proxy
     this.internal.renderInfo = {
-      instructions: { type: "text", text: text, fontSize, font, x: position.x, y: position.y, align, baseline, color, shadowRadius, shadowColor }
+      instructions: { type: "text", text: text, fontSize, font, anchor: position, align, baseline, color, shadowRadius, shadowColor }
     }
 
     this.props.markAllUpdated()

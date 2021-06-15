@@ -55,8 +55,6 @@ export class PlotBaubles extends Group {
     // Generate the text. Simple for now, so that we can get to making writing elements less excruciating
     const axis = this.createAxisElement()
     axis.props.setProperties({ start, end, startGraphX, endGraphX, ticks: ticks.x.major})
-
-    window.axis = axis
   }
 
   createGridlinesElement () {
@@ -93,5 +91,9 @@ export class PlotBaubles extends Group {
     this.computeProps()
 
     this.createPlotBoxOutlineElement()
+  }
+
+  getRenderingInfo () {
+    return { contexts: { type: "escapeContext", escapeContext: { type: "scissor" } } }
   }
 }

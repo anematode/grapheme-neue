@@ -16,7 +16,7 @@ const defaults = {
   width: 640,
   height: 480,
   dpr: 1,
-  backgroundColor: Colors.WHITE
+  backgroundColor: Colors.TRANSPARENT
 }
 
 /**
@@ -103,7 +103,7 @@ export class Scene extends Group {
     this.internal.renderInfo = {
       contexts: {
         type: "scene",
-        sceneDims: this.get("sceneDims"),
+        dims: this.get("sceneDims"),
         backgroundColor: this.get("backgroundColor")
       }
     }
