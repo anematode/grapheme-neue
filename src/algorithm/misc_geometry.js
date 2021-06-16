@@ -713,11 +713,8 @@ export function getActualTextLocation (textRect, anchor, anchorDir, spacing) {
   anchorDir = Vec2.fromObj(anchorDir) ?? new Vec2(0, 0)
   spacing = spacing ?? 0
 
-  console.log(textRect, anchor, anchorDir, spacing)
-
   let centerX = anchor.x + anchorDir.x * (textRect.w / 4 + spacing)
   let centerY = anchor.y + anchorDir.y * (textRect.h / 4 + spacing)
-
 
   return BoundingBox.fromObj({ cx: centerX, cy: centerY, w, h })
 }

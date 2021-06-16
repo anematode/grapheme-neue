@@ -23,7 +23,7 @@ export class InteractiveScene extends Scene {
     this.bitmapRenderer = this.domElement.getContext("bitmaprenderer")
 
     this.resizeCanvas()
-    this.set({ dpr: window.devicePixelRatio })
+    this.set({ dpr: window.devicePixelRatio, interactivity: true })
   }
 
   /**

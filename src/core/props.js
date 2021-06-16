@@ -445,17 +445,6 @@ export class Props {
     return this
   }
 
-  /**
-   * A common operation: forward the user-defined value to the actual value, if the value is not undefined
-   * @param propName
-   * @param defaultValue
-   */
-  forwardValue (propName, defaultValue, as="user") {
-    let m = this.get(propName, as)
-
-    this.set(propName, m ?? defaultValue)
-  }
-
   markHasChangedProperties () {
     this.hasChangedProperties = true
   }

@@ -1,7 +1,11 @@
 import {Element} from "../core/element.js"
 
+const imageInterface = {
+  img: true,
 
-class Cow extends Element {
+}
+
+export class ImageElement extends Element {
   constructor (params) {
     super(params)
   }
@@ -11,4 +15,5 @@ class Cow extends Element {
 
     this.defaultInheritProps()
   }
+
 }

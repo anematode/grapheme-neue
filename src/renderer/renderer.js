@@ -353,7 +353,7 @@ export class WebGLRenderer {
 
     if (vao !== undefined) {
       this.vaos.delete(vaoName)
-      this.gl.deleteBuffer(vao)
+      this.gl.deleteVertexArray(vao)
     }
   }
 
@@ -425,17 +425,56 @@ export class WebGLRenderer {
     return [ 2 / this.canvas.width, -2 / this.canvas.height ]
   }
 
-  renderScene (scene) {
+  renderScene (scene, log=false) {
     scene.updateAll()
 
     const graph = new SceneGraph()
     graph.renderer = this
 
+    let startTime = performance.now()
+    let globalStartTime = startTime
     graph.constructFromScene(scene)
+    let endTime = performance.now()
+
+    if (log) console.log(`Construction time: ${endTime - startTime}ms`)
+
+    startTime = performance.now()
     graph.computeInstructions()
+    endTime = performance.now()
+
+    if (log) console.log(`Instruction compute time: ${endTime - startTime}ms`)
+
+    startTime = performance.now()
     graph.compile()
+    endTime = performance.now()
+
+    if (log) console.log(`Instruction compile time: ${endTime - startTime}ms`)
 
     const { gl } = this
+
+    let scissorTest = false
+    let scissorBox = null
+
+    // Contains instructions for how to reset the state back to how it was before a context was entered
+    const contexts = []
+
+    const setScissor = (enabled, box) => {
+      scissorTest = enabled
+      scissorBox = box
+
+      if (enabled) {
+        gl.enable(gl.SCISSOR_TEST)
+      } else {
+        gl.disable(gl.SCISSOR_TEST)
+      }
+
+      if (box) {
+        // GL scissoring is from bottom left corner, not top left
+        gl.scissor(box.x, this.canvas.height - box.y - box.h, box.w, box.h)
+      }
+    }
+
+    startTime = performance.now()
 
     graph.forEachCompiledInstruction(instruction => {
       switch (instruction.type) {
@@ -443,6 +482,13 @@ export class WebGLRenderer {
           const { dims, backgroundColor } = instruction
 
           this.clearAndResizeCanvas(dims.canvasWidth, dims.canvasHeight, dims.dpr, backgroundColor)
+          contexts.push(null)
+
+          break
+        }
+        case "scissor": {
+          contexts.push({ type: "set_scissor", enable: scissorTest, scissor: scissorBox })
+          setScissor(true, instruction.scissor)
 
           break
         }
@@ -450,7 +496,7 @@ export class WebGLRenderer {
           const program = this.textProgram()
           gl.useProgram(program.glProgram)
 
-          gl.bindVertexArray(instruction.vao)
+          gl.bindVertexArray(this.getVAO(instruction.vao))
 
           let { id: atlasID, width: atlasWidth, height: atlasHeight } = graph.resources.textAtlas
           let texture = this.getTexture(atlasID)
@@ -470,18 +516,38 @@ export class WebGLRenderer {
           const program = this.monochromaticGeometryProgram()
           gl.useProgram(program.glProgram)
 
-          gl.bindVertexArray(instruction.vao)
+          gl.bindVertexArray(this.getVAO(instruction.vao))
           const color = instruction.color
 
           gl.uniform4f(program.uniforms.color, color.r / 255, color.g / 255, color.b / 255, color.a / 255)
           gl.uniform2fv(program.uniforms.xyScale, this.getXYScale())
 
           gl.drawArrays(gl.TRIANGLE_STRIP, 0, instruction.vertexCount)
+          break
         }
+        case "pop_context": {
+          const popped = contexts.pop()
+
+          if (!popped) break
+
+          switch (popped.type) {
+            case "set_scissor": {
+              setScissor(popped.enabled, popped.scissor)
+              break
+            }
+          }
+
+          break
+        }
+        default:
+          throw new Error(`Unknown instruction type ${instruction.type}`)
       }
     })
 
-    return graph
+    endTime = performance.now()
+    if (log) console.log(`Render time: ${endTime - globalStartTime}ms`)
+
+    graph.destroy()
   }
 
   renderDOMScene (scene) {

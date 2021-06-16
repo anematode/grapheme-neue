@@ -286,7 +286,15 @@ export class SceneGraph {
   freeCompiledInstructions (inst) {
     if (!inst) return
 
+    for (const i of inst) {
+      if (i.vao) {
+        this.renderer.deleteVAO(i.vao)
+      }
 
+      if (i.buffers) {
+        i.buffers.forEach(b => this.renderer.deleteBuffer(b))
+      }
+    }
   }
 
   compile () {
@@ -330,8 +338,11 @@ export class SceneGraph {
             let vertices = convertTriangleStrip(instruction.vertices, instruction.pen)
             let color = instruction.pen.color
 
-            let buff = renderer.createBuffer(context.id + '-' + getVersionID())
-            let vao = renderer.createVAO(context.id + '-' + getVersionID())
+            let buffName = context.id + '-' + getVersionID()
+            let vaoName = context.id + '-' + getVersionID()
+
+            let buff = renderer.createBuffer(buffName)
+            let vao = renderer.createVAO(vaoName)
 
             gl.bindVertexArray(vao)
 
@@ -341,15 +352,19 @@ export class SceneGraph {
 
             gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW)
 
-            let compiled = { type: "triangle_strip", vao, vertexCount: vertices.length / 2, color }
+            let compiled = { type: "triangle_strip", vao: vaoName, buffers: [ buffName ], vertexCount: vertices.length / 2, color }
             compiledInstructions.push(compiled)
 
             break
           }
           case "text": {
-            let textureCoords = renderer.createBuffer(context.id + '-' + getVersionID())
-            let sceneCoords = renderer.createBuffer(context.id + '-' + getVersionID())
-            let vao = renderer.createVAO(context.id + '-' + getVersionID())
+            let tcName = context.id + '-' + getVersionID()
+            let scName = context.id + '-' + getVersionID()
+            let vaoName = context.id + '-' + getVersionID()
+
+            let textureCoords = renderer.createBuffer(tcName)
+            let sceneCoords = renderer.createBuffer(scName)
+            let vao = renderer.createVAO(vaoName)
 
             gl.bindVertexArray(vao)
 
@@ -367,7 +382,7 @@ export class SceneGraph {
 
             gl.bufferData(gl.ARRAY_BUFFER, generateRectangleTriangleStrip(instruction.rect), gl.STATIC_DRAW)
 
-            let compiled = { type: "text", vao, vertexCount: 4, text: instruction.text }
+            let compiled = { type: "text", vao: vaoName, buffers: [ tcName, scName ], vertexCount: 4, text: instruction.text }
             compiledInstructions.push(compiled)
 
             break
@@ -376,8 +391,11 @@ export class SceneGraph {
             let vertices = instruction.vertices
             let color = instruction.color
 
-            let buff = renderer.createBuffer(context.id + '-' + getVersionID())
-            let vao = renderer.createVAO(context.id + '-' + getVersionID())
+            let buffName = context.id + '-' + getVersionID()
+            let vaoName = context.id + '-' + getVersionID()
+
+            let buff = renderer.createBuffer(buffName)
+            let vao = renderer.createVAO(vaoName)
 
             gl.bindVertexArray(vao)
 
@@ -387,7 +405,7 @@ export class SceneGraph {
 
             gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW)
 
-            let compiled = { type: "triangle_strip", vao, vertexCount: vertices.length / 2, color }
+            let compiled = { type: "triangle_strip", vao: vaoName, buffers: [ buffName ], vertexCount: vertices.length / 2, color }
             compiledInstructions.push(compiled)
             break
           }
@@ -398,6 +416,8 @@ export class SceneGraph {
 
         gl.bindVertexArray(null)
       }
+
+      compiledInstructions.push({ type: "pop_context" })
 
       context.compiledInstructions = compiledInstructions
     })
@@ -426,6 +446,6 @@ export class SceneGraph {
   }
 
   destroy () {
-
+    this.forEachContext(c => this.freeCompiledInstructions(c.compiledInstructions))
   }
 }

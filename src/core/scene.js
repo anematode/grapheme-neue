@@ -76,7 +76,7 @@ export class Scene extends Group {
   updateProps () {
     const { props } = this
 
-    this.forwardDefaults(defaults, "real")
+    this.fillDefaults(defaults)
     this.calculateSceneDimensions()
   }
 

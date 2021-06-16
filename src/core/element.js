@@ -114,17 +114,16 @@ export class Element extends Eventful {
     return this.getInterface().getDict(this, propNames)
   }
 
-  forwardDefaults (defaults, as="user") {
-    const { props } = this
 
-    let updateStage = this.updateStage
+  fillDefaults (defaults, evaluate=true) {
+    const needsInitialize = this.updateStage === -1
+    const props = this.props
 
-    // Compute font, fontSize, align, baseline, color, shadowRadius, shadowColor
-    for (const key in defaults) {
-      if (updateStage === -1 || props.hasChanged(key)) {
-        let value = defaults[key]
-
-        props.forwardValue(key, value, as)
+    for (let key in defaults) {
+      if (needsInitialize || props.hasChanged(key)) {
+        if (props.get(key) === undefined) {
+          props.set(key, defaults[key])
+        }
       }
     }
   }

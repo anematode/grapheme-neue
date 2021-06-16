@@ -17,16 +17,22 @@ const figureInterface = constructInterface({
 })
 
 let defaults = {
-  figureBoundingBox: new BoundingBox(0, 0, 100, 100),
-  plottingBox: new BoundingBox(0, 0, 640, 480),
-  plotTransform: new LinearPlot2DTransform(0, 0, 640, 480, -1, -1, 4, 2),
-  margin: 0,
+  marginLeft: 0,
+  marginRight: 0,
+  marginBottom: 0,
+  marginTop: 0,
   interactivity: true,
   clipPlottingBox: true
 }
 
 export class Figure extends Group {
   init () {
+    this.props.setProperties({
+      figureBoundingBox: new BoundingBox(0, 0, 100, 100),
+      plottingBox: new BoundingBox(0, 0, 640, 480),
+      plotTransform: new LinearPlot2DTransform(0, 0, 640, 480, -1, -1, 4, 2)
+    })
+
     this.props.configureProperties(["figureBoundingBox", "plotTransform"], {
       inherit: true
     })
@@ -136,7 +142,7 @@ export class Figure extends Group {
   updateProps() {
     this.defaultInheritProps()
 
-    this.forwardDefaults(defaults)
+    this.fillDefaults(defaults)
     this.updateBoxes()
     this.updatePlotTransform()
 

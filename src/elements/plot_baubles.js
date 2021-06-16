@@ -51,10 +51,6 @@ export class PlotBaubles extends Group {
     gridlinesElement.props.setProperties({ ticks, plotTransform })
 
     let start = new Vec2(px1, py1), end = new Vec2(px2, py1), startGraphX = gx1, endGraphX = gx2
-
-    // Generate the text. Simple for now, so that we can get to making writing elements less excruciating
-    const axis = this.createAxisElement()
-    axis.props.setProperties({ start, end, startGraphX, endGraphX, ticks: ticks.x.major})
   }
 
   createGridlinesElement () {
@@ -65,16 +61,6 @@ export class PlotBaubles extends Group {
     }
 
     return internal.gridlines
-  }
-
-  createAxisElement () {
-    const { internal } = this
-
-    if (!internal.axis) {
-      this.add(internal.axis = new AxisElement())
-    }
-
-    return internal.axis
   }
 
   createPlotBoxOutlineElement () {
