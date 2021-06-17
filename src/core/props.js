@@ -133,15 +133,17 @@ const proxyHandlers = {
  *
  * Alongside the value of a property, there may or may not be a user-intended value and a program value. For some
  * parameters for which preprocessing is necessary, the user-intended value is the value that is actually changed when
- * .set() is called. Consider a pen, for instance. If the user does  set("pen", "blue"), then the expected result should
+ * .set() is called. Consider a pen, for instance. If the user does set("pen", "blue"), then the expected result should
  * be a blue line. Simple enough. But the pen used is not actually the string "blue"; it is an object of the form
  * {color, thickness, ...}. Thus, the user-intended value of pen is "blue", and the actual value of pen is the pen
  * object. The program value is a value indicating an "internal set". For example, a label may be a child of a certain
  * element, which sets the child's position to (50, 20). In this case, the program value is (50, 20) and the value is
- * (50, 20).
+ * (50, 20). We indicate these values by using bitsets for the changed and hasChangedProperties values, where bit 0
+ * is the actual value, bit 1 is the user value, bit 2 is the program value, and the remaining bits are reserved for
+ * other values if ever needed.
  */
 export class Props {
-  constructor (init) {
+  constructor () {
     /**
      * A key-object dictionary containing the values. The keys are the property names and the objects are of the form
      * { value, changed, ... some other metadata for the given property ... }.
@@ -152,13 +154,25 @@ export class Props {
     // Just for fun... not sure if I'll keep this. Makes programming a bit less painful
     this.proxy = new Proxy(this, proxyHandlers)
 
-    // Stores whether any property has changed
-    this.hasChangedProperties = false
+    // Stores whether any property has changed as a bitmask
+    this.hasChangedProperties = 0
 
     // 0 when no inheritable properties have changed, 1 when an inheritable property has changed since the last time
     // the scene was fully updated, and 2 when the actual list of inheritable properties has changed (different
     // signature of inheritance, if you will).
     this.hasChangedInheritableProperties = 0
+  }
+
+  static toBit (as) {
+    switch (as) {
+      case "program":
+        return 2
+      case "user":
+        return 1
+      case "real":
+      case "default":
+        return 0
+    }
   }
 
   // Access functions, in case we want to switch to Object.create(null)
@@ -168,6 +182,22 @@ export class Props {
 
   setPropertyStore (propName, value) {
     this.store.set(propName, value)
+  }
+
+  /**
+   * Create a property store for a given prop, returning the store. It returns the already-existing store, if appropriate.
+   * @param propName {string}
+   * @returns {{}} Property store associated with the given property name
+   */
+  createPropertyStore (propName) {
+    let existing = this.getPropertyStore(propName)
+
+    if (!existing) {
+      existing = { value: undefined, changed: false }
+      this.setPropertyStore(propName, existing)
+    }
+
+    return existing
   }
 
   /**
@@ -188,22 +218,6 @@ export class Props {
     for (let [ key, value ] of this.store.entries()) {
       callback(key, value)
     }
-  }
-
-  /**
-   * Create a property store for a given prop, returning the store. It returns the already-existing store, if appropriate.
-   * @param propName {string}
-   * @returns {{}} Property store associated with the given property name
-   */
-  createPropertyStore (propName) {
-    let existing = this.getPropertyStore(propName)
-
-    if (!existing) {
-      existing = { value: undefined, changed: false }
-      this.setPropertyStore(propName, existing)
-    }
-
-    return existing
   }
 
   /**
@@ -287,10 +301,10 @@ export class Props {
       // if no such inheritable property, *delete* the local property (do not keep it as inheritable)
       if (!otherPropsStore || otherPropsStore.inherit < 1 || otherPropsStore.value === undefined) {
         propStore.value = undefined
-        propStore.changed = true
+        propStore.changed |= 0b1
         propStore.inherit = 0
 
-        this.markHasChangedProperties()
+        this.changed |= 0b1
         this.markHasChangedInheritableProperties()
       }
 
@@ -298,9 +312,9 @@ export class Props {
       if (otherPropsStore.version > propStore.version) {
         propStore.version = otherPropsStore.version
         propStore.value = otherPropsStore.value
-        propStore.changed = true
+        propStore.changed |= 0b1
 
-        this.markHasChangedProperties()
+        this.changed |= 0b1
         this.markHasChangedInheritableProperties()
       }
     }
@@ -326,7 +340,7 @@ export class Props {
 
           ourPropStore.version = propStore.version
           ourPropStore.value = propStore.value
-          ourPropStore.changed = true
+          ourPropStore.changed |= 0b1
 
           this.markHasChangedProperties()
         }
@@ -341,38 +355,30 @@ export class Props {
    * parameter indicates whether the value should be directly modified, or
    * @param propName {string} The name of the property
    * @param value {any} The value of the property
+   * @param as {number} Which value to change. 0 if real, 1 if user, 2 if program
    * @param equalityCheck {number} What type of equality check to perform against the current value, if any, to assess
    * the changed value. 0 - no check, 1 - strict equals, 2 - deep equals
-   * @param as
    * @param markChanged {boolean} Whether to actually mark the value as changed. In turn, if the property is a changed
    * inheritable property, that will be noted
    * @returns {any}
    */
-  set (propName, value, equalityCheck=0, as="real", markChanged=true) {
+  set (propName, value, as=0, equalityCheck=0, markChanged=true) {
     let store = this.getPropertyStore(propName)
 
     // Helper functions to abstract away the "user/program/real" concept
     function getStoreValue () {
       switch (as) {
-        case "user": return store.userValue
-        case "program": return store.programValue
-        default: return store.value
+        case 0: return store.value
+        case 1: return store.userValue
+        case 2: return store.programValue
       }
     }
 
     function setStoreValue (v) {
       switch (as) {
-        case "user": store.userValue = v; break
-        case "program": store.programValue = v; break
-        default: store.value = v
-      }
-    }
-
-    function doMarkChanged () {
-      switch (as) {
-        case "user": store.changed |= 0b10; break
-        case "program": store.changed |= 0b100; break
-        default: store.changed |= 1
+        case 0: store.value = v; break
+        case 1: store.userValue = v; break
+        case 2: store.programValue = v; break
       }
     }
 
@@ -382,26 +388,30 @@ export class Props {
       // cannot be deleted, as that would be inconsistent. It can only be overridden.
 
       // trivial case, don't do anything
-      if (!store || getStoreValue() === undefined) return undefined
+      if (!store || getStoreValue() === undefined) return value
 
       if (store.inherit === 1) {
         // If the store has an inheritance value of 1, we don't do anything
-        return undefined
+        return value
       } else if (store.inherit === 2) {
         // If the property has inheritance 2, we keep it as undefined and notify that the signature of inheritable properties has
         // changed.
         setStoreValue(undefined)
-        store.version = getVersionID()
 
-        if (markChanged && as === "real") this.markHasChangedInheritanceSignature()
+        // If setting the real value, need to change the version
+        if (as === 0) {
+          store.version = getVersionID()
+          if (markChanged) this.markHasChangedInheritanceSignature()
+        }
       } else {
-        // Typical case of deleting a property. We just set its value to undefined
+        // Set its value to undefined
         setStoreValue(undefined)
       }
 
       if (markChanged) {
-        doMarkChanged()
-        this.hasChangedProperties = true
+        // Mark which bit has changed
+        store.changed |= 1 << as
+        this.hasChangedProperties |= 1 << as
       }
 
       return undefined
@@ -414,21 +424,23 @@ export class Props {
     // status.
     if (store.inherit === 1) return value
 
-    let storeValue = getStoreValue()
+    if (equalityCheck !== 0) {
+      let storeValue = getStoreValue()
 
-    // Perform various equality checks
-    if (equalityCheck === 1 && storeValue === value) return value
-    else if (equalityCheck === 2 && deepEquals(storeValue, value)) return value
+      // Perform various equality checks
+      if (equalityCheck === 1 && storeValue === value) return value
+      else if (equalityCheck === 2 && deepEquals(storeValue, value)) return value
+    }
 
     // Set the value and changed values
     setStoreValue(value)
 
     if (markChanged) {
-      doMarkChanged()
-      this.markHasChangedProperties()
+      store.changed |= 1 << as
+      this.hasChangedProperties |= 1 << as
 
       // For values to be inherited, store the version of this value. Only for inherit: 2 properties
-      if (store.inherit === 2 && as === "real") {
+      if (store.inherit === 2 && as === 0) {
         store.version = getVersionID()
         this.markHasChangedInheritableProperties()
       }
@@ -499,26 +511,26 @@ export class Props {
   /**
    * Get the value of a property.
    * @param propName {string}
-   * @param as
+   * @param as {number} 0 if getting the real value, 1 if getting the user value, 2 if getting the program value
    * @returns {*}
    */
-  get (propName, as="real") {
+  get (propName, as=0) {
     let store = this.getPropertyStore(propName)
 
     if (!store) return undefined
     switch (as) {
-      case "program": return store.programValue
-      case "user": return store.userValue
-      default: return store.value
+      case 0: return store.value
+      case 1: return store.userValue
+      case 2: return store.programValue
     }
   }
 
   getUserValue (propName) {
-    return this.get(propName, "user")
+    return this.get(propName, 1)
   }
 
   getProgramValue (propName) {
-    return this.get(propName, "program")
+    return this.get(propName, 2)
   }
 
   /**
@@ -533,10 +545,11 @@ export class Props {
   /**
    * Mark all properties as locally updated (changed = false).
    */
-  markAllUpdated () {
-    this.hasChangedProperties = false
+  markAllUpdated (bitmask=0b111) {
+    bitmask = ~bitmask
+    this.hasChangedProperties &= bitmask
 
-    this.forEachStore(store => { store.changed = 0 })
+    this.forEachStore(store => { store.changed &= bitmask })
   }
 
   /**
@@ -556,13 +569,13 @@ export class Props {
   markChanged (propName) {
     let store = this.getPropertyStore(propName)
 
-    store.changed = 1
-    this.hasChangedProperties = true
+    store.changed |= 0b1
+    this.hasChangedProperties |= 0b1
 
     // If the store is inheritable, we need to generate a version ID
     if (store.inherit) {
-      this.hasChangedInheritableProperties = 1
       store.version = getVersionID()
+      this.markHasChangedInheritableProperties()
     }
   }
 

@@ -4,7 +4,7 @@ import {DefaultStyles, Pen} from "../styles/definitions.js"
 
 const polylineInterface = constructInterface({
   pen: { setAs: "user", setMerge: true, getAs: "real", description: "The pen used to draw the polyline." },
-  vertices: { conversion: "vec2_array", description: "The vertices of the polyline." }
+  vertices: { conversion: "f32_vec2_array", description: "The vertices of the polyline." }
 })
 
 export class PolylineElement extends Element {

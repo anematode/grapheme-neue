@@ -6,9 +6,6 @@ import { LinearPlot2DTransform } from "../math/plot_transforms.js"
 import {constructInterface} from "../core/interface.js"
 
 const figureInterface = constructInterface({
-  figureBoundingBox: true,
-  plottingBox: true,
-  plotTransform: true,
   marginLeft: true, marginRight: true, marginTop: true, marginBottom: true,
   margins: { destructuring: { left: "marginLeft", right: "marginRight", bottom: "marginBottom", top: "marginTop"} },
   margin: { get: "marginLeft", set: [ "marginLeft", "marginRight", "marginBottom", "marginTop" ] },

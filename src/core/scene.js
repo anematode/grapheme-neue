@@ -5,19 +5,41 @@ import {Color, Colors} from "../styles/definitions.js"
 
 // Example interface
 const sceneInterface = constructInterface({
-  "dpr": { typecheck: "number", description: "The device pixel ratio of the scene." },
-  "width": { typecheck: "number", description: "The width, in CSS pixels, of the scene." },
-  "height": { typecheck: "number", description: "The height, in CSS pixels, of the scene." },
-  "sceneDims": { readOnly: true, aliases: [ "dimensions" ], description: "An aggregate of the width, height, canvasWidth, canvasHeight, and dpr of the scene." },
-  "backgroundColor": { conversion: Color.fromObj, description: "The background color of the scene."}
+  interface: {
+    width: {
+      type: "number",
+      description: "The width of the scene",
+      typecheck: {type: "integer", min: 100, max: 16384}
+    },
+    height: {
+      type: "number",
+      description: "The height of the scene",
+      typecheck: {type: "integer", min: 100, max: 16384}
+    },
+    dpr: {
+      type: "number",
+      description: "The device pixel ratio of the scene",
+      typecheck: {type: "number", min: 1 / 32, max: 32},
+      //setAs: "user"
+    },
+    backgroundColor: {
+      type: "color",
+      description: "The color of the scene background",
+      setAs: "user",
+      conversion: { type: "color" }
+    },
+    sceneDims: {
+      description: "The dimensions of the scene",
+      readOnly: true
+    }
+  }, internal: {
+    width: {type: "number", computed: "default", default: 640},
+    height: {type: "number", computed: "default", default: 480},
+    dpr: {type: "number", computed: "default", default: 1},
+    backgroundColor: {type: "color", computed: "user", default: Colors.BLACK},
+    sceneDims: { type: "SceneDimensions", computed: "none" }
+  }
 })
-
-const defaults = {
-  width: 640,
-  height: 480,
-  dpr: 1,
-  backgroundColor: Colors.TRANSPARENT
-}
 
 /**
  * Passed to children as the parameter "sceneDimensions"
@@ -52,7 +74,7 @@ export class Scene extends Group {
     return sceneInterface
   }
 
-  init (params) {
+  init () {
     this.scene = this
 
     this.props.setPropertyInheritance("sceneDims", true)
@@ -69,14 +91,12 @@ export class Scene extends Group {
       const sceneDimensions = new SceneDimensions(width, height, dpr)
 
       // Equality check of 2 for deep comparison, in case width, height, dpr have not actually changed
-      props.set("sceneDims", sceneDimensions, 2)
+      props.set("sceneDims", sceneDimensions, 0 /* real */, 2 /* equality check */)
     }
   }
 
   updateProps () {
-    const { props } = this
-
-    this.fillDefaults(defaults)
+    this.defaultComputeProps()
     this.calculateSceneDimensions()
   }
 
@@ -86,15 +106,6 @@ export class Scene extends Group {
    */
   isScene () {
     return true
-  }
-
-  /**
-   * Sets the scene size.
-   * @param width {number}
-   * @param height {number}
-   */
-  setSize (width, height) {
-    this.set({ width, height })
   }
 
   _update () {
@@ -107,8 +118,6 @@ export class Scene extends Group {
         backgroundColor: this.get("backgroundColor")
       }
     }
-
-    this.props.markAllUpdated()
   }
 
   /**

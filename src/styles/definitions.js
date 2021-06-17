@@ -640,6 +640,12 @@ export const Pen = {
   }
 }
 
+export const TextStyle = {
+  compose: (...args) => {
+
+  }
+}
+
 
 // Fun Asymptote Vector Graphics–like thing :) We break up str into tokens which each have some meaning TODO
 function _interpretStringAsPen (str) {

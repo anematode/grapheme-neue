@@ -114,18 +114,16 @@ export class Element extends Eventful {
     return this.getInterface().getDict(this, propNames)
   }
 
-
-  fillDefaults (defaults, evaluate=true) {
+  /**
+   * For all given properties, check which ones need to be filled in with default values.
+   * @param defaults
+   * @param evaluate
+   */
+  defaultComputeProps () {
+    let inter = this.getInterface()
     const needsInitialize = this.updateStage === -1
-    const props = this.props
 
-    for (let key in defaults) {
-      if (needsInitialize || props.hasChanged(key)) {
-        if (props.get(key) === undefined) {
-          props.set(key, defaults[key])
-        }
-      }
-    }
+    inter.computeProps(this.props, needsInitialize)
   }
 
   getInterface () {

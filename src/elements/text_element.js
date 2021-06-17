@@ -14,6 +14,8 @@ const textElementInterface = constructInterface({
   shadowRadius: { setAs: "user" },
   shadowColor: { setAs: "user" },
   position: { conversion: Vec2.fromObj }
+}, {
+
 })
 
 // Okay so, text is defined by a font, a font size, a horizontal alignment, a baseline, a position, a color, a shadow

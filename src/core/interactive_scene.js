@@ -1,16 +1,22 @@
 import {Scene} from "./scene.js"
 import {constructInterface} from "./interface.js"
+import {deepClone} from "./utils.js"
 
-const interactiveSceneInterface = constructInterface({
-  ...Scene.prototype.getInterface().description,
+let sceneInterface = Scene.prototype.getInterface()
 
-  "interactivity": { onSet: function (value) { this._interactivityEnabled(value) }, typecheck: "boolean"},
+let interactiveSceneInterface = {
+  interface: {
+    ...sceneInterface.description.interface,
+    interactivity: {typecheck: {type: "boolean"}}
+  },
+  internal: {
+    ...sceneInterface.description.internal,
+    interactivity: {type: "boolean", computed: "none", default: true}
+  }
+}
 
-  // When width and height are set we want to immediately adjust the size of the canvas
-  "width": { onSet: function () { this.resizeCanvas() }, typecheck: "number" },
-  "height": { onSet: function () { this.resizeCanvas() }, typecheck: "number" },
-  "dpr": { onSet: function () { this.resizeCanvas() }, typecheck: "number" }
-})
+
+interactiveSceneInterface = constructInterface(interactiveSceneInterface)
 
 /**
  * A scene endowed with an actual DOM element.
@@ -21,9 +27,6 @@ export class InteractiveScene extends Scene {
 
     this.domElement = document.createElement("canvas")
     this.bitmapRenderer = this.domElement.getContext("bitmaprenderer")
-
-    this.resizeCanvas()
-    this.set({ dpr: window.devicePixelRatio, interactivity: true })
   }
 
   /**
@@ -69,6 +72,7 @@ export class InteractiveScene extends Scene {
   }
 
   _interactivityEnabled (value) {
+    value = !!value
     let hasListeners = this.internal.listeners && Object.keys(this.internal.listeners).length > 0
 
     if (value === hasListeners) return
@@ -77,6 +81,13 @@ export class InteractiveScene extends Scene {
 
   _update () {
     super._update()
+
+    const props = this.props
+
+    if (props.hasChanged("interactivity")) {
+      console.log("hi")
+      this._interactivityEnabled(props.get("interactivity"))
+    }
 
     this.resizeCanvas()
   }

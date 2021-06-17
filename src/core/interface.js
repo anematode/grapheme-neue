@@ -12,312 +12,419 @@
 // update function, which should be optimized first. If the property system turns out to be a serious drag, then I'll
 // find a workaround. But even just for me, having this kind of system would help with catching my own errors.
 
+
 import {Vec2} from "../math/vec/vec2.js"
-import {flattenVec2Array} from "../algorithm/misc_geometry.js"
+import {isTypedArray} from "./utils.js"
+import {Color} from "../styles/definitions.js"
+import {Props} from "./props.js"
 
-export const SampleInterface = {
-  // Define behavior of set(width, value) and get(width). If empty, it directly modifies the property with the same name.
-  "width": true, "marginLeft": true, "marginRight": true, "marginBottom": true, "marginTop": true,
-  // set(h, value) and get(sceneHeight, value) will have the same behavior as using "height"
-  "height": { aliases: ['h', 'sceneHeight'] },
-  // The position value is converted from whatever the user inputted into a Vec2 before setting the internal property
-  "position": { conversion: Vec2.fromObj },
-  // A different internal property name than the property name
-  "length": { target: "axisLength" },
-  // or
-  "_length": "axisLength",
-  // Destructuring: mapping an object into multiple internal properties, and reconstructing it the same way
-  "margins": { destructuring: { left: "marginLeft", right: "marginRight", bottom: "marginBottom", top: "marginTop"} },
-  // Read and write only
-  "sceneDimensions": { readOnly: true }
-}
+/**
+ * Print object to string in a way that isn't too painful (limit the length of the string to 100 chars or so)
+ * @param obj
+ * @param limit {number} (Estimated) number of characters to restrict the display to
+ */
+function relaxedPrint (obj, limit=100) {
+  if (typeof obj === "number" || typeof obj === "boolean") {
+    return '' + obj
+  } else if (typeof obj === "function") {
+    let name = obj.name
+    let ret = name ? "[function " + name : "[function]"
 
+    if (ret.length > limit)
+      return "..."
 
-function invertDestructure (obj) {
-  let ret = {}
+    return ret
+  } else if (typeof obj === "object") {
+    let keys = Object.keys(obj).slice(0, 3)
 
-  for (let key in obj) {
-    let invertedKey = obj[key]
-    let isIdentity = typeof invertedKey === "boolean"
-
-    if (isIdentity) {
-      invertedKey = key
-      key = true
+    if (keys.length === 0) {
+      return "{}"
     }
 
-    ret[invertedKey] = key
-  }
+    let keysUsed = 0
+    let keyValues = []
+    let totalLen = 5
 
-  return ret
-}
+    for (let key of keys) {
+      let n = obj[key]
+      let pp = relaxedPrint(n, limit - totalLen - 4)
 
-const builtinTypechecks = {
-  string: x => {
-    if (typeof x === "string") return true
-    else return "Expected string"
-  },
-  number: x => {
-    if (typeof x === "number") return true
-    else return "Expected number"
-  },
-  boolean: x => {
-    if (typeof x === "boolean") return true
-    else return "Expected boolean"
-  }
-}
+      totalLen += pp.length + 4
 
-const builtinConversions = {
-  vec2_array: arr => {
-    return flattenVec2Array(arr)
-  },
-  vec2: Vec2.fromObj
-}
+      if (totalLen > limit) break
+      keyValues.push(pp)
+      keysUsed++
+    }
 
-function createTypecheck (description) {
-  if (typeof description === "function") {
-    return description
-  } else if (typeof description === "string") {
-    const typecheck = builtinTypechecks[description]
+    if (keysUsed === 0) {
+      return "{ ... }"
+    } else {
+      let ret = "{ "
 
-    return typecheck
-  } else if (typeof description === "object") {
-
-  }
-}
-
-function createConversion (description) {
-  if (typeof description === "function") {
-    return description
-  } else if (typeof description === "string") {
-    const conversion = builtinConversions[description]
-
-    return conversion
-  }
-}
-
-const reservedPropNames = [ "id", "updateStage" ]
-
-export function constructInterface (interfaceDescription) {
-  // We basically need to construct a set(element, name, value) and get(element, name) function. That's about it.
-  // The gist of it is we just have a list of actions associated with each property's get and set operation. So we have
-  // two lists: one for setting and one for getting. For setting properties that match names with the internal, that's
-  // the simplest; we store propName: true. Then for properties which have a different target, we store the string
-  // "target". When this gets more complex I'll restructure this code
-
-  const setters = {}
-  const getters = {}
-
-  for (const [ propName, description ] of Object.entries(interfaceDescription)) {
-    if (reservedPropNames.includes(propName)) continue
-
-    if (typeof description === "string") {
-      // Simply map propName to the given targetName
-      setters[propName] = getters[propName] = description
-    } else if (typeof description === "object") {
-      let { aliases, conversion, target, as, setAs, getAs, equalityCheck, destructuring, readOnly, writeOnly, typecheck, set, get, onSet, onGet, setMerge } = description
-
-      if (readOnly && writeOnly) continue // lol
-      let needsSetter = !readOnly
-      let needsGetter = !writeOnly
-
-      if (aliases) {
-        for (const alias of Array.from(aliases)) {
-          needsSetter ? setters[alias] = propName : 0
-          needsGetter ? getters[alias] = propName : 0
-        }
+      for (let i = 0; i < keysUsed; ++i) {
+        ret += keys[i]
+        ret += ': '
+        ret += keyValues[i]
+        if (i !== keysUsed - 1)
+          ret += ', '
       }
 
-      // First typecheck, then convert, then destructure, then target, then onSet
-      if (needsSetter) {
-        if (set) {
-          setters[propName] = set
-        } else {
-          const steps = []
+      return ret + " }"
+    }
+  } else if (typeof obj === "string") {
+    if (obj.length <= limit - 2) return `"${obj}"`
 
-          if (typecheck) {
-            let typecheckFunction = createTypecheck(typecheck)
-            if (typecheckFunction)
-              steps.push({type: "typecheck", typecheck: typecheckFunction})
-          }
-          if (conversion) steps.push({ type: "conversion", conversion: createConversion(conversion) })
-          if (destructuring) steps.push({type: "destructuring", destructuring})
+    let len = Math.max(((limit / 2) | 0) - 4, 0)
 
-          steps.push({ type: "target", target: target ?? propName, as: setAs ?? as ?? "real", equalityCheck: equalityCheck ?? 0, merge: !!setMerge })
+    return '"' + obj.slice(0, len) + " ... " + obj.slice(obj.length - len) + '"'
+  }
+}
 
-          if (onSet) steps.push({ type: "onSet", onSet })
+function genTypecheckRangedInteger (lo, hi) {
+  if (lo === undefined) {
+    return obj => (!Number.isInteger(obj) || obj > hi) ? `Expected $p to be an integer less than ${hi}; got $v.` : undefined
+  } else if (hi === undefined) {
+    return obj => (!Number.isInteger(obj) || obj < lo) ? `Expected $p to be an integer greater than ${lo}; got $v.` : undefined
+  } else {
+    return obj => (!Number.isInteger(obj) || obj < lo || obj > hi) ? `Expected $p to be an integer in the range [${lo}, ${hi}], inclusive; got $v.` : undefined
+  }
+}
 
-          if (steps.length === 0) setters[propName] = true
-          else if (steps.length === 1) setters[propName] = steps[0]
-          else setters[propName] = steps
-        }
-      }
+function typecheckInteger (obj) {
+  if (!Number.isInteger(obj))
+    return "Expected $p to be an integer, not $v."
+}
 
-      // First target, then destructure
-      if (needsGetter) {
-        if (get) {
-          // Specific instructions for getting
-          getters[propName] = get
-        } else {
-          const steps = []
+function genTypecheckRangedNumber (lo, hi, finite) {
+  let finiteMsg = finite ? "finite " : ""
 
-          if (onGet) steps.push({ type: "onGet", onGet })
+  if (lo === undefined) {
+    return obj => (typeof obj !== "number" || obj > hi || (finite && !Number.isFinite(obj))) ? `Expected $p to be a ${finiteMsg}number less than ${hi}, got $v.` : undefined
+  } else if (hi === undefined) {
+    return obj => (typeof obj !== "number" || obj < lo) ? `Expected $p to be a ${finiteMsg}number greater than ${lo}, got $v.` : undefined
+  } else {
+    return obj => (typeof obj !== "number" || obj < lo || obj > hi) ? `Expected $p to be a ${finiteMsg}number in the range [${lo}, ${hi}], inclusive; got $v.` : undefined
+  }
+}
 
-          if (destructuring) steps.push({type: "restructuring", restructuring: invertDestructure(destructuring)})
-          else steps.push({ type: "target", target: target ?? propName, as: getAs ?? as ?? "real" })
+function typecheckNumber (obj) {
+  if (typeof obj !== "number")
+    return "Expected $p to be a number, got $v."
+}
 
-          if (steps.length === 0) getters[propName] = true
-          else if (steps.length === 1) getters[propName] = steps[0]
-          else getters[propName] = steps
-        }
+function typecheckFiniteNumber (obj) {
+  if (typeof obj !== "number" || !Number.isFinite(obj))
+    return "Expected $p to be a finite number, got $v."
+}
+
+function createIntegerTypecheck (check) {
+  let min = check.min
+  let max = check.max
+
+  if (min === undefined && max === undefined) {
+    return typecheckInteger
+  } else {
+    return genTypecheckRangedInteger(min, max)
+  }
+}
+
+function createNumberTypecheck (check) {
+  let min = check.min
+  let max = check.max
+  let finite = check.finite
+
+  if (min === undefined && max === undefined) {
+    if (finite) {
+      return typecheckFiniteNumber
+    } else {
+      return typecheckNumber
+    }
+  } else {
+    return genTypecheckRangedNumber(min, max, finite)
+  }
+}
+
+function booleanTypecheck (obj) {
+  return (typeof obj !== "boolean") ? "Expected $p to be a boolean, got $v." : undefined
+}
+
+function createTypecheck (check) {
+  let type = check.type
+
+  switch (type) {
+    case "integer":
+      return createIntegerTypecheck (check)
+    case "number":
+      return createNumberTypecheck (check)
+    case "boolean":
+      return booleanTypecheck
+    default:
+      throw new Error(`Unrecognized typecheck type ${type}.`)
+  }
+}
+
+let CONVERSION_MSG
+
+function colorConversion (obj) {
+  obj = Color.fromObj(obj)
+  if (obj) return obj
+
+  CONVERSION_MSG = `Expected $p to be convertible to a Color, got $v.`
+}
+
+function vec2Conversion (obj) {
+  let x=0, y=0
+
+  if (typeof obj === "number" || typeof obj === "string") {
+    CONVERSION_MSG = "Expected $p to be convertible to a Vec2, got $v."
+  } else if (typeof obj === "object") {
+    if (Array.isArray(obj)) {
+      if (obj.length !== 2) {
+        CONVERSION_MSG = `Expected $p to be convertible to a Vec2, got $v (length ${obj.length}).`
+      } else {
+        x = obj[0]
+        y = obj[1]
       }
     } else {
-      // Map directly to the same property name
-      setters[propName] = getters[propName] = true
+      x = obj.x ?? obj.re
+      y = obj.y ?? obj.im
     }
   }
 
-  function set (element, name, value) {
-    if (typeof name === "object") {
-      // Passed a dictionary of values to set
-      for (const [ propName, propValue ] of Object.entries(name)) {
-        set(element, propName, propValue)
+  return new Vec2(x, y)
+}
+
+function vec2NonFlatArrayConversion (arr, f32=true) {
+  let ret = new (f32 ? Float32Array : Float64Array)(arr.length / 2)
+  let retIndex = -1
+
+  for (let i = 0; i < arr.length; ++i) {
+    let elem = arr[i]
+
+    if (elem.x) {
+      ret[++retIndex] = elem.x
+      ret[++retIndex] = elem.y
+    } else if (Array.isArray(elem)) {
+      if (elem.length !== 2) {
+        CONVERSION_MSG = `Expected $p to be convertible to a flat array of Vec2s, found element ${relaxedPrint(elem)} at index ${i}`
+        return
       }
 
+      ret[++retIndex] = elem[0]
+      ret[++retIndex] = elem[1]
+    } else {
+      CONVERSION_MSG = `Expected $p to be convertible to a flat array of Vec2s, found element ${relaxedPrint(elem)} at index ${i}`
+      return
+    }
+  }
+}
+
+function vec2ArrayConversion (obj, f32=true) {
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; ++i) {
+      if (typeof obj[i] !== "number") {
+        return vec2NonFlatArrayConversion(obj)
+      }
+    }
+
+    // Obj is just an array of numbers
+    if (obj.length & 1) {
+      CONVERSION_MSG = `Expected $p to be convertible to a flat array of Vec2s, got numeric array of odd length ${obj.length}.`
       return
     }
 
-    let steps = setters[name]
-    if (typeof steps === "undefined") {
-      // Silently fail
-    } else if (typeof steps === "boolean") element.props.set(name, value)
-    else if (typeof steps === "string") element.props.set(steps, value)
-    else if (typeof steps === "function") steps.bind(element)(value)
-    else {
-      steps = Array.isArray(steps) ? steps : [steps]
-
-      for (const step of steps) {
-          if (step.type === "destructuring") {
-            let destructuring = step.destructuring
-
-            for (const [propName, propValue] of Object.entries(value)) {
-              let renamed = destructuring[propName]
-
-              if (renamed === undefined) continue
-              else if (typeof renamed !== "string") renamed = propName
-
-              set(element, renamed, propValue)
-            }
-
-            return
-          } else if (step.type === "target") {
-            let { target, as, equalityCheck, merge } = step
-
-            if (merge) {
-              value = { ...element.props.get(target, as), ...value }
-            }
-
-            element.props.set(target, value, equalityCheck, as)
-          } else if (step.type === "conversion") {
-            value = step.conversion(value)
-          } else if (step.type === "typecheck") {
-            if (value !== undefined) {
-              let typecheck = step.typecheck(value)
-              if (typecheck !== true) {
-                throw new TypeError(`Failed typecheck on parameter '${name}' on element #${element.id}. Error message: ${typecheck}`)
-              }
-            }
-          } else if (step.type === "onSet") {
-            step.onSet.bind(element)(value)
-          }
-      }
-    }
-  }
-
-  function get (element, name) {
-    let steps = getters[name]
-
-    if (typeof steps === "undefined"){
-      // Silently fail
-    } else if (typeof steps === "boolean") return element.props.get(name)
-    else if (typeof steps === "string") return element.props.get(steps)
-    else if (typeof steps === "function") return steps.bind(element)()
-    else {
-      let value
-      steps = Array.isArray(steps) ? steps : [steps]
-
-      for (const step of steps) {
-        if (step.type === "target") {
-          value = element.props.get(step.target, step.as)
-        } else if (step.type === "restructuring") {
-          let restructuring = step.restructuring
-          let ret = {}
-
-          for (let [internalName, propName] of Object.entries(restructuring)) {
-            if (typeof internalName !== "string") internalName = propName
-
-            ret[propName] = get(element, internalName)
-          }
-
-          return ret
-        } else if (step.type === "onGet") {
-          step.onGet.bind(element)(value)
-        }
-      }
-
-      return value
-    }
-  }
-
-  function getDict (element, names) {
-    let dict = {}
-
-    for (const name of names) {
-      dict[name] = get(element, name)
+    return new (f32 ? Float32Array : Float64Array)(obj)
+  } else if (isTypedArray(obj)) {
+    if (obj.length & 1) {
+      CONVERSION_MSG = `Expected $p to be convertible to a flat array of Vec2s, got typed array of odd length ${obj.length}.`
+      return
     }
 
-    return dict
-  }
+    if (f32 && obj instanceof Float32Array)
+      return obj
+    if (!f32 && obj instanceof Float64Array)
+      return obj
 
-  return {
-    set,
-    get,
-    getDict,
-    setters,
-    getters,
-    description: interfaceDescription
+    return new (f32 ? Float32Array : Float64Array)(obj)
   }
 }
 
 /**
- * Attach getters and setters for ease of use. Probably will only have setters/getters for the more commonly used
- * properties, to avoid clutter. Thinking about memory footprint, these functions are on a per-element-class basis, so
- * it isn't too worrying in my opinion.
- * @param prototype
- * @param constructedInterface
+ * Return a function which, when evaluated, either sets CONVERSION_MSG to a message indicating why the conversion is
+ * impossible and returns nothing or returns a converted result.
+ * @param conversion
  */
-export function attachGettersAndSetters (prototype, constructedInterface) {
-  const {setters, getters} = constructedInterface
+function createConversion (conversion) {
+  if (typeof conversion === "string")
+    conversion = { type: conversion }
+  else if (typeof conversion === "function")
+    return conversion
 
-  const properties = {}
+  let type = conversion.type
 
-  function createPropertyDeclaration(name) {
-    return properties[name] ?? (properties[name] = {})
+  switch (type) {
+    case "color":
+      return colorConversion
+    case "vec2":
+      return vec2Conversion
+    case "f32_vec2_array":
+      return vec2ArrayConversion
+    default:
+      throw new Error(`Unknown conversion type ${type}.`)
   }
-
-  for (let setterName of Object.keys(setters)) {
-    createPropertyDeclaration(setterName).set = function (value) {
-      constructedInterface.set(this, setterName, value)
-    }
-  }
-
-  // Define only getters
-  for (let getterName of Object.keys(getters)) {
-    createPropertyDeclaration(getterName).get = function () {
-      return constructedInterface.get(this, getterName)
-    }
-  }
-
-  Object.defineProperties(prototype, properties)
 }
 
-export const NullInterface = constructInterface({})
+export function constructInterface (description) {
+  const interfaceDesc = description.interface
+  const internal = description.internal
+
+  // Instructions on how to get and set properties, respectively
+  const setters = {}
+  const getters = {}
+
+  function handleProp (name, desc) {
+    let needsSetter = !desc.readOnly
+    let needsGetter = !desc.writeOnly
+
+    if (!needsSetter && !needsGetter) return
+
+    if (needsSetter) {
+      let setter = {}
+      let { typecheck, target, setTarget, setAs, conversion, aliases } = desc
+
+      setAs = Props.toBit(setAs)
+
+      if (typecheck) setter.typecheck = createTypecheck(typecheck)
+      if (conversion) setter.conversion = createConversion(conversion)
+      if (setAs) setter.setAs = setAs
+      setter.target = setTarget ?? target ?? name
+
+      setters[name] = setter
+
+      if (aliases) for (const alias of Array.from(aliases)) setters[alias] = setter
+    }
+
+
+    if (needsGetter) {
+      let getter = {}
+
+      let { target, getAs, getTarget } = desc
+      getAs = Props.toBit(getAs)
+
+      if (getAs) getter.getAs = getAs
+
+      getter.target = getTarget ?? target ?? name
+      getters[name] = getter
+    }
+  }
+
+  for (let propName in interfaceDesc) {
+    if (interfaceDesc.hasOwnProperty(propName)) {
+      let propDesc = interfaceDesc[propName]
+
+      handleProp(propName, propDesc)
+    }
+  }
+
+  function _set (props, propName, value) {
+    let setter = setters[propName]
+
+    if (!setter) {
+      if (getters[propName])
+        throw new Error(`Parameter "${propName}" is read-only.`)
+      throw new Error(`Unrecognized parameter "${propName}".`)
+    }
+
+    if (setter.typecheck) {
+      let result = setter.typecheck(value)
+      if (result)
+        throw new TypeError(`Failed typecheck: ${result.replace("$v", relaxedPrint(value)).replace("$p", 'parameter "' + propName + '"')}`)
+    }
+
+    if (setter.conversion) {
+      let newValue = setter.conversion(value)
+
+      if (newValue === undefined)
+        throw new TypeError(`Failed conversion: ${result.replace("$v", relaxedPrint(value)).replace("$p", 'parameter "' + propName + '"')}`)
+
+      value = newValue
+    }
+
+    let setAs = setter.setAs ?? 0 /* real */
+
+    props.set(setter.target, value, setAs)
+  }
+
+  function set (elem, propName, value) {
+    if (typeof propName === "object") {
+      setDict(elem.props, propName)
+    } else if (typeof propName === "string") {
+      _set(elem.props, propName, value)
+    }
+  }
+
+  function get (elem, propName) {
+    let getter = getters[propName]
+
+    if (!getter) {
+      if (setters[propName])
+        throw new Error(`Parameter "${propName}" is write-only.`)
+      throw new Error(`Unrecognized parameter "${propName}".`)
+    }
+
+    let getAs = getter.getAs ?? 0 /* real */
+
+    return elem.props.get(getter.target, getAs)
+  }
+
+  function setDict (props, propDict) {
+    let ret = {}
+
+    for (let propName in propDict) {
+      _set(props, propName, propDict[propName])
+    }
+  }
+
+  /**
+   * Given the internal description of the properties, compute their values based on their user values, current values,
+   * et cetera. If isInitialized is true, compute all properties as if they are new.
+   * @param props
+   * @param isInitialized
+   */
+  function computeProps (props, isInitialized=true) {
+    for (let propName in internal) {
+      let instructions = internal[propName]
+      let computed = instructions.computed
+
+      if (computed === "none") continue
+      if (computed === "default") {
+        // Check whether the current value is undefined. If so, fill it with the default
+        if (props.get(propName) === undefined) {
+          props.set(propName, instructions.default)
+        }
+      } else if (computed === "user") {
+        // Check whether the user value is undefined, then the value, then the default
+        let store = props.getPropertyStore(propName) // just to make things more efficient
+        if (!store) {
+          props.set(propName, instructions.default)
+        } else {
+          if (store.userValue !== undefined) {
+            props.set(propName, store.userValue)
+          } else if (store.value !== undefined) {
+            // do nothing
+          } else {
+            props.set(propName, instructions.default)
+          }
+        }
+      }
+    }
+  }
+
+  return { set, get, computeProps, description }
+}
+
+const attachGettersAndSetters = () => null
+export { attachGettersAndSetters }
+
+const NullInterface = constructInterface({})
+export { NullInterface }

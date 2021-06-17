@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Elements</title>
+</head>
+<body>
+
+<script src="test_setup.js"></script>
+
+<script id="setup">
+    var scene = new Grapheme.InteractiveScene({ backgroundColor: "blue" })
+    document.body.appendChild(scene.domElement)
+
+    var point = new Grapheme.PointElement({ position: [200, 300], color: "red" })
+    scene.add(point)
+
+    var renderer = new Grapheme.WebGLRenderer()
+    renderer.renderDOMScene(scene)
+</script>
+
+
+</body>
+</html>
