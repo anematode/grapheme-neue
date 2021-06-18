@@ -160,6 +160,8 @@ function deepAssignInternal (target, source, opts) {
  * @param opts
  */
 export function deepMerge (target, source, opts={}) {
+  if (target === undefined) return deepClone(source, opts)
+
   return deepAssign(deepClone(target, opts), source, opts)
 }
 

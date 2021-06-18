@@ -372,7 +372,9 @@ export class SceneGraph {
             gl.enableVertexAttribArray(0 /* position buffer */)
             gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0)
 
-            let rect = getActualTextLocation(instruction.rect, instruction.anchor, instruction.anchorDir, instruction.spacing)
+            console.log(instruction)
+
+            let rect = instruction.rect
 
             gl.bufferData(gl.ARRAY_BUFFER, generateRectangleTriangleStrip(rect), gl.STATIC_DRAW)
 

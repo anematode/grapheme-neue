@@ -14,8 +14,8 @@
 
 
 import {Vec2} from "../math/vec/vec2.js"
-import {isTypedArray} from "./utils.js"
-import {Color} from "../styles/definitions.js"
+import {deepMerge, isTypedArray} from "./utils.js"
+import {Color, lookupCompositionType} from "../styles/definitions.js"
 import {Props} from "./props.js"
 
 /**
@@ -148,7 +148,13 @@ function booleanTypecheck (obj) {
   return (typeof obj !== "boolean") ? "Expected $p to be a boolean, got $v." : undefined
 }
 
+function stringTypecheck (obj) {
+  return (typeof obj !== "string") ? "Expected $p to be a string, got $v." : undefined
+}
+
 function createTypecheck (check) {
+  if (typeof check === "string")
+    check = { type: check }
   let type = check.type
 
   switch (type) {
@@ -158,6 +164,8 @@ function createTypecheck (check) {
       return createNumberTypecheck (check)
     case "boolean":
       return booleanTypecheck
+    case "string":
+      return stringTypecheck
     default:
       throw new Error(`Unrecognized typecheck type ${type}.`)
   }
@@ -351,8 +359,13 @@ export function constructInterface (description) {
     }
 
     let setAs = setter.setAs ?? 0 /* real */
+    let merge = !!setter.merge
 
-    props.set(setter.target, value, setAs)
+    if (merge) {
+      props.set(setter.target, deepMerge(props.get(setter.target, setAs), value), setAs)
+    } else {
+      props.set(setter.target, value, setAs)
+    }
   }
 
   function set (elem, propName, value) {
@@ -395,6 +408,7 @@ export function constructInterface (description) {
     for (let propName in internal) {
       let instructions = internal[propName]
       let computed = instructions.computed
+      let doCompose = !!instructions.compose
 
       if (computed === "none") continue
       if (computed === "default") {
@@ -409,7 +423,14 @@ export function constructInterface (description) {
           props.set(propName, instructions.default)
         } else {
           if (store.userValue !== undefined) {
-            props.set(propName, store.userValue)
+            if (doCompose) {
+              let type = lookupCompositionType(instructions.type)
+              if (!type) throw new Error(`Unknown composition type ${instructions.type}.`)
+
+              props.set(propName, type.compose(instructions.default ?? type.default, store.userValue))
+            } else {
+              props.set(propName, store.userValue)
+            }
           } else if (store.value !== undefined) {
             // do nothing
           } else {

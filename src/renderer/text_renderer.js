@@ -77,7 +77,7 @@ export class TextRenderer {
     ctx.textAlign = "left"
     ctx.textBaseline = "alphabetic"
 
-    ctx.font = `${textInfo.fontSize}px ${textInfo.font}`
+    ctx.font = `${textInfo.style.fontSize}px ${textInfo.style.font}`
 
     return ctx.measureText(textInfo.text)
   }
@@ -109,10 +109,10 @@ export class TextRenderer {
       const width = metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight
       const height = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent
 
-      if (!draw.shadowRadius) draw.shadowRadius = 0
+      if (draw.style.shadowRadius === undefined) draw.style.shadowRadius = 0
 
       draw.metrics = metrics
-      draw.rect = { w: Math.ceil(width) + padding + 2 * draw.shadowRadius, h: Math.ceil(height) + padding + 2 * draw.shadowRadius }
+      draw.rect = { w: Math.ceil(width) + padding + 2 * draw.style.shadowRadius, h: Math.ceil(height) + padding + 2 * draw.style.shadowRadius }
 
       rects.push(draw.rect)
     }
@@ -127,13 +127,13 @@ export class TextRenderer {
 
     // Each draw is now { metrics: TextMetrics, rect: {w, h, x, y},
     for (const draw of drawQueue) {
-      ctx.font = `${draw.fontSize}px ${draw.font}`
+      ctx.font = `${draw.style.fontSize}px ${draw.style.font}`
 
-      let [ x, y ] = [ draw.rect.x + draw.metrics.actualBoundingBoxLeft + draw.shadowRadius, draw.rect.y + draw.metrics.actualBoundingBoxAscent + draw.shadowRadius ]
+      let [ x, y ] = [ draw.rect.x + draw.metrics.actualBoundingBoxLeft + draw.style.shadowRadius, draw.rect.y + draw.metrics.actualBoundingBoxAscent + draw.style.shadowRadius ]
 
       if (draw.shadowRadius) {
         ctx.strokeStyle = "white"
-        ctx.lineWidth = draw.shadowRadius
+        ctx.lineWidth = draw.style.shadowRadius
 
         ctx.strokeText(draw.text, x, y)
 
@@ -150,7 +150,7 @@ export class TextRenderer {
 
     // Last task is to store the text and font positions
     for (const draw of drawQueue) {
-      let drawStore = `${draw.shadowRadius ?? 0} ${draw.fontSize}px ${draw.font}`
+      let drawStore = `${draw.style.shadowRadius ?? 0} ${draw.style.fontSize}px ${draw.style.font}`
 
       if (drawStore !== currentStore) {
         store = new Map()

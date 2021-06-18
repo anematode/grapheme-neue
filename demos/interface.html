@@ -15,6 +15,9 @@
     var point = new Grapheme.PointElement({ position: [200, 300], color: "red" })
     scene.add(point)
 
+    var text = new Grapheme.TextElement({ position: [200, 300] })
+    scene.add(text)
+
     var renderer = new Grapheme.WebGLRenderer()
     renderer.renderDOMScene(scene)
 </script>

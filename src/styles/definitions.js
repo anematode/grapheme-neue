@@ -640,12 +640,53 @@ export const Pen = {
   }
 }
 
+/**const textElementInterface = constructInterface({
+  font: { setAs: "user" },
+  fontSize: { setAs: "user" },
+  text: true,
+  align: { setAs: "user" },
+  baseline: { setAs: "user" },
+  color: { setAs: "user" },
+  shadowRadius: { setAs: "user" },
+  shadowColor: { setAs: "user" },
+  position: { conversion: Vec2.fromObj }
+}, */
+
 export const TextStyle = {
   compose: (...args) => {
+    let ret = {}
 
-  }
+    for (let i = 0; i < args.length; ++i) {
+      Object.assign(ret, args[i])
+    }
+
+    ret.color = Color.fromObj(ret.color)
+    ret.shadowColor = Color.fromObj(ret.shadowColor)
+
+    return ret
+  },
+  create: (params) => {
+    return TextStyle.compose(TextStyle.default, params)
+  },
+  default: utils.deepFreeze({
+    color: { r: 0, g: 0, b: 0, a: 255 },
+    shadowColor: { r: 255, g: 255, b: 255, a: 255 },
+    font: "Cambria",
+    fontSize: 12,
+    shadowRadius: 0,
+    align: "left",
+    baseline: "bottom"
+  })
 }
 
+export function lookupCompositionType (type) {
+  switch (type) {
+    case "TextStyle":
+      return TextStyle
+    case "Pen":
+      return Pen
+  }
+}
 
 // Fun Asymptote Vector Graphics–like thing :) We break up str into tokens which each have some meaning TODO
 function _interpretStringAsPen (str) {
