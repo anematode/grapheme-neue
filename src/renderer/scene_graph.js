@@ -6,7 +6,13 @@
 
 import {getStringID, getVersionID} from "../core/utils.js"
 import {convertTriangleStrip} from "../algorithm/polyline_triangulation.js"
-import {generateRectangleTriangleStrip, getActualTextLocation} from "../algorithm/misc_geometry.js"
+import {
+  generateRectangleDebug,
+  generateRectangleTriangleStrip,
+  getActualTextLocation
+} from "../algorithm/misc_geometry.js"
+import {BoundingBox} from "../math/bounding_box.js"
+import {Colors} from "../styles/definitions.js"
 
 /**
  * Validate, shallow clone instructions and change their zIndex, et cetera
@@ -309,9 +315,7 @@ export class SceneGraph {
     const textInstructions = this.getTextInstructions()
 
     if (textInstructions.length !== 0) {
-      textRenderer.drawQueue = textInstructions
-
-      textRenderer.runQueue()
+      textRenderer.drawText(textInstructions)
       this.loadTextAtlas(textRenderer.canvas)
     }
 
@@ -372,9 +376,10 @@ export class SceneGraph {
             gl.enableVertexAttribArray(0 /* position buffer */)
             gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0)
 
-            console.log(instruction)
+            let rect = getActualTextLocation(instruction.rect, instruction.pos)
 
-            let rect = instruction.rect
+            rect.x |= 0
+            rect.y |= 0
 
             gl.bufferData(gl.ARRAY_BUFFER, generateRectangleTriangleStrip(rect), gl.STATIC_DRAW)
 
@@ -408,6 +413,35 @@ export class SceneGraph {
             gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW)
 
             let compiled = { type: "triangle_strip", vao: vaoName, buffers: [ buffName ], vertexCount: vertices.length / 2, color }
+            compiledInstructions.push(compiled)
+            break
+          }
+          case "debug": {
+            let buffName = context.id + '-' + getVersionID()
+            let vaoName = context.id + '-' + getVersionID()
+
+            let buff = renderer.createBuffer(buffName)
+            let vao = renderer.createVAO(vaoName)
+
+            gl.bindVertexArray(vao)
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, buff)
+            gl.enableVertexAttribArray(0 /* position buffer */)
+            gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0)
+
+            let vertices
+            if (instruction.rect) {
+              let rect = BoundingBox.fromObj(instruction.rect)
+              if (!rect) throw new Error("Invalid rectangle debug instruction")
+
+              vertices = generateRectangleDebug(rect)
+            } else {
+              throw new Error("Unrecognized debug instruction")
+            }
+
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW)
+
+            let compiled = { type: "line_strip", vao: vaoName, buffers: [ buffName ], vertexCount: vertices.length / 2, color: Colors.RED }
             compiledInstructions.push(compiled)
             break
           }

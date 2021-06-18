@@ -286,6 +286,9 @@ export function constructInterface (description) {
   const interfaceDesc = description.interface
   const internal = description.internal
 
+  //if (!interfaceDesc) throw new Error("Interface description lacks an interface")
+  //if (!internal) throw new Error("Interface description lacks an internal description")
+
   // Instructions on how to get and set properties, respectively
   const setters = {}
   const getters = {}
@@ -405,6 +408,18 @@ export function constructInterface (description) {
    * @param isInitialized
    */
   function computeProps (props, isInitialized=true) {
+    function getDefault (instructions) {
+      let def = instructions.default
+
+      if (instructions.evaluateDefault) {
+        if (typeof def !== "function")
+          throw new Error("Internal instruction computation instruction says to evaluate the default value, but given default is not a function")
+        return def()
+      }
+
+      return def
+    }
+
     for (let propName in internal) {
       let instructions = internal[propName]
       let computed = instructions.computed
@@ -414,27 +429,27 @@ export function constructInterface (description) {
       if (computed === "default") {
         // Check whether the current value is undefined. If so, fill it with the default
         if (props.get(propName) === undefined) {
-          props.set(propName, instructions.default)
+          props.set(propName, getDefault(instructions))
         }
       } else if (computed === "user") {
         // Check whether the user value is undefined, then the value, then the default
         let store = props.getPropertyStore(propName) // just to make things more efficient
         if (!store) {
-          props.set(propName, instructions.default)
+          props.set(propName, getDefault(instructions))
         } else {
           if (store.userValue !== undefined) {
             if (doCompose) {
               let type = lookupCompositionType(instructions.type)
               if (!type) throw new Error(`Unknown composition type ${instructions.type}.`)
 
-              props.set(propName, type.compose(instructions.default ?? type.default, store.userValue))
+              props.set(propName, type.compose(getDefault(instructions) ?? type.default, store.userValue))
             } else {
               props.set(propName, store.userValue)
             }
           } else if (store.value !== undefined) {
             // do nothing
           } else {
-            props.set(propName, instructions.default)
+            props.set(propName, getDefault(instructions))
           }
         }
       }
@@ -447,5 +462,5 @@ export function constructInterface (description) {
 const attachGettersAndSetters = () => null
 export { attachGettersAndSetters }
 
-const NullInterface = constructInterface({})
+const NullInterface = constructInterface({ interface: {}, internal: {} })
 export { NullInterface }

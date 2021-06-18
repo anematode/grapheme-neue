@@ -36,7 +36,7 @@ const sceneInterface = constructInterface({
     width: {type: "number", computed: "default", default: 640},
     height: {type: "number", computed: "default", default: 480},
     dpr: {type: "number", computed: "default", default: 1},
-    backgroundColor: {type: "color", computed: "user", default: Colors.BLACK},
+    backgroundColor: {type: "color", computed: "user", default: Colors.TRANSPARENT},
     sceneDims: { type: "SceneDimensions", computed: "none" }
   }
 })

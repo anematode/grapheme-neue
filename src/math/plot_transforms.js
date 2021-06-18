@@ -133,3 +133,9 @@ export class LinearPlot2DTransform {
     }
   }
 }
+
+export class LinearPlot2DTransformConstraints {
+  constructor(params) {
+
+  }
+}

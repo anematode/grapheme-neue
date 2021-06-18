@@ -1,56 +1,13 @@
 import {packRectangles, potpack} from "../algorithm/rectangle_packing.js"
 import {getVersionID, nextPowerOfTwo} from "../core/utils.js"
 
-// There will eventually be multiple ways to draw text in Grapheme. For now, we will use a 2D canvas that essentially
-// draws text to be copied into a WebGL texture which is then rendered.
-
-// To be very precise about all this, the renderer maps an entry of the form*
-// { text: "bruh", font: "2 20px serif", baseline? : "alphabetical" }
-// to rendering information of the form
-// { tx1: 0.005, ty1: 0.401, tx2: 0.010, ty2: 0.408, ascent: 15, descent: 3, width: 15 }
-// which encodes two things: the position of the text on the canvas in texture coords, and ascent/descent relative to the given
-// baseline, and its width, the latter three params in pixels. The result is not returned immediately, but returned
-// when requested, at which point the text currently enqueued will all be allocated. Text will not be deleted or
-// reallocated until the session is over.
-
-// *Note that the number before the normal font is the shadow radius: a white strokeText drawn below the text itself
-
-// A given entry is only valid during a given session. For example:
-
-// renderer.startSession()
-// renderer.draw({ text: "bruh", font: ... })
-// renderer.draw({ text: "goat", font: ... })
-// ...
-// renderer.get({ text: "bruh", font ... })  -> { tx1, ty1 ... }
-
-// In the future, old text could be cached so that it wouldn't have to be drawn every frame--that isn't too difficult,
-// although the algorithm for deleting old cached text and replacing them with new ones is a bit finnicky. Indeed,
-// understanding how to pack the text at all is an annoying operation even without caching, as it's another rectangle
-// packing problem. I will have to do research and write some algorithms for that problem, eventually.
-
 export class TextRenderer {
   constructor () {
     this.canvas = document.createElement("canvas")
-    this.ctx = this.canvas.getContext("2d")
+    let ctx = this.ctx = this.canvas.getContext("2d")
 
-    // Map: font -> Map: text -> info (will implement baseline later)
-    this.textLocations = new Map()
-
-    this.drawQueue = []
-    this.version = -1
-  }
-
-  /**
-   * Get the location of a piece of text on the canvas, again given a font and a text. Returns undefined if it doesn't
-   * exist. It gives { rect, font, metrics }
-   * @param textInfo {{ font: {string}, text: {string} }}
-   */
-  getTextLocation (textInfo={}) {
-    let { font, fontSize, shadowRadius, text } = textInfo
-
-    if (!shadowRadius) shadowRadius = 0
-
-    return this.textLocations.get(`${shadowRadius} ${fontSize}px ${font}`)?.get(text)
+    ctx.textAlign = "left"
+    ctx.textBaseline = "alphabetic"
   }
 
   /**
@@ -58,26 +15,14 @@ export class TextRenderer {
    * to do a reallocation.
    */
   clearText () {
-    this.textLocations.clear()
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
-  }
-
-  /**
-   * Parameters describing a given piece of text, sans color and position. More specifically, that means a font and a
-   * string of text.
-   * @param textInfo {{ font: {string}, text: {string} }}
-   */
-  draw (textInfo) {
-    this.drawQueue.push(textInfo)
   }
 
   getMetrics (textInfo) {
     const { ctx } = this
+    const { fontSize, font } = textInfo.style
 
-    ctx.textAlign = "left"
-    ctx.textBaseline = "alphabetic"
-
-    ctx.font = `${textInfo.style.fontSize}px ${textInfo.style.font}`
+    ctx.font = `${fontSize}px ${font}`
 
     return ctx.measureText(textInfo.text)
   }
@@ -92,48 +37,56 @@ export class TextRenderer {
     ctx.textBaseline = "alphabetic"
   }
 
-  runQueue () {
-    // Get the bounding boxes of each element in the queue. Eventually we'll use a dynamic allocator. Oh well. We sort
-    // by font
+  drawText (textInfos) {
+    const { ctx } = this
+    const padding = 2  // Extra padding to allow for various antialiased pixels to spill over
 
-    const { drawQueue, ctx } = this
-    const padding = 2
+    // Sort by font to avoid excess ctx.font modifications
+    textInfos.sort((c1, c2) => (c1.style.font < c2.style.font))
 
-    drawQueue.sort((c1, c2) => (c1.font < c2.font))
-
+    // Compute where to place the text. Note that the text instructions are mutated in this process (in fact, the point
+    // of this process is to provide the instruction compiler with enough info to get the correct vertices)
     const rects = []
-
-    for (const draw of drawQueue) {
+    for (const draw of textInfos) {
       const metrics = this.getMetrics(draw)
 
-      const width = metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight
-      const height = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent
+      let shadowDiameter = 2 * draw.style.shadowRadius ?? 0
 
-      if (draw.style.shadowRadius === undefined) draw.style.shadowRadius = 0
+      const width = Math.ceil(metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight) +
+        shadowDiameter + padding
+      const height = Math.ceil(metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) +
+        shadowDiameter + padding
 
       draw.metrics = metrics
-      draw.rect = { w: Math.ceil(width) + padding + 2 * draw.style.shadowRadius, h: Math.ceil(height) + padding + 2 * draw.style.shadowRadius }
+      draw.rect = { w: width, h: height }
 
       rects.push(draw.rect)
     }
 
-    const { w, h } = potpack(rects)
-    const canvasWidth = nextPowerOfTwo(w), canvasHeight = nextPowerOfTwo(h)
+    const { w: packedWidth, h: packedHeight } = potpack(rects)
+
+    // Powers of two are generally nicer when working with textures
+    const canvasWidth = nextPowerOfTwo(packedWidth), canvasHeight = nextPowerOfTwo(packedHeight)
 
     this.resizeCanvas(canvasWidth, canvasHeight)
     this.clearText()
 
     ctx.fillStyle = "black"
 
-    // Each draw is now { metrics: TextMetrics, rect: {w, h, x, y},
-    for (const draw of drawQueue) {
-      ctx.font = `${draw.style.fontSize}px ${draw.style.font}`
+    // Each draw is now { metrics: TextMetrics, rect: {w, h, x, y}, text, style }
+    for (const draw of textInfos) {
+      const style = draw.style
 
-      let [ x, y ] = [ draw.rect.x + draw.metrics.actualBoundingBoxLeft + draw.style.shadowRadius, draw.rect.y + draw.metrics.actualBoundingBoxAscent + draw.style.shadowRadius ]
+      ctx.font = `${style.fontSize}px ${style.font}`
+      const shadowRadius = draw.style.shadowRadius ?? 0
 
-      if (draw.shadowRadius) {
+      let x = draw.rect.x + draw.metrics.actualBoundingBoxLeft + shadowRadius
+      let y = draw.rect.y + draw.metrics.actualBoundingBoxAscent + shadowRadius
+
+      // Stroke text behind the text with white
+      if (shadowRadius) {
         ctx.strokeStyle = "white"
-        ctx.lineWidth = draw.style.shadowRadius
+        ctx.lineWidth = shadowRadius
 
         ctx.strokeText(draw.text, x, y)
 
@@ -141,28 +94,10 @@ export class TextRenderer {
       }
 
       ctx.fillText(draw.text, x, y)
+
+      // The actual texture coordinates used should be minus the padding (which is only used for potpack)
       draw.rect.w -= padding
       draw.rect.h -= padding
     }
-
-    let store
-    let currentStore
-
-    // Last task is to store the text and font positions
-    for (const draw of drawQueue) {
-      let drawStore = `${draw.style.shadowRadius ?? 0} ${draw.style.fontSize}px ${draw.style.font}`
-
-      if (drawStore !== currentStore) {
-        store = new Map()
-        currentStore = drawStore
-        this.textLocations.set(currentStore, store)
-      }
-
-      store.set(draw.text, draw)
-    }
-
-    this.drawQueue = []
-
-    this.version = getVersionID()
   }
 }

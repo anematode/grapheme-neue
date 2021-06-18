@@ -37,6 +37,11 @@ export class PointElement extends Element {
     this.defaultComputeProps()
 
     const { pos, color, size } = this.props.proxy
+    if (!pos || !color || !size) {
+      this.internal.renderInfo = null
+      return
+    }
+
     let circleVertices = generateCircleTriangleStrip(size, pos.x, pos.y)
 
     this.internal.renderInfo = { instructions: { type: "triangle_strip", color, vertices: circleVertices } }

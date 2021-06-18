@@ -476,7 +476,11 @@ export class WebGLRenderer {
 
     startTime = performance.now()
 
+    gl.enable(gl.BLEND)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+
     graph.forEachCompiledInstruction(instruction => {
+      let drawMode = 0
       switch (instruction.type) {
         case "scene": {
           const { dims, backgroundColor } = instruction
@@ -512,7 +516,16 @@ export class WebGLRenderer {
 
           break
         }
-        case "triangle_strip": {
+
+        case "triangle_strip": // LOL
+          drawMode++
+        case "triangles":
+          drawMode++
+        case "line_strip":
+          drawMode += 2
+        case "lines":
+          drawMode++
+         {
           const program = this.monochromaticGeometryProgram()
           gl.useProgram(program.glProgram)
 
@@ -522,7 +535,7 @@ export class WebGLRenderer {
           gl.uniform4f(program.uniforms.color, color.r / 255, color.g / 255, color.b / 255, color.a / 255)
           gl.uniform2fv(program.uniforms.xyScale, this.getXYScale())
 
-          gl.drawArrays(gl.TRIANGLE_STRIP, 0, instruction.vertexCount)
+          gl.drawArrays(drawMode, 0, instruction.vertexCount)
           break
         }
         case "pop_context": {

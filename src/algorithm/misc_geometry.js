@@ -559,6 +559,14 @@ export function generateRectangleCycle (rect) {
   return new Float32Array(points)
 }
 
+export function generateRectangleDebug (rect) {
+  const {x, y, w, h} = rect
+
+  const points = [x, y, x + w, y, x + w, y + h, x, y + h, x, y, x+w, y+w]
+
+  return new Float32Array(points)
+}
+
 // Given a Float32Array of appropriate size, repeatedly add given triangle strips
 export function combineTriangleStrips (verticesBuff) {
   let index = 0
