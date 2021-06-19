@@ -1,6 +1,7 @@
 import {Element} from "../core/element.js"
 import {constructInterface} from "../core/interface.js"
 import {LinearPlot2DTransform, LinearPlot2DTransformConstraints} from "../math/plot_transforms.js"
+import {Group} from "../core/group.js"
 
 const defaultView = [ -1, -1, 2, 2 ]
 
@@ -36,10 +37,17 @@ const figureInterface = constructInterface({
   }
 })
 
-export class NewFigure extends Element {
+export class NewFigure extends Group {
+  init() {
+    this.props.configureProperty("plotTransform", { inherit: true })
+  }
+
   _update () {
     this.defaultInheritProps()
     this.defaultComputeProps()
+
+    this.computeBoxes()
+    this.computePlotTransform()
   }
 
   computeBoxes () {
@@ -72,7 +80,7 @@ export class NewFigure extends Element {
       let graphBox = plotTransform.graphBox()
     }
 
-    props.markChanged(plotTransform)
+    props.markChanged("plotTransform")
   }
 
   getInterface() {

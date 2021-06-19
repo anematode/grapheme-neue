@@ -9,17 +9,23 @@
 <script src="test_setup.js"></script>
 
 <script id="setup">
-    var scene = new Grapheme.InteractiveScene({ width: 1000, height: 1000 })
+    var scene = new Grapheme.InteractiveScene({ width: 1000, height: 1000, backgroundColor: { r: 255, g: 0, b: 0, a: 5} })
     document.body.appendChild(scene.domElement)
-
-    var point = new Grapheme.PointElement({ position: [500, 300], color: "red" })
-    scene.add(point)
 
     var text = new Grapheme.TextElement({ position: [200, 300], text: "Text", style: { fontSize: 20, shadowRadius: 3 } })
     scene.add(text)
 
     var figure = new Grapheme.NewFigure()
     scene.add(figure)
+
+    var point = new Grapheme.PointElement({ position: [ 0, 0 ], color: "red" })
+    figure.add(point)
+
+    var point2 = new Grapheme.PointElement({ position: [ 0.5, 0 ], color: "green" })
+    figure.add(point2)
+
+    var point3 = new Grapheme.PointElement({ position: [ 0, 0.5 ], color: "blue" })
+    figure.add(point3)
 
     var renderer = new Grapheme.WebGLRenderer()
     renderer.renderDOMScene(scene)
