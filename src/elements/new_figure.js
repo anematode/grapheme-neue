@@ -2,11 +2,17 @@ import {Element} from "../core/element.js"
 import {constructInterface} from "../core/interface.js"
 import {LinearPlot2DTransform, LinearPlot2DTransformConstraints} from "../math/plot_transforms.js"
 import {Group} from "../core/group.js"
+import {Vec2} from "../math/vec/vec2.js"
 
 const defaultView = [ -1, -1, 2, 2 ]
 
 const figureInterface = constructInterface({
-  interface: {},
+  interface: {
+    "interactivity": {
+      description: "Whether interactivity is enabled",
+      typecheck: { type: "boolean" }
+    }
+  },
   internal: {
     // Scene dims (inherited from above)
     "sceneDims": { computed: "none" },
@@ -48,6 +54,84 @@ export class NewFigure extends Group {
 
     this.computeBoxes()
     this.computePlotTransform()
+
+    this.toggleInteractivity()
+  }
+
+  #disableInteractivityListeners () {
+    let internal = this.internal
+    let interactivityListeners = internal.interactivityListeners
+
+    if (!interactivityListeners) return
+
+    for (let listenerType in interactivityListeners) {
+      let listener = interactivityListeners[listenerType]
+
+      this.removeEventListener(listenerType, listener)
+    }
+
+    internal.interactivityListeners = null
+  }
+
+  #enableInteractivityListeners () {
+    this.#disableInteractivityListeners()
+
+    let int = this.internal, props = this.props
+    let listeners = this.interactivityListeners = {}
+
+    this.addEventListener("mousedown", listeners.mousedown = evt => {
+      int.mouseDownAt = evt.pos
+      int.graphMouseDownAt = props.get("plotTransform").pixelToGraph(int.mouseDownAt) // try to keep this constant
+
+      int.isDragging = true
+    })
+
+    this.addEventListener("mouseup", listeners.mousedown = () => {
+      int.isDragging = false
+    })
+
+    this.addEventListener("mousemove", listeners.mousemove = evt => {
+      if (!int.isDragging) return
+      let transform = props.get("plotTransform")
+      let newTransform = transform.clone()
+
+      // Get where the mouse is currently at and move (graphMouseDownAt) to (mouseDownAt)
+      let graphMouseMoveAt = transform.pixelToGraph(evt.pos)
+      let translationNeeded = int.graphMouseDownAt.sub(graphMouseMoveAt)
+
+      newTransform.gx1 += translationNeeded.x
+      newTransform.gy1 += translationNeeded.y
+
+      props.set("plotTransform", newTransform, 0 /* real */, 2 /* deep equality */)
+    })
+
+    // Scroll handler
+    this.addEventListener("wheel", listeners.wheel = evt => {
+      let transform = props.get("plotTransform")
+      let newTransform = transform.clone()
+
+      console.log(evt.deltaY)
+
+      let scaleFactor = 1 + Math.atan(evt.deltaY / 300) / 40
+      let graphScrollAt = transform.pixelToGraph(evt.pos)
+
+      // We need to scale graphBox at graphScrollAt with a scale factor. We translate it by -graphScrollAt, scale it by
+      // sF, then translate it by graphScrollAt
+      let graphBox = transform.graphBox()
+      graphBox = graphBox.translate(graphScrollAt.mul(-1)).scale(scaleFactor).translate(graphScrollAt)
+
+      newTransform.resizeToGraphBox(graphBox)
+      props.set("plotTransform", newTransform, 0 /* real */, 2 /* deep equality */)
+    })
+  }
+
+  toggleInteractivity () {
+    let internal = this.internal
+    let interactivity = this.props.get("interactivity")
+
+    if (!!internal.interactivityListeners !== interactivity) {
+      interactivity ? this.#enableInteractivityListeners() : this.#disableInteractivityListeners()
+    }
   }
 
   computeBoxes () {

@@ -28,7 +28,13 @@
     figure.add(point3)
 
     var renderer = new Grapheme.WebGLRenderer()
-    renderer.renderDOMScene(scene)
+
+    function render () {
+      renderer.renderDOMScene(scene)
+      requestAnimationFrame(render)
+    }
+
+    render()
 </script>
 
 

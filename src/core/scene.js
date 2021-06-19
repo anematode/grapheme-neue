@@ -7,23 +7,19 @@ import {Color, Colors} from "../styles/definitions.js"
 const sceneInterface = constructInterface({
   interface: {
     width: {
-      type: "number",
       description: "The width of the scene",
       typecheck: {type: "integer", min: 100, max: 16384}
     },
     height: {
-      type: "number",
       description: "The height of the scene",
       typecheck: {type: "integer", min: 100, max: 16384}
     },
     dpr: {
-      type: "number",
       description: "The device pixel ratio of the scene",
       typecheck: {type: "number", min: 1 / 32, max: 32},
       //setAs: "user"
     },
     backgroundColor: {
-      type: "color",
       description: "The color of the scene background",
       setAs: "user",
       conversion: { type: "color" }
