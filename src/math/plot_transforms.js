@@ -46,11 +46,11 @@ export class LinearPlot2DTransform {
     return this.gy1 + this.gh
   }
 
-  pixelCoordinatesBox () {
+  pixelBox () {
     return new BoundingBox(this.px1, this.py1, this.pw, this.ph)
   }
 
-  graphCoordinatesBox () {
+  graphBox () {
     return new BoundingBox(this.gx1, this.gy1, this.gw, this.gh)
   }
 

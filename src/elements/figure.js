@@ -85,7 +85,7 @@ export class Figure extends Group {
         let graphScrollAt = transform.pixelToGraph({x, y})
         let scaleFactor = 1 + deltaY / 300
 
-        let graphBox = transform.graphCoordinatesBox()
+        let graphBox = transform.graphBox()
 
         // We need to scale graphBox at graphScrollAt with a scale factor. We translate it by -graphScrollAt, scale it by
         // sF, then translate it by graphScrollAt

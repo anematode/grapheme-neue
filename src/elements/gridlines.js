@@ -43,7 +43,7 @@ export class GridlinesElement extends Element {
 
     const { gridlineStyles, plotTransform, ticks } = this.props.proxy
 
-    const plottingBox = plotTransform.pixelCoordinatesBox()
+    const plottingBox = plotTransform.pixelBox()
     const { x1, y1, x2, y2} = plottingBox
 
     const instructions = []

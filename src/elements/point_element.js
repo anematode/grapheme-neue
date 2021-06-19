@@ -34,12 +34,17 @@ export class PointElement extends Element {
   }
 
   _update () {
+    this.defaultInheritProps()
     this.defaultComputeProps()
 
-    const { pos, color, size } = this.props.proxy
+    let { pos, color, size, plotTransform } = this.props.proxy
     if (!pos || !color || !size) {
       this.internal.renderInfo = null
       return
+    }
+
+    if (plotTransform) {
+      pos = plotTransform.graphToPixel(pos)
     }
 
     let circleVertices = generateCircleTriangleStrip(size, pos.x, pos.y)

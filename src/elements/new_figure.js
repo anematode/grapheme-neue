@@ -26,7 +26,7 @@ const figureInterface = constructInterface({
     "preserveAspectRatio": { computed: "default", default: true },
 
     // The aspect ratio to force
-    "forceAspectRatio": { computed: "default", default: true },
+    "forceAspectRatio": { computed: "default", default: 1 },
 
     // Interactivity
     "interactivity": { computed: "default", default: true },
@@ -54,9 +54,25 @@ export class NewFigure extends Element {
 
   computePlotTransform () {
     // We compute the plot transform from its current value, the plotting box, and related values which constrain the
-    // plot transform (minZoom, maxZoom, preserveAspectRatio)
+    // plot transform (minZoom, maxZoom, preserveAspectRatio). The algorithm is as follows:
 
+    // 1: resize the pixel box to the plotting box
+    // 2: if preserveAspectRatio is true, stretch *out* from (cx, cy) as necessary to get an aspect ratio of forceAspectRatio
+    // 3: To avoid some strange case where float values repeatedly cause the plot transform to change minutely because
+    //    forceAspectRatio demands it, no stretching occurs if the aspect ratio is already proportionally close to the
+    //    real aspect ratio
+    // 4: ... other constraints ....
 
+    const { props } = this
+    let { plotTransform, plottingBox, preserveAspectRatio } = props.proxy
+
+    plotTransform.resizeToPixelBox(plottingBox)
+
+    if (preserveAspectRatio) {
+      let graphBox = plotTransform.graphBox()
+    }
+
+    props.markChanged(plotTransform)
   }
 
   getInterface() {

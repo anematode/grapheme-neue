@@ -9,7 +9,7 @@ export class PlotBoxOutline extends Element {
   }
 
   _update () {
-    const plottingBox = this.parent.props.get("plotTransform").pixelCoordinatesBox()
+    const plottingBox = this.parent.props.get("plotTransform").pixelBox()
 
     this.internal.renderInfo = plottingBox ? {
       instructions: {
