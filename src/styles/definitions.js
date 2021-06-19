@@ -724,8 +724,8 @@ function _interpretStringAsPen (str) {
 }
 
 export const DefaultStyles = {
-  gridlinesMajor: { thickness: 2 },
-  gridlinesMinor: { thickness: 1 },
-  gridlinesAxis: { thickness: 4 },
+  gridlinesMajor: Pen.create({ thickness: 2 }),
+  gridlinesMinor: Pen.create({ thickness: 1 }),
+  gridlinesAxis: Pen.create({ thickness: 4 }),
   Pen: Pen.default
 }

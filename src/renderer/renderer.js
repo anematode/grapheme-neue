@@ -477,7 +477,7 @@ export class WebGLRenderer {
     startTime = performance.now()
 
     gl.enable(gl.BLEND)
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
     graph.forEachCompiledInstruction(instruction => {
       let drawMode = 0
