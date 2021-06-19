@@ -8,12 +8,12 @@ const pointInterface = constructInterface({
   interface: {
     position: {
       description: "Position of the point, potentially under a plot transformation",
-      conversion: {type: "vec2"},
+      conversion: {type: "Vec2"},
       target: "pos"
     },
     color: {
       description: "Color of the point",
-      conversion: {type: "color"},
+      conversion: {type: "Color"},
       setAs: "user"
     },
     size: {
@@ -22,8 +22,8 @@ const pointInterface = constructInterface({
       setAs: "user"
     }
   }, internal: {
-    pos: {type: "vec2", computed: "none" /* No defaults, no user value, no nothing */},
-    color: {type: "color", computed: "user", default: Colors.BLACK},
+    pos: {type: "Vec2", computed: "none" /* No defaults, no user value, no nothing */},
+    color: {type: "Color", computed: "user", default: Colors.BLACK},
     size: {type: "number", computed: "user", default: 5}
   }
 })

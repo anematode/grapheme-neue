@@ -1,123 +1,101 @@
 
 
-// Copied code from Grapheme
-const desiredDemarcationSeparation = 40
+export function getDemarcations (xStart, xEnd, xLen, desiredMinorSep, desiredMajorSep, subdivisions, includeAxis=false) {
+  if (xStart >= xEnd || !Number.isFinite(xStart) || !Number.isFinite(xEnd) || !Number.isFinite(xLen) || desiredMajorSep < 1 || desiredMinorSep < 1 || subdivisions.length === 0) return []
 
-// Array of potential demarcations [a,b], where the small demarcations are spaced every b * 10^n and the big ones are spaced every a * 10^n
-const StandardDemarcations = [[1, 0.2], [1, 0.25], [2, 0.5]]
+  let xGraphLen = xEnd - xStart
+  let estimatedMajors = xLen / desiredMajorSep
 
-function getDemarcation(start, end, distance) {
-  let lowestError = Infinity
-  let bestDemarcation
-  let dist = end - start
+  // We look for the base b and subdivision s such that the number of major subdivisions that result would be closest
+  // to the number implied by the desired major sep
+  let bestBase = 0
+  let bestErr = Infinity
+  let bestSubdivision = [ 1, 1 ]
 
-  let desiredDemarcationCount = distance / desiredDemarcationSeparation
-  let desiredDemarcationSize = dist / desiredDemarcationCount
+  for (const subdiv of subdivisions) {
+    let maj = subdiv[1]
 
-  for (let demarcation of StandardDemarcations) {
-    let a = demarcation[0]
-    let b = demarcation[1]
+    let desiredBase = Math.log10(maj * xGraphLen / estimatedMajors)
+    let nearest = Math.round(desiredBase)
 
-    let power = Math.round(Math.log10(desiredDemarcationSize / b))
-    let minorSize = 10 ** power * b
+    let err = Math.abs(maj * xGraphLen / Math.pow(10, nearest) - estimatedMajors)
 
-    let err = Math.abs(desiredDemarcationSize - minorSize)
-    if (err < lowestError) {
-      lowestError = err
-      bestDemarcation = {power, major: a, minor: b}
+    if (err < bestErr) {
+      bestErr = err
+      bestSubdivision = subdiv
+      bestBase = nearest
     }
   }
 
-  return bestDemarcation
+  // Generate the ticks based on the chosen base and subdivision. We first find the offset of the nearest multiple of
+  // 10^b preceding xStart, say m * 10^b, then for each interval (m, m+1) generate the ticks that are in the range of
+  // xStart and xEnd
+  let based = Math.pow(10, bestBase)
+  let firstMultiple = Math.floor(xStart / based)
+  let lastMultiple = xEnd / based
+
+  // In the case that the end is at a power of 10, we want to generate the end as well
+  if (Number.isInteger(lastMultiple)) lastMultiple++
+  lastMultiple = Math.ceil(lastMultiple)
+
+  let [ min, maj ] = bestSubdivision
+  let minTicks = []
+  let majTicks = []
+
+  // Note we might start to get float errors here. We'll assume good faith for now that the plot transform constraints
+  // are turned on.
+  for (let i = firstMultiple; i < lastMultiple; ++i) {
+    // Generate ticks
+    let begin = i * based
+    let end = (i + 1) * based
+    let diff = end - begin
+
+    for (let j = 0; j < maj; ++j) {
+      let tick = begin + diff * j / maj
+      if (tick > xEnd || tick < xStart) continue
+
+      if (includeAxis || tick !== 0)
+        majTicks.push(tick)
+
+      for (let k = 1; k < min; ++k) {
+        tick = begin + diff * ((j + k / min) / maj)
+        if (tick > xEnd || tick < xStart) continue
+
+        minTicks.push(tick)
+      }
+    }
+  }
+
+  return { min: minTicks, maj: majTicks }
 }
 
-function demarcate(start, end, demarcation) {
-  const ret = []
+export function get2DDemarcations (xStart, xEnd, xLen, yStart, yEnd, yLen, {
+  desiredMinorSep = 20,
+  desiredMajorSep = 100,
+  subdivisions = [ [ 4 /* minor */, 5 /* major */ ], [5, 2], [5, 1] ], // permissible subdivisions of the powers of ten into major separators and minor separators
+  emitAxis = true // emit a special case for axis
+} = {}) {
 
-  let modulus = demarcation.major / demarcation.minor
+  let x = getDemarcations(xStart, xEnd, xLen, desiredMinorSep, desiredMajorSep, subdivisions, !emitAxis)
+  let y = getDemarcations(yStart, yEnd, yLen, desiredMinorSep, desiredMajorSep, subdivisions, !emitAxis)
 
-  let factor = 10 ** demarcation.power * demarcation.minor
+  let ret = {
+    major: {
+      x: x.maj,
+      y: y.maj
+    },
+    minor: {
+      x: x.min,
+      y: y.min
+    }
+  }
 
-  let start_i = Math.ceil(start / factor)
-  let end_i = Math.ceil(end / factor)
-
-  for (let i = start_i; i < end_i; ++i) {
-    let pos = factor * i
-
-    if (pos === 0) {
-      ret.push({pos, type: "axis"})
-    } else if (i % modulus === 0) {
-      ret.push({pos, type: "major"})
-    } else {
-      ret.push({pos, type: "minor"})
+  if (emitAxis) {
+    ret.axis = {
+      x: (xStart <= 0 || xEnd >= 0) ? [0] : [],
+      y: (yStart <= 0 || yEnd >= 0) ? [0] : []
     }
   }
 
   return ret
-}
-
-export const GridlineAllocators = {
-  /**
-   * Generate a list of gridlines, with type "axis", "major", and "minor", for a plotting box
-   * @param xStart {number} The beginning of the x axis
-   * @param xEnd {number} The end of the x axis
-   * @param xLength {number} The length of the x axis
-   * @param yStart {number} The beginning of the y axis
-   * @param yEnd {number} The end of the y axis
-   * @param yLength {number} The length of the y axis
-   * @returns {IterableIterator<{dir: string, pos: number, type: string}>}
-   * @constructor
-   */
-  Standard: function (xStart, xEnd, xLength, yStart, yEnd, yLength) {
-    const ret = { 'x': {}, 'y': {} }
-
-    let eggRatio = (xEnd - xStart) / (yEnd - yStart) * yLength / xLength
-    let forceSameDemarcations = Math.abs(eggRatio - 1) < 0.3
-
-    let demarcationX = getDemarcation(xStart, xEnd, xLength)
-
-    let demarcationY
-    if (forceSameDemarcations) {
-      demarcationY = demarcationX
-    } else {
-      demarcationY = getDemarcation(yStart, yEnd, yLength)
-    }
-
-    function addLine (dir, marker)  {
-      let arr = ret[dir][marker.type]
-      if (!arr) {
-        arr = ret[dir][marker.type] = []
-      }
-
-      arr.push(marker.pos)
-    }
-
-    for (let xMarker of demarcate(xStart, xEnd, demarcationX)) {
-      addLine('x', xMarker)
-    }
-
-    for (let yMarker of demarcate(yStart, yEnd, demarcationY)) {
-      addLine('y', yMarker)
-    }
-
-    return ret
-  }
-}
-
-// Ticks can be allocated in various ways, not even necessarily for *ticks* on an axis; gridlines can be allocated this
-// way too. The central problem boils down to being given a length of the axis and the axis's start and end values,
-// then asking the allocator to generate a list of values at which ticks should be placed.
-
-// TODO
-class TickAllocator {
-  constructor () {
-
-  }
-
-  allocateTicks (length, startValue, endValue) {
-    // Considerations: the DPR is not particularly relevant here. Only the length in CSS pixels is relevant. Integers
-    // and multiples of powers of ten are good candidates for subdivision.
-
-
-  }
 }

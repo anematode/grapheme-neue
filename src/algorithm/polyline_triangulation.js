@@ -4,7 +4,7 @@ import {getDashedPolyline, fastHypot} from "./dashed_polyline.js"
 const ENDCAP_TYPES = {
   'butt': 0,
   'round': 1,
-  'square': 2 // Need to implement
+  'square': 2
 }
 const JOIN_TYPES = {
   'bevel': 0,

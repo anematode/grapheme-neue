@@ -271,9 +271,9 @@ function createConversion (conversion) {
   let type = conversion.type
 
   switch (type) {
-    case "color":
+    case "Color":
       return colorConversion
-    case "vec2":
+    case "Vec2":
       return vec2Conversion
     case "f32_vec2_array":
       return vec2ArrayConversion

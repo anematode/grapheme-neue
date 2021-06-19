@@ -7,11 +7,11 @@ import {Colors, TextStyle} from "../styles/definitions.js"
 let textElementInterface = constructInterface({
   interface: {
     style: { description: "The style of the text.", setAs: "user", merge: true },
-    position: { description: "The position of the text.", conversion: { type: "vec2" }, target: "pos" },
+    position: { description: "The position of the text.", conversion: { type: "Vec2" }, target: "pos" },
     text: { description: "The string of text.", typecheck: "string" }
   },
   internal: {
-    pos: { type: "vec2", computed: "none" },
+    pos: { type: "Vec2", computed: "none" },
     style: { type: "TextStyle", computed: "user", compose: true, default: TextStyle.default }
   }
 })

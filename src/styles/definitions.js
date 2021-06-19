@@ -640,6 +640,28 @@ export const Pen = {
   }
 }
 
+// Generic dictionary of pens, like { major: Pen, minor: Pen }. Partial pen specifications may be used and they will
+// turn into fully completed pens in the final product
+export const Pens = {
+  compose: (...args) => {
+    let ret = {}
+
+    // Basically just combine all the pens
+    for (let i = 0; i < args.length; ++i) {
+      for (let key in args[i]) {
+        let retVal = ret[key]
+
+        if (!retVal) ret[key] = retVal = Pen.default
+        ret[key] = Pen.compose(ret[key], args[key])
+      }
+    }
+  },
+  create: (params) => {
+    return Pens.compose(Pens.default, params)
+  },
+  default: Object.freeze({})
+}
+
 /**const textElementInterface = constructInterface({
   font: { setAs: "user" },
   fontSize: { setAs: "user" },
@@ -685,6 +707,8 @@ export function lookupCompositionType (type) {
       return TextStyle
     case "Pen":
       return Pen
+    case "Pens":
+      return Pens
   }
 }
 

@@ -59,12 +59,12 @@ export class InteractiveScene extends Scene {
       let listener
 
       if (eventName === "wheel") {
-        listener = (evt) => {
+        listener = evt => {
           this.triggerEvent(eventName, { pos: getSceneCoords(evt), deltaY: evt.deltaY })
           evt.preventDefault()
         }
       } else {
-        listener = (evt) => {
+        listener = evt => {
           this.triggerEvent(eventName, { pos: getSceneCoords(evt) })
           evt.preventDefault()
         }

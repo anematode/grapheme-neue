@@ -551,6 +551,11 @@ export function generateRectangleTriangleStrip (rect) {
   return new Float32Array(points)
 }
 
+/**
+ * Given a rectangle, return a flat list of points enclosing a cycle around the rectangle.
+ * @param rect {BoundingBox}
+ * @returns {Float32Array}
+ */
 export function generateRectangleCycle (rect) {
   const {x, y, w, h} = rect
 

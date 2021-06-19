@@ -9,7 +9,7 @@
 <script src="test_setup.js"></script>
 
 <script id="setup">
-    var scene = new Grapheme.InteractiveScene({ width: 1000, height: 1000, backgroundColor: { r: 255, g: 0, b: 0, a: 5} })
+    var scene = new Grapheme.InteractiveScene({ width: 100, height: 100, backgroundColor: { r: 255, g: 0, b: 0, a: 5} })
     document.body.appendChild(scene.domElement)
 
     var text = new Grapheme.TextElement({ position: [200, 300], text: "Text", style: { fontSize: 20, shadowRadius: 3 } })
@@ -17,6 +17,9 @@
 
     var figure = new Grapheme.NewFigure()
     scene.add(figure)
+
+    var baubles = new Grapheme.FigureBaubles()
+    figure.add(baubles)
 
     var point = new Grapheme.PointElement({ position: [ 0, 0 ], color: "red" })
     figure.add(point)

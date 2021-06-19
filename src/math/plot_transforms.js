@@ -138,4 +138,13 @@ export class LinearPlot2DTransformConstraints {
   constructor(params) {
 
   }
+
+  limitTransform (oldTransform, newTransform) {
+    // For now, just return the oldTransform if the new transform has width 0 or has non-finite numbers
+    const { px1, py1, pw, ph, gx1, gy1, gw, gh } = newTransform
+
+    if (gw <= 0 || gh <= 0 || !Number.isFinite(gx1) || !Number.isFinite(gy1) || !Number.isFinite(gw) || !Number.isFinite(gh)) return oldTransform
+
+    return newTransform
+  }
 }

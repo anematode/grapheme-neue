@@ -93,6 +93,7 @@ export class NewFigure extends Group {
     this.addEventListener("mousemove", listeners.mousemove = evt => {
       if (!int.isDragging) return
       let transform = props.get("plotTransform")
+      let constraints = props.get("transformConstraints")
       let newTransform = transform.clone()
 
       // Get where the mouse is currently at and move (graphMouseDownAt) to (mouseDownAt)
@@ -102,17 +103,18 @@ export class NewFigure extends Group {
       newTransform.gx1 += translationNeeded.x
       newTransform.gy1 += translationNeeded.y
 
+      newTransform = constraints.limitTransform(transform, newTransform)
+
       props.set("plotTransform", newTransform, 0 /* real */, 2 /* deep equality */)
     })
 
     // Scroll handler
     this.addEventListener("wheel", listeners.wheel = evt => {
       let transform = props.get("plotTransform")
+      let constraints = props.get("transformConstraints")
       let newTransform = transform.clone()
 
-      console.log(evt.deltaY)
-
-      let scaleFactor = 1 + Math.atan(evt.deltaY / 300) / 40
+      let scaleFactor = 1 + Math.atanh(evt.deltaY / 300) / 100
       let graphScrollAt = transform.pixelToGraph(evt.pos)
 
       // We need to scale graphBox at graphScrollAt with a scale factor. We translate it by -graphScrollAt, scale it by
@@ -121,6 +123,8 @@ export class NewFigure extends Group {
       graphBox = graphBox.translate(graphScrollAt.mul(-1)).scale(scaleFactor).translate(graphScrollAt)
 
       newTransform.resizeToGraphBox(graphBox)
+      newTransform = constraints.limitTransform(transform, newTransform)
+
       props.set("plotTransform", newTransform, 0 /* real */, 2 /* deep equality */)
     })
   }
