@@ -707,7 +707,6 @@ export function flattenVec2Array (arr) {
   return arr
 }
 
-
 /**
  * Get the actual bounding rectangle of a piece of text with a given vector anchor and spacing from that anchor. For
  * example, getActualTextLocation( { x: 0, y: 0, w: 10, h: 10 }, { x: 50, y: 50 }, "S", 3 ) is { x: 45, y: 37, w: 10, h: 10 } )

@@ -1,6 +1,7 @@
 
 // Given a top-level scene, construct a bunch of information about the scene, outputting a map of context ids ->
-// context information and rendering instructions.
+// context information and rendering instructions. This is what actually does most of the work regarding optimization
+// and the like; the renderer just *runs* the instructions and keeps track of the used buffers.
 
 // Map: id -> { parent, elem id, info, children: [{ child: id, instructions: [] }, { , version, ... }
 

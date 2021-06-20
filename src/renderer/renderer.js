@@ -69,14 +69,8 @@
  * instructions which are very prone to change and where its values should be tied solely to the element updating.
  */
 
-import {getVersionID} from "../core/utils.js"
 import {TextRenderer} from "./text_renderer.js"
-import { combineColoredTriangleStrips,  combineTriangleStrips, fillRepeating, flattenVec2Array, generateRectangleTriangleStrip, getActualTextLocation
-} from "../algorithm/misc_geometry.js"
-import {BoundingBox} from "../math/bounding_box.js"
-import {calculatePolylineVertices} from "../algorithm/polyline_triangulation.js"
 import {Colors, Pen} from "../styles/definitions.js"
-import {Vec2} from "../math/vec/vec2.js"
 import {SceneGraph} from "./scene_graph.js"
 
 // Functions taken from Mozilla docs

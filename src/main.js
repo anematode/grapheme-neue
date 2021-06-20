@@ -13,7 +13,7 @@ export { FP }
  */
 export { utils }
 
-export * from './math/real/real_functions.js'
+export * from './math/real/functions.js'
 export * from './math/real/rational.js'
 export * from './core/eventful.js'
 export * from './core/bolus.js'
@@ -43,3 +43,4 @@ export * from './elements/point_element.js'
 export * from './elements/new_figure_baubles.js'
 export * from './algorithm/tick_allocator.js'
 export * from './other/text_utils.js'
+export * from './ast/parse_string.js'

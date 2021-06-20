@@ -1,8 +1,11 @@
+// This code is pretty old, but surprisingly effective!
 import { lineSegmentIntersectsBox } from './misc_geometry.js'
+import {BoundingBox} from "../math/bounding_box.js"
 
 /**
  * Compute Math.hypot(x, y), but since all the values of x and y we're using here are not extreme, we don't have to
  * handle overflows and underflows with much accuracy at all. We can thus use the straightforward calculation.
+ * Chrome: 61.9 ms/iteration for 1e7 calculations for fastHypot; 444 ms/iteration for Math.hypot
  * @param x {number}
  * @param y {number}
  * @returns {number} hypot(x, y)
@@ -25,13 +28,10 @@ const MAX_DASHED_POLYLINE_VERTICES = 1e7
  * @param box {BoundingBox} The plotting box, used to clip excess portions of the polyline. There could theoretically be
  * an infinite number of dashes in a long vertical asymptote, for example, but this box condition prevents that from
  * being an issue. Portions of the polyline outside the plotting box are simply returned without dashes.
- * @param chunkSize {number} The number of
  * @returns {Array}
  */
 export function getDashedPolyline(vertices, pen, box) {
-  if (!box) {
-    box = new BoundingBox(-Infinity, -Infinity, Infinity, Infinity)
-  }
+  if (!box) box = new BoundingBox(-Infinity, -Infinity, Infinity, Infinity)
 
   // dashPattern is the pattern of dashes, given as the length (in pixels) of consecutive dashes and gaps.
   // dashOffset is the pixel offset at which to start the dash pattern, beginning at the start of every sub polyline.
@@ -211,7 +211,6 @@ export function getDashedPolyline(vertices, pen, box) {
     if (!pt2Contained)
       recalculateOffset(fastHypot(x2 - intersect[2], y2 - intersect[3]))
 
-    //
     if (result.length > MAX_DASHED_POLYLINE_VERTICES)
       throw new Error("Too many generated vertices in getDashedPolyline.")
   }
