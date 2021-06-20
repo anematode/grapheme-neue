@@ -114,7 +114,7 @@ export class NewFigure extends Group {
       let constraints = props.get("transformConstraints")
       let newTransform = transform.clone()
 
-      let scaleFactor = 1 + Math.atanh(evt.deltaY / 300) / 100
+      let scaleFactor = 1 + Math.atanh(evt.deltaY / 300) / 300
       let graphScrollAt = transform.pixelToGraph(evt.pos)
 
       // We need to scale graphBox at graphScrollAt with a scale factor. We translate it by -graphScrollAt, scale it by
@@ -173,9 +173,5 @@ export class NewFigure extends Group {
 
   getInterface() {
     return figureInterface
-  }
-
-  getRenderingInfo () {
-    return { instructions: { type: "debug", rect: {cx: 500, cy: 500, w: 100, h: 100} }}
   }
 }

@@ -71,7 +71,7 @@ export function getDemarcations (xStart, xEnd, xLen, desiredMinorSep, desiredMaj
 
 export function get2DDemarcations (xStart, xEnd, xLen, yStart, yEnd, yLen, {
   desiredMinorSep = 20,
-  desiredMajorSep = 100,
+  desiredMajorSep = 150,
   subdivisions = [ [ 4 /* minor */, 5 /* major */ ], [5, 2], [5, 1] ], // permissible subdivisions of the powers of ten into major separators and minor separators
   emitAxis = true // emit a special case for axis
 } = {}) {
