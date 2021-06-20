@@ -24,7 +24,7 @@ const figureInterface = constructInterface({
     "plottingBox": {computed: "none"},
 
     // Margin between the plotting box and figure bounding box
-    "margins": {computed: "default", default: {left: 0, right: 0, top: 0, bottom: 0}},
+    "margins": {computed: "default", default: {left: 30, right: 30, top: 30, bottom: 30}},
 
     // Transformation from pixel to graph coordinates and vice versa
     "plotTransform": {computed: "default", default: () => new LinearPlot2DTransform(0, 0, 0, 0, ...defaultView), evaluateDefault: true },

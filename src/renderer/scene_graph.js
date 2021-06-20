@@ -193,7 +193,6 @@ export class SceneGraph {
       // instructions is assumed to be Infinity and unspecified zIndex is 0. For now we'll just have a flat map
       for (const child of children) {
         if (child.children) {
-
           // Is context
           let contextInstruction = { type: "context", id: child.id, zIndex: child.zIndex ?? 0, escapeContext: child.escapeContext }
 
@@ -212,16 +211,12 @@ export class SceneGraph {
           }
         } else {
           for (const instruction of child.instructions) {
-            let adjusted = child.instructions.map(adjustInstruction)
+            let adj = adjustInstruction(instruction)
 
-            for (const adj of adjusted) {
-              if (adj.escapeContext) {
-                adj.origContext = c
-
-                escapingInstructions.push(adj)
-              } else {
-                instructions.push(adj)
-              }
+            if (adj.escapeContext) {
+              escapingInstructions.push(adj)
+            } else {
+              instructions.push(adj)
             }
           }
         }
@@ -332,6 +327,7 @@ export class SceneGraph {
           break
       }
 
+
       // Super simple (and hella inefficient) for now
       for (const instruction of instructions) {
         switch (instruction.type) {
@@ -356,7 +352,13 @@ export class SceneGraph {
 
             gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW)
 
-            let compiled = { type: "triangle_strip", vao: vaoName, buffers: [ buffName ], vertexCount: vertices.length / 2, color }
+            let compiled = {
+              type: "triangle_strip",
+              vao: vaoName,
+              buffers: [buffName],
+              vertexCount: vertices.length / 2,
+              color
+            }
             compiledInstructions.push(compiled)
 
             break
@@ -389,7 +391,13 @@ export class SceneGraph {
 
             gl.bufferData(gl.ARRAY_BUFFER, generateRectangleTriangleStrip(instruction.rect), gl.STATIC_DRAW)
 
-            let compiled = { type: "text", vao: vaoName, buffers: [ tcName, scName ], vertexCount: 4, text: instruction.text }
+            let compiled = {
+              type: "text",
+              vao: vaoName,
+              buffers: [tcName, scName],
+              vertexCount: 4,
+              text: instruction.text
+            }
             compiledInstructions.push(compiled)
 
             break
@@ -412,7 +420,13 @@ export class SceneGraph {
 
             gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW)
 
-            let compiled = { type: "triangle_strip", vao: vaoName, buffers: [ buffName ], vertexCount: vertices.length / 2, color }
+            let compiled = {
+              type: "triangle_strip",
+              vao: vaoName,
+              buffers: [buffName],
+              vertexCount: vertices.length / 2,
+              color
+            }
             compiledInstructions.push(compiled)
             break
           }
@@ -441,7 +455,13 @@ export class SceneGraph {
 
             gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW)
 
-            let compiled = { type: "line_strip", vao: vaoName, buffers: [ buffName ], vertexCount: vertices.length / 2, color: Colors.RED }
+            let compiled = {
+              type: "line_strip",
+              vao: vaoName,
+              buffers: [buffName],
+              vertexCount: vertices.length / 2,
+              color: Colors.RED
+            }
             compiledInstructions.push(compiled)
             break
           }
@@ -449,9 +469,9 @@ export class SceneGraph {
           default:
             throw new Error(`Unsupported instruction type ${instruction.type}`)
         }
-
-        gl.bindVertexArray(null)
       }
+
+      gl.bindVertexArray(null)
 
       compiledInstructions.push({ type: "pop_context" })
 

@@ -701,6 +701,34 @@ export const TextStyle = {
   })
 }
 
+// Object of the form { x: ("dynamic"|"none"|"axis"|"outside"|"inside"|"bottom"|"top"), y: ( ..., "left"|"right") } (might change later)
+
+export const LabelPosition = {
+  compose: (...args) => {
+    let ret = {}
+
+    for (let i = 0; i < args.length; ++i) {
+      let arg = args[i]
+
+      if (typeof arg === "string") {
+        ret.x = arg
+        ret.y = arg
+      } else {
+        Object.assign(ret, args[i])
+      }
+    }
+
+    return ret
+  },
+  create: (params) => {
+    return LabelPosition.compose(LabelPosition.default, params)
+  },
+  default: utils.deepFreeze({
+    x: "dynamic",
+    y: "dynamic"
+  })
+}
+
 export function lookupCompositionType (type) {
   switch (type) {
     case "TextStyle":
@@ -709,6 +737,8 @@ export function lookupCompositionType (type) {
       return Pen
     case "Pens":
       return Pens
+    case "LabelPosition":
+      return LabelPosition
   }
 }
 
@@ -724,8 +754,9 @@ function _interpretStringAsPen (str) {
 }
 
 export const DefaultStyles = {
-  gridlinesMajor: Pen.create({ thickness: 2 }),
-  gridlinesMinor: Pen.create({ thickness: 1 }),
-  gridlinesAxis: Pen.create({ thickness: 4 }),
+  gridlinesMajor: Pen.create({ thickness: 2, color: Color.rgba(0, 0, 0, 127), endcap: "butt" }),
+  gridlinesMinor: Pen.create({ thickness: 1, color: Color.rgba(0, 0, 0, 80), endcap: "butt" }),
+  gridlinesAxis: Pen.create({ thickness: 4, endcap: "butt" }),
+  plotLabelPositions: LabelPosition.default,
   Pen: Pen.default
 }

@@ -1,8 +1,9 @@
 import {Group} from "../core/group.js"
 import {constructInterface} from "../core/interface.js"
-import {DefaultStyles, Pen} from "../styles/definitions.js"
+import {DefaultStyles, Pen, TextStyle} from "../styles/definitions.js"
 import {generateRectangleCycle} from "../algorithm/misc_geometry.js"
 import {get2DDemarcations} from "../algorithm/tick_allocator.js"
+import {Vec2} from "../math/vec/vec2.js"
 
 const DefaultOutlinePen = Pen.create({ endcap: "square" })
 const DefaultGridlinePens = { major: DefaultStyles.gridlinesMajor, minor: DefaultStyles.gridlinesMinor, axis: DefaultStyles.gridlinesAxis }
@@ -17,31 +18,101 @@ const figureBaublesInterface = constructInterface({
     // Whether to show a bounding outline of the figure
     showOutline: { type: "boolean", computed: "default", default: true },
 
-    // Whether to show the figure's gridlines
-    showGridlines: { type: "boolean", computed: "default", default: true },
-
-    // Whether to sharpen the gridlines
-    sharpenridlines: { type: "boolean", computed: "default", default: true },
-
     // Pen to use for the bounding outline
     outlinePen: { type: "Pen", computed: "user", default: DefaultOutlinePen, compose: true },
 
     // Internal variable of the form { major: { x: [ ... ], y: [ ... ] }, minor: ... } expressed in graph coordinates
     ticks: { computed: "none" },
 
-    // Dictionary of pens
-    gridlinePens: { type: "Pens", computed: "user", default: DefaultGridlinePens, compose: true }
+    // Whether to show the figure's gridlines
+    showGridlines: { type: "boolean", computed: "default", default: true },
 
-    // Used to calculate where the ticks are located
-    //tickAllocator: { computed: "default", default: () => new Linear2DTickAllocator(), evaluateDefault: true }
+    // Whether to sharpen the gridlines
+    sharpenGridlines: { type: "boolean", computed: "default", default: true },
+
+    // Dictionary of pens
+    gridlinePens: { type: "Pens", computed: "user", default: DefaultGridlinePens, compose: true },
+
+    // Whether to show labels
+    showLabels: { type: "boolean", computed: "default", default: true },
+
+    // Where to put the labels
+    labelPosition: { type: "LabelPosition", computed: "user", default: DefaultStyles.plotLabelPositions, compose: true }
   }
 })
+
+const exponentReference = {
+  '-': String.fromCharCode(8315),
+  '0': String.fromCharCode(8304),
+  '1': String.fromCharCode(185),
+  '2': String.fromCharCode(178),
+  '3': String.fromCharCode(179),
+  '4': String.fromCharCode(8308),
+  '5': String.fromCharCode(8309),
+  '6': String.fromCharCode(8310),
+  '7': String.fromCharCode(8311),
+  '8': String.fromCharCode(8312),
+  '9': String.fromCharCode(8313)
+};
+
+/* Convert a digit into its exponent form */
+function convert_char(c) {
+  return exponent_reference[c];
+}
+
+/* Convert an integer into its exponent form (of Unicode characters) */
+function exponentify(integer) {
+  let stringi = integer + '';
+  let out = '';
+
+  for (let i = 0; i < stringi.length; ++i) {
+    out += convert_char(stringi[i]);
+  }
+
+  return out;
+}
+
+// Credit: https://stackoverflow.com/a/20439411
+/* Turns a float into a pretty float by removing dumb floating point things */
+function beautifyFloat(f, prec=12) {
+  let strf = f.toFixed(prec);
+  if (strf.includes('.')) {
+    return strf.replace(/\.?0+$/g,'');
+  } else {
+    return strf;
+  }
+}
+
+function isApproxEqual(v, w, eps=1e-5) {
+  return Math.abs(v - w) < eps;
+}
+
+const CDOT = String.fromCharCode(183);
+
+const standardLabelFunction = x => {
+  if (x === 0) return "0"; // special case
+  else if (Math.abs(x) < 1e5 && Math.abs(x) > 1e-5)
+  // non-extreme floats displayed normally
+    return beautifyFloat(x);
+  else {
+    // scientific notation for the very fat and very small!
+    let exponent = Math.floor(Math.log10(Math.abs(x)));
+    let mantissa = x / (10 ** exponent);
+
+    let prefix = (isApproxEqual(mantissa, 1) ? '' :
+      (beautifyFloat(mantissa, 8) + CDOT));
+    let exponent_suffix = "10" + exponentify(exponent);
+
+    return prefix + exponent_suffix;
+  }
+}
 
 /**
  * Given a plot transform, ticks and set of pens, generate a set of polyline calls that draw gridlines.
  * @param plotTransform {LinearPlot2DTransform}
  * @param ticks
  * @param gridlinePens
+ * @param sharpen {boolean} Whether to align the ticks to pixel boundaries to make them look sharper
  * @returns {Array}
  */
 function generateGridlinesInstructions (plotTransform, ticks, gridlinePens, sharpen=true) {
@@ -97,6 +168,7 @@ export class FigureBaubles extends Group {
     this.computeTicks()
 
     this.computeGridlines()
+    this.computeLabels()
     this.toggleOutline()
     this.computeRenderInfo()
   }
@@ -107,6 +179,27 @@ export class FigureBaubles extends Group {
       let ticks = get2DDemarcations(tr.gx1, tr.gx1 + tr.gw, tr.pw, tr.gy1, tr.gy1 + tr.gh, tr.ph)
 
       this.props.set("ticks", ticks)
+    }
+  }
+
+  computeLabels () {
+    const instructions = []
+
+    if (this.props.haveChanged(["ticks", "showLabels"])) {
+      let { ticks, plotTransform } = this.props.proxy
+
+      for (let style in ticks) {
+        let entries = ticks[style]
+
+        let x = entries.x
+        for (let i = 0; i < x.length; ++i) {
+          let pos = plotTransform.graphToPixel(new Vec2(x[i], 0)).add(new Vec2(0, 10))
+
+          instructions.push({ type: "text", text: standardLabelFunction(x[i]), pos, style: TextStyle.default })
+        }
+      }
+
+      this.internal.labelInstructions = instructions
     }
   }
 
@@ -133,6 +226,6 @@ export class FigureBaubles extends Group {
   }
 
   computeRenderInfo () {
-    this.internal.renderInfo = { instructions: [ this.internal.outlineInstruction, ...this.internal.gridlinesInstructions ] }
+    this.internal.renderInfo = { instructions: [ this.internal.outlineInstruction, ...this.internal.labelInstructions, ...this.internal.gridlinesInstructions ] }
   }
 }

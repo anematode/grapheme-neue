@@ -9,16 +9,13 @@
 <script src="test_setup.js"></script>
 
 <script id="setup">
-    var scene = new Grapheme.InteractiveScene({ width: 400, height: 400 })
+    var scene = new Grapheme.InteractiveScene({ width: 1000, height: 1000 })
     document.body.appendChild(scene.domElement)
-
-    var text = new Grapheme.TextElement({ position: [200, 300], text: "Text", style: { fontSize: 20, shadowRadius: 3 } })
-    scene.add(text)
 
     var figure = new Grapheme.NewFigure()
     scene.add(figure)
 
-    var baubles = new Grapheme.FigureBaubles({ sharpenGridlines: true })
+    var baubles = new Grapheme.FigureBaubles()
     figure.add(baubles)
 
     var point = new Grapheme.PointElement({ position: [ 0, 0 ], color: "red" })
@@ -34,7 +31,7 @@
 
     function render () {
       renderer.renderDOMScene(scene)
-      requestAnimationFrame(render)
+      //requestAnimationFrame(render)
     }
 
     render()
