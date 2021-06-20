@@ -301,13 +301,14 @@ export function constructInterface (description) {
 
     if (needsSetter) {
       let setter = {}
-      let { typecheck, target, setTarget, setAs, conversion, aliases } = desc
+      let { typecheck, target, setTarget, setAs, conversion, aliases, merge } = desc
 
       setAs = Props.toBit(setAs)
 
       if (typecheck) setter.typecheck = createTypecheck(typecheck)
       if (conversion) setter.conversion = createConversion(conversion)
       if (setAs) setter.setAs = setAs
+      if (merge) setter.merge = true
       setter.target = setTarget ?? target ?? name
 
       setters[name] = setter

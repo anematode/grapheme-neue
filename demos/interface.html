@@ -15,8 +15,8 @@
     var figure = new Grapheme.NewFigure()
     scene.add(figure)
 
-    var baubles = new Grapheme.FigureBaubles()
-    figure.add(baubles)
+    var elem = new Grapheme.FigureBaubles()
+    figure.add(elem)
 
     var point = new Grapheme.PointElement({ position: [ 0, 0 ], color: "red" })
     figure.add(point)
@@ -31,7 +31,7 @@
 
     function render () {
       renderer.renderDOMScene(scene)
-      //requestAnimationFrame(render)
+      requestAnimationFrame(render)
     }
 
     render()

@@ -729,6 +729,43 @@ export const LabelPosition = {
   })
 }
 
+export const GenericObject = {
+  compose: (...args) => {
+    let ret = {}
+
+    for (let i = 0; i < args.length; ++i) {
+      Object.assign(ret, args[i])
+    }
+
+    return ret
+  },
+  create: (params) => {
+    return GenericObject.compose(GenericObject.default, params)
+  },
+  default: Object.freeze({})
+}
+
+export const BooleanDict = {
+  compose: (...args) => {
+    let ret = {}
+
+    for (let i = 0; i < args.length; ++i) {
+      let arg = args[i]
+      if (typeof arg === "boolean") {
+        for (let key in ret) {
+          ret[key] = arg
+        }
+      } else Object.assign(ret, args[i])
+    }
+
+    return ret
+  },
+  create: (params) => {
+    return GenericObject.compose(GenericObject.default, params)
+  },
+  default: Object.freeze({})
+}
+
 export function lookupCompositionType (type) {
   switch (type) {
     case "TextStyle":
@@ -739,6 +776,10 @@ export function lookupCompositionType (type) {
       return Pens
     case "LabelPosition":
       return LabelPosition
+    case "Object":
+      return GenericObject
+    case "BooleanDict":
+      return BooleanDict
   }
 }
 

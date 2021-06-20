@@ -320,13 +320,13 @@ export class SceneGraph {
       const instructions = context.instructions
       const compiledInstructions = []
 
+
       switch (context.info.type) {
         case "scene":
         case "scissor":
           compiledInstructions.push(context.info)
           break
       }
-
 
       // Super simple (and hella inefficient) for now
       for (const instruction of instructions) {

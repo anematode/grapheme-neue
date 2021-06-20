@@ -53,6 +53,7 @@ export class NewFigure extends Group {
     this.defaultComputeProps()
 
     this.computeBoxes()
+    this.computeScissor()
     this.computePlotTransform()
 
     this.toggleInteractivity()
@@ -145,7 +146,13 @@ export class NewFigure extends Group {
 
     let margins = props.get("margins")
     props.set("plottingBox", props.get("figureBoundingBox")
-      .squishAsymmetrically(margins.left, margins.right, margins.bottom, margins.top))
+      .squishAsymmetrically(margins.left, margins.right, margins.bottom, margins.top), 0 /* real */, 2, /* deep equality */)
+  }
+
+  computeScissor () {
+    const { props } = this
+
+    this.internal.renderInfo = { contexts: { type: "scissor", scissor: props.get("plottingBox") }}
   }
 
   computePlotTransform () {

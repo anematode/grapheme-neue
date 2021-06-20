@@ -11,7 +11,7 @@ const DefaultGridlinePens = { major: DefaultStyles.gridlinesMajor, minor: Defaul
 const figureBaublesInterface = constructInterface({
   interface: {
     showOutline: { typecheck: "boolean", description: "Whether to show an outline of the figure" },
-    showGridlines: { typecheck: "boolean", description: "Whether to show gridlines" },
+    showGridlines: { setAs: "user", description: "Whether to show gridlines" },
     sharpenGridlines: { typecheck: "boolean", description: "Whether to make the gridlines look sharp by aligning them to pixel boundaries" },
     outlinePen: { setAs: "user", description: "The pen used to draw the outline" }
   }, internal: {
@@ -25,7 +25,10 @@ const figureBaublesInterface = constructInterface({
     ticks: { computed: "none" },
 
     // Whether to show the figure's gridlines
-    showGridlines: { type: "boolean", computed: "default", default: true },
+    showGridlines: { type: "BooleanDict", computed: "user", default: { major: true, minor: true, axis: true }, compose: true },
+
+    // Whether to show axes instead of major gridlines
+    generateGridlinesAxis: { type: "boolean", computed: "default", default: true },
 
     // Whether to sharpen the gridlines
     sharpenGridlines: { type: "boolean", computed: "default", default: true },
@@ -37,7 +40,9 @@ const figureBaublesInterface = constructInterface({
     showLabels: { type: "boolean", computed: "default", default: true },
 
     // Where to put the labels
-    labelPosition: { type: "LabelPosition", computed: "user", default: DefaultStyles.plotLabelPositions, compose: true }
+    labelPosition: { type: "LabelPosition", computed: "user", default: DefaultStyles.plotLabelPositions, compose: true },
+
+
   }
 })
 
@@ -56,8 +61,8 @@ const exponentReference = {
 };
 
 /* Convert a digit into its exponent form */
-function convert_char(c) {
-  return exponent_reference[c];
+function convertChar(c) {
+  return exponentReference[c];
 }
 
 /* Convert an integer into its exponent form (of Unicode characters) */
@@ -66,7 +71,7 @@ function exponentify(integer) {
   let out = '';
 
   for (let i = 0; i < stringi.length; ++i) {
-    out += convert_char(stringi[i]);
+    out += convertChar(stringi[i]);
   }
 
   return out;
@@ -112,14 +117,17 @@ const standardLabelFunction = x => {
  * @param plotTransform {LinearPlot2DTransform}
  * @param ticks
  * @param gridlinePens
+ * @param enabledPens {{}|null} Dict (pen name -> boolean) of enabled pens to generate ticks for
  * @param sharpen {boolean} Whether to align the ticks to pixel boundaries to make them look sharper
  * @returns {Array}
  */
-function generateGridlinesInstructions (plotTransform, ticks, gridlinePens, sharpen=true) {
+function generateGridlinesInstructions (plotTransform, ticks, gridlinePens, enabledPens=null, sharpen=true) {
   let pixelBox = plotTransform.pixelBox()
   let instructions = []
 
   for (let [ style, entries ] of Object.entries(ticks)) {
+    if (enabledPens && !enabledPens[style]) continue
+
     let pen = gridlinePens[style]
     let thickness = pen.thickness
 
@@ -174,11 +182,13 @@ export class FigureBaubles extends Group {
   }
 
   computeTicks () {
-    if (this.props.hasChanged("plotTransform")) {
-      let tr = this.props.get("plotTransform")
-      let ticks = get2DDemarcations(tr.gx1, tr.gx1 + tr.gw, tr.pw, tr.gy1, tr.gy1 + tr.gh, tr.ph)
+    const { props } = this
 
-      this.props.set("ticks", ticks)
+    if (props.hasChanged("plotTransform")) {
+      let tr = props.get("plotTransform")
+      let ticks = get2DDemarcations(tr.gx1, tr.gx1 + tr.gw, tr.pw, tr.gy1, tr.gy1 + tr.gh, tr.ph, { emitAxis: props.get("generateGridlinesAxis")})
+
+      props.set("ticks", ticks)
     }
   }
 
@@ -188,14 +198,20 @@ export class FigureBaubles extends Group {
     if (this.props.haveChanged(["ticks", "showLabels"])) {
       let { ticks, plotTransform } = this.props.proxy
 
-      for (let style in ticks) {
+      for (let style of ["major"]) {
         let entries = ticks[style]
 
-        let x = entries.x
+        let x = entries.x, y = entries.y
         for (let i = 0; i < x.length; ++i) {
           let pos = plotTransform.graphToPixel(new Vec2(x[i], 0)).add(new Vec2(0, 10))
 
           instructions.push({ type: "text", text: standardLabelFunction(x[i]), pos, style: TextStyle.default })
+        }
+
+        for (let i = 0; i < y.length; ++i) {
+          let pos = plotTransform.graphToPixel(new Vec2(0, y[i])).add(new Vec2(-30, 0))
+
+          instructions.push({ type: "text", text: standardLabelFunction(y[i]), pos, style: TextStyle.default })
         }
       }
 
@@ -207,7 +223,7 @@ export class FigureBaubles extends Group {
     if (this.props.haveChanged(["ticks", "showGridlines", "sharpenGridlines"])) {
       let { showGridlines, ticks, gridlinePens, plotTransform, sharpenGridlines } = this.props.proxy
 
-      this.internal.gridlinesInstructions = showGridlines ? generateGridlinesInstructions(plotTransform, ticks, gridlinePens, sharpenGridlines) : []
+      this.internal.gridlinesInstructions = generateGridlinesInstructions(plotTransform, ticks, gridlinePens, showGridlines, sharpenGridlines)
     }
   }
 
