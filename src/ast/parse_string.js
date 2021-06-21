@@ -3,84 +3,7 @@
  * x^2 is compiled to OperatorNode{operator=^, children=[VariableNode{name="x"}, ConstantNode{value="2"}]}
  */
 import { getAngryAt } from './parser_error.js'
-
-/**
- * Base class for a node in a Grapheme expression. Has children and a string type (returnType).
- *
- * A node can be one of a variety of types. A plain ASTNode signifies grouping, i.e. parentheses. Extended ASTNodes,
- * like constant nodes and operator nodes have more complexity.
- */
-class ASTNode {
-  /**
-   * A relatively simple base constructor, taking in only the children and the return type, which is "any" by default.
-   * @param children {Array}
-   * @param returnType {string}
-   */
-  constructor (children=[], returnType="any") {
-    /**
-     * Children of this node, which should also be ASTNodes
-     * @type {Array}
-     */
-    this.children = children
-
-    /**
-     * Type of this ASTNode (real, etc.)
-     * @type {string}
-     */
-    this.returnType = returnType
-  }
-
-  /**
-   * Apply a function to this node and all of its children, recursively.
-   * @param func {Function} The callback function. We call it each time with (node, depth) as arguments
-   * @param childrenFirst {boolean} Whether to call the callback function for each child first, or for the parent first.
-   * @param depth {number}
-   * @returns {ASTNode}
-   */
-  applyAll (func, childrenFirst=false, depth = 0) {
-    if (!childrenFirst)
-      func(this, depth)
-
-    let children = this.children
-    for (let i = 0; i < children.length; ++i) {
-      let child = children[i]
-      if (child.applyAll) // Check needed because children may be tokens, not ASTNodes
-        child.applyAll(func, childrenFirst, depth+1)
-    }
-
-    if (childrenFirst)
-      func(this, depth)
-
-    return this
-  }
-}
-
-class VariableNode extends ASTNode {
-  constructor (name) {
-    super()
-
-    this.name = name
-  }
-}
-
-class OperatorNode extends ASTNode {
-  constructor (operator) {
-    super()
-
-    this.op = operator
-  }
-}
-
-class ConstantNode extends ASTNode {
-  constructor (value, text, invisible) {
-    super([], "real")
-
-    this.value = value
-    this.text = text
-    this.invisible = !!invisible
-  }
-
-}
+import { ConstantNode, VariableNode, ASTNode, OperatorNode } from './new_node.js'
 
 const OperatorSynonyms = {
   'arcsinh': 'asinh',
@@ -489,50 +412,66 @@ const comparisonOperators = ['<', '<=', '==', '!=', '>=', '>']
 // it's hard to cleanly represent these comparison chains otherwise. You *could* represent them using boolean operations,
 // but that duplicates the internal nodes which is inefficient
 function processComparisonChains (root) {
-  let cchain_remaining = true
-  while (cchain_remaining) {
-    cchain_remaining = false
+  root.applyAll(node => {
+    const children = node.children
 
-    root.applyAll(node => {
-      const children = node.children
+    for (let i = 0; i < children.length; ++i) {
+      let child = children[i]
+      if (child instanceof ASTNode || !child.op) continue
 
-      for (let i = 0; i < children.length; ++i) {
-        let child = children[i]
-        if (child instanceof ASTNode || !child.op) continue
+      if (comparisonOperators.includes(children[i].op)) {
+        let comparisonChainFound = false
 
-        if (comparisonOperators.includes(children[i].op)) {
-          let comparisonChainFound = false
+        // Found a comparison operator token; we now check for whether the tokens +2, +4, etc. ahead of it are also
+        // comparison tokens. If so, we emit a comparison chain
 
-          // Found a comparison operator token; we now check for whether the tokens +2, +4, etc. ahead of it are also
-          // comparison tokens. If so, we emit a comparison chain
+        // Index of the last comparison token, plus 2
+        let j = i + 2
+        for (; j < children.length; j += 2) {
+          let nextChild = children[j]
+          if (nextChild instanceof ASTNode || !nextChild.op) continue
 
-          // Index of the last comparison token, plus 2
-          let j = i + 2
-          for (; j < children.length; j += 2) {
-            let nextChild = children[j]
-            if (nextChild instanceof ASTNode || !nextChild.op) continue
-
-            if (comparisonOperators.includes(children[j].op)) {
-              comparisonChainFound = true
-            } else {
-              break
-            }
-          }
-
-          if (comparisonChainFound) {
-            // The nodes i, i+2, i+4, ..., j-4, j-2 are all comparison nodes. Thus, all nodes in the range i-1 ... j-1
-            // should be included in the comparison chain.
-
-            
-
-            return
+          if (comparisonOperators.includes(children[j].op)) {
+            comparisonChainFound = true
+          } else {
+            break
           }
         }
+
+        if (comparisonChainFound) {
+          // The nodes i, i+2, i+4, ..., j-4, j-2 are all comparison nodes. Thus, all nodes in the range i-1 ... j-1
+          // should be included in the comparison chain
+
+          let comparisonChain = new OperatorNode("cchain")
+          let cchainChildren = comparisonChain.children = children.splice(i-1, j-i+1, comparisonChain)
+
+
+          for (let i = cchainChildren.length - 2; i >= 0; i -= 2) {
+            // Convert operator tokens into constant node corresponding to their enum status
+            let token = cchainChildren[i]
+            let tokenEnum = comparisonOperators.indexOf(token.op)
+
+            cchainChildren[i] = new ConstantNode(tokenEnum, tokenEnum + '')
+          }
+
+          return
+        }
       }
-    })
-  }
+    }
+  })
 }
 
+// Remove residual commas from the node
+function removeCommas (root) {
+  root.applyAll(node => {
+    let children = node.children
+    let i = node.length
+    while (i--) {
+      if (children[i].type === "commas")
+        children.splice(i, 1)
+    }
+  })
+}
 
 /**
  * Parse a given list of tokens, returning a single ASTNode. At this point, the tokens are a list of the form
@@ -543,9 +482,6 @@ function processComparisonChains (root) {
  */
 function parseTokens(tokens) {
   processConstantsAndVariables(tokens)
-
-  // Root node that will be returned. For now it is invalid because it contains *tokens*, but it provides the structure
-  // for us to construct the full tree.
   let root = new ASTNode(tokens)
 
   processParentheses(root)
@@ -557,25 +493,10 @@ function parseTokens(tokens) {
   processOperators(root, ['-','+'])
 
   processComparisonChains(root)
+  processOperators(root, comparisonOperators)
+  processOperators(root, ["and", "or"])
 
-  console.log(root)
-  return
-
-
-  // Exponentiation is a right-to-left operator
-
-
-
-  // CChain
-
-  processOperators(comparisonOperators)
-  processOperators(["and", "or"])
-
-  root.applyAll(child => {
-    if (child.children) {
-      child.children = child.children.filter(child => child.type !== "comma")
-    }
-  })
+  removeCommas(root)
 
   return root
 }
@@ -592,9 +513,6 @@ function parseString(string, types={}) {
   checkValid(string, tokens)
 
   let node = parseTokens(tokens).children[0]
-
-  if (types)
-    node.resolveTypes(types)
 
   return node
 }

@@ -1,10 +1,10 @@
-import { levenshtein, isWorker } from "../core/utils"
+import { levenshtein } from "../core/utils"
 import { RealFunctions } from '../math/real/functions'
-import { RealIntervalFunctions } from '../math/real_interval/interval_functions'
+import { RealIntervalFunctions } from '../math/real_interval/functions'
 import { ComplexFunctions } from '../math/complex/functions'
-import { ComplexIntervalFunctions } from '../math/complex_interval/interval_functions'
 import { LatexMethods } from './latex'
-import { IntervalTypecasts } from '../math/complex_interval/typecasts'
+import { Typecasts } from '../math/other/typecasts'
+import { BooleanFunctions } from '../math/other/boolean_functions'
 
 // Types: "bool", "int", "real", "complex", "vec2", "vec3", "vec4", "mat2", "mat3", "mat4", "real_list", "complex_list", "real_interval", "complex_interval"
 
@@ -168,7 +168,7 @@ class TypecastDefinition extends OperatorDefinition {
   }
 }
 
-const Typecasts = {
+const TypecastsDefinitions = {
   'int': [
     new TypecastDefinition({
       returns: 'real',
@@ -189,14 +189,11 @@ const Typecasts = {
 
 const SummarizedTypecasts = {}
 
-for (let type in Typecasts) {
-  if (Typecasts.hasOwnProperty(type)) {
-    SummarizedTypecasts[type] = Typecasts[type].map(cast => cast.returns)
+for (let type in TypecastsDefinitions) {
+  if (TypecastsDefinitions.hasOwnProperty(type)) {
+    SummarizedTypecasts[type] = TypecastsDefinitions[type].map(cast => cast.returns)
   }
 }
-
-import { Typecasts as eggs } from '../math/typecasts'
-import { BooleanFunctions } from '../math/boolean_functions'
 
 function retrieveEvaluationFunction(str) {
   let fName = str.split('.').pop()
@@ -204,7 +201,6 @@ function retrieveEvaluationFunction(str) {
   const realFunctions = RealFunctions
   const realIntervalFunctions = RealIntervalFunctions
   const complexFunctions = ComplexFunctions
-  const complexIntervalFunctions = ComplexIntervalFunctions
   const booleanFunctions = BooleanFunctions
 
   if (str.includes("RealFunctions"))
@@ -213,10 +209,8 @@ function retrieveEvaluationFunction(str) {
     return realIntervalFunctions[fName]
   if (str.includes("ComplexFunctions"))
     return complexFunctions[fName]
-  if (str.includes("ComplexIntervalFunctions"))
-    return complexIntervalFunctions[fName]
   if (str.includes("Typecasts"))
-    return eggs[fName]
+    return Typecasts[fName]
   if (str.includes("BooleanFunctions"))
     return booleanFunctions[fName]
 
