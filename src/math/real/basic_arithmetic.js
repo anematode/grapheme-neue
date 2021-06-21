@@ -10,7 +10,7 @@
  * @function add
  * @memberOf RealFunctions
  */
-export function add (x, y) {
+export function Add (x, y) {
   return x + y
 }
 
@@ -22,7 +22,7 @@ export function add (x, y) {
  * @function subtract
  * @memberOf RealFunctions
  */
-export function subtract (x, y) {
+export function Subtract (x, y) {
   return x - y
 }
 
@@ -34,7 +34,7 @@ export function subtract (x, y) {
  * @function multiply
  * @memberOf RealFunctions
  */
-export function multiply (x, y) {
+export function Multiply (x, y) {
   return x * y
 }
 
@@ -46,7 +46,7 @@ export function multiply (x, y) {
  * @function divide
  * @memberOf RealFunctions
  */
-export function divide (x, y) {
+export function Divide (x, y) {
   return x / y
 }
 
@@ -59,7 +59,7 @@ export function divide (x, y) {
  * @function gcd
  * @memberOf RealFunctions
  */
-export function gcd (a, b) {
+export function Gcd (a, b) {
   if (!Number.isInteger(a) || !Number.isInteger(b)) return NaN
 
   a = Math.abs(a)
@@ -94,7 +94,7 @@ export function gcd (a, b) {
  * @function lcm
  * @memberOf RealFunctions
  */
-export function lcm (a, b) {
+export function Lcm (a, b) {
   if (a === 0) { return Math.abs(b) }
   if (b === 0) { return Math.abs(a) }
 

@@ -1,4 +1,4 @@
-import {castableIntoMultiple, Operators} from "./operators.js"
+import {castableIntoMultiple, getCastingFunction, Operators, retrieveEvaluationFunction} from "./operators.js"
 
 class EvaluationError extends Error {
   constructor(message) {
@@ -116,8 +116,17 @@ export class OperatorNode extends ASTNode {
     if (!this.definition)
       throw new EvaluationError(`Evaluation definition not generated for operator node`)
 
-    let children = this.children.map(c => c.evaluate(scope))
-    return this.definition.evaluateFunc.apply(null, children)
+    const children = this.children
+    let params = this.children.map(child => child.evaluate(scope))
+    const definition = this.definition, sig = definition.signature
+
+    // Cast arguments appropriately
+    params.forEach((param, i) => {
+      if (sig[i] !== children[i].type)
+        params[i] = (retrieveEvaluationFunction(getCastingFunction(children[i].type, sig[i])))(param)
+    })
+
+    return this.definition.evaluateFunc.apply(null, params)
   }
 
   resolveTypes (typeInfo) {
@@ -134,7 +143,7 @@ export class OperatorNode extends ASTNode {
     for (let definition of potentialDefinitions) {
       if (definition.signatureWorks(signature)) {
         this.definition = definition.getDefinition(signature)
-        this.type = definition.signature
+        this.type = definition.returns
 
         return
       }
@@ -145,11 +154,10 @@ export class OperatorNode extends ASTNode {
 }
 
 export class ConstantNode {
-  constructor (value, text) {
+  constructor (value, text, type="real") {
     this.value = value
     this.text = text
-
-    this.returnType = "real"
+    this.type = type
   }
 
   evaluate (scope) {

@@ -451,7 +451,7 @@ function processComparisonChains (root) {
             let token = cchainChildren[i]
             let tokenEnum = comparisonOperators.indexOf(token.op)
 
-            cchainChildren[i] = new ConstantNode(tokenEnum, tokenEnum + '')
+            cchainChildren[i] = new ConstantNode(tokenEnum, tokenEnum + '', "int")
           }
 
           return
@@ -465,9 +465,9 @@ function processComparisonChains (root) {
 function removeCommas (root) {
   root.applyAll(node => {
     let children = node.children
-    let i = node.length
+    let i = children.length
     while (i--) {
-      if (children[i].type === "commas")
+      if (children[i].type === "comma")
         children.splice(i, 1)
     }
   })

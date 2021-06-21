@@ -34,6 +34,9 @@
       requestAnimationFrame(render)
     }
 
+    var node = Grapheme.parseString("x^2+y")
+    node.resolveTypes({ x: "complex", y: "real" })
+
     render()
 </script>
 
