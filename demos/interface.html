@@ -9,7 +9,7 @@
 <script src="test_setup.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/9.4.3/math.js" integrity="sha512-sRvCDYrwGsQ4eYKgvBPVGLMX6vUqOpXwfcLzN5CJFTauEvQZsMv+2nrtWzL4UDa38vXuW80lzit9A8t2l950Ow==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 <script id="setup">
-    var expr = "-x^2/50-y^2/50"
+    var expr = "-atan(x)^2/50-y^2/50"
 
     var node = Grapheme.parseString(expr).resolveTypes()
     var gCompiled = Grapheme.compileNode(node)

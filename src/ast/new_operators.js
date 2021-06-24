@@ -31,103 +31,62 @@ function registerOperator (name, ...ops) {
   }
 }
 
-let intAdd = new FixedOperatorDefinition({
-  signature: [ "int", "int" ],
-  returnType: "int",
-  evaluators: {
-    generic: "addition"
-  }
-})
+function defineSimpleBinaryOperator (type, name, generic) {
+  registerOperator(name, new FixedOperatorDefinition({
+    signature: [ type, type ],
+    returnType: type,
+    evaluators: {
+      generic
+    }
+  }))
+}
 
-let intSub = new FixedOperatorDefinition({
-  signature: [ "int", "int" ],
-  returnType: "int",
-  evaluators: {
-    generic: "subtraction"
-  }
-})
+defineSimpleBinaryOperator("int", "+", "addition")
+defineSimpleBinaryOperator("int", "-", "subtraction")
+defineSimpleBinaryOperator("int", "*", "multiplication")
+defineSimpleBinaryOperator("int", "^", Math.pow)
 
-let unaryIntSub = new FixedOperatorDefinition({
+defineSimpleBinaryOperator("real", "+", "addition")
+defineSimpleBinaryOperator("real", "-", "subtraction")
+defineSimpleBinaryOperator("real", "*", "multiplication")
+defineSimpleBinaryOperator("real", "/", "division")
+defineSimpleBinaryOperator("real", "^", Math.pow)
+
+registerOperator('-', new FixedOperatorDefinition({
   signature: [ "int" ],
   returnType: "int",
   evaluators: {
     generic: "unary_subtraction"
   }
-})
+}))
 
-let intMul = new FixedOperatorDefinition({
-  signature: [ "int", "int" ],
-  returnType: "int",
-  evaluators: {
-    generic: "multiplication"
-  }
-})
-
-let intPow = new FixedOperatorDefinition({
-  signature: [ "int", "int" ],
-  returnType: "int",
-  evaluators: {
-    generic: Math.pow
-  }
-})
-
-registerOperator('*', intMul)
-registerOperator('+', intAdd)
-registerOperator('-', intSub)
-registerOperator('-', unaryIntSub)
-registerOperator('^', intPow)
-
-let realAdd = new FixedOperatorDefinition({
-  signature: [ "real", "real" ],
-  returnType: "real",
-  evaluators: {
-    generic: "addition"
-  }
-})
-
-let realSub = new FixedOperatorDefinition({
-  signature: [ "real", "real" ],
-  returnType: "real",
-  evaluators: {
-    generic: "subtraction"
-  }
-})
-
-let unaryRealSub = new FixedOperatorDefinition({
+registerOperator('-', new FixedOperatorDefinition({
   signature: [ "real" ],
   returnType: "real",
   evaluators: {
     generic: "unary_subtraction"
   }
-})
+}))
 
-let realMul = new FixedOperatorDefinition({
-  signature: [ "real", "real" ],
-  returnType: "real",
-  evaluators: {
-    generic: "multiplication"
-  }
-})
+function defineUnaryReal (name, evaluator) {
+  registerOperator(name, new FixedOperatorDefinition({
+    signature: [ "real" ],
+    returnType: "real",
+    evaluators: {
+      generic: evaluator
+    }
+  }))
+}
 
-let realDiv = new FixedOperatorDefinition({
-  signature: [ "real", "real" ],
-  returnType: "real",
-  evaluators: {
-    generic: "division"
-  }
-})
-
-let realPow = new FixedOperatorDefinition({
-  signature: [ "real", "real" ],
-  returnType: "real",
-  evaluators: {
-    generic: Math.pow
-  }
-})
-
-registerOperator('*', realMul)
-registerOperator('+', realAdd)
-registerOperator('-', realSub)
-registerOperator('-', unaryRealSub)
-registerOperator('/', realDiv)
-registerOperator('^', realPow)
+defineUnaryReal("sin", Math.sin)
+defineUnaryReal("cos", Math.cos)
+defineUnaryReal("tan", Math.tan)
+defineUnaryReal("asin", Math.asin)
+defineUnaryReal("acos", Math.acos)
+defineUnaryReal("atan", Math.atan)
+defineUnaryReal("sinh", Math.sinh)
+defineUnaryReal("cosh", Math.cosh)
+defineUnaryReal("tanh", Math.tanh)
+defineUnaryReal("asinh", Math.asinh)
+defineUnaryReal("acosh", Math.acosh)
+defineUnaryReal("atanh", Math.atanh)
