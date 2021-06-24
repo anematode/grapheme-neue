@@ -9,18 +9,18 @@
 <script src="test_setup.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/9.4.3/math.js" integrity="sha512-sRvCDYrwGsQ4eYKgvBPVGLMX6vUqOpXwfcLzN5CJFTauEvQZsMv+2nrtWzL4UDa38vXuW80lzit9A8t2l950Ow==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 <script id="setup">
-    var expr = "x^2/50+y^2/50+x^3/y^3"
+    var expr = "-x^2/50-y^2/50"
 
     var node = Grapheme.parseString(expr).resolveTypes()
     var gCompiled = Grapheme.compileNode(node)
 
     var mCompiled = math.compile(expr) // math.js
 
-    var scope = { x: 4, y: 4 }
+    var scope = { x: 4, y: 3 }
     var gRes, mRes
 
     Grapheme.utils.benchmark(() => {
-      gRes = gCompiled(scope)
+      gRes = gCompiled.evaluate(scope)
     }, 1e6, "Grapheme")
 
     Grapheme.utils.benchmark(() => {

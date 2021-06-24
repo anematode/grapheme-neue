@@ -31,6 +31,52 @@ function registerOperator (name, ...ops) {
   }
 }
 
+let intAdd = new FixedOperatorDefinition({
+  signature: [ "int", "int" ],
+  returnType: "int",
+  evaluators: {
+    generic: "addition"
+  }
+})
+
+let intSub = new FixedOperatorDefinition({
+  signature: [ "int", "int" ],
+  returnType: "int",
+  evaluators: {
+    generic: "subtraction"
+  }
+})
+
+let unaryIntSub = new FixedOperatorDefinition({
+  signature: [ "int" ],
+  returnType: "int",
+  evaluators: {
+    generic: "unary_subtraction"
+  }
+})
+
+let intMul = new FixedOperatorDefinition({
+  signature: [ "int", "int" ],
+  returnType: "int",
+  evaluators: {
+    generic: "multiplication"
+  }
+})
+
+let intPow = new FixedOperatorDefinition({
+  signature: [ "int", "int" ],
+  returnType: "int",
+  evaluators: {
+    generic: Math.pow
+  }
+})
+
+registerOperator('*', intMul)
+registerOperator('+', intAdd)
+registerOperator('-', intSub)
+registerOperator('-', unaryIntSub)
+registerOperator('^', intPow)
+
 let realAdd = new FixedOperatorDefinition({
   signature: [ "real", "real" ],
   returnType: "real",
@@ -44,6 +90,14 @@ let realSub = new FixedOperatorDefinition({
   returnType: "real",
   evaluators: {
     generic: "subtraction"
+  }
+})
+
+let unaryRealSub = new FixedOperatorDefinition({
+  signature: [ "real" ],
+  returnType: "real",
+  evaluators: {
+    generic: "unary_subtraction"
   }
 })
 
@@ -74,5 +128,6 @@ let realPow = new FixedOperatorDefinition({
 registerOperator('*', realMul)
 registerOperator('+', realAdd)
 registerOperator('-', realSub)
+registerOperator('-', unaryRealSub)
 registerOperator('/', realDiv)
 registerOperator('^', realPow)

@@ -22,6 +22,20 @@ export class ASTNode {
   nodeType () {
     return "node"
   }
+
+  usedVariables () {
+    // Map var -> type
+    let types = new Map()
+
+    this.applyAll(node => {
+      if (node.nodeType() === "var") {
+        if (!types.has(node.name))
+          types.set(node.name, node.type)
+      }
+    })
+
+    return types
+  }
 }
 
 /**
@@ -60,7 +74,7 @@ export class ASTGroup extends ASTNode {
    * @param depth {number}
    * @returns {ASTNode}
    */
-  applyAll (func, onlyGroups=true, childrenFirst=false, depth=0) {
+  applyAll (func, onlyGroups=false, childrenFirst=false, depth=0) {
     if (!childrenFirst)
       func(this, depth)
 
@@ -201,6 +215,6 @@ export class ConstantNode extends ASTNode {
   }
 
   nodeType () {
-    return "constant"
+    return "const"
   }
 }

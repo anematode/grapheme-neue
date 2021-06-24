@@ -280,7 +280,13 @@ function processConstantsAndVariables (tokens) {
 
     switch (token.type) {
       case "constant":
-        tokens[i] = new ConstantNode(parseFloat(token.value), token.value)
+        let v = parseFloat(token.value)
+        let node = new ConstantNode(v, token.value)
+
+        if (Number.isInteger(v))
+          node.type = "int"
+        tokens[i] = node
+
         break
       case "variable":
         tokens[i] = new VariableNode(token.name)
@@ -332,7 +338,7 @@ function processFunctions (rootNode) {
         children.splice(i + 1, 1)
       }
     }
-  })
+  }, true)
 }
 
 // Given a node and an index i of a binary operator, combine the nodes immediately to the left and right of the node
@@ -348,43 +354,37 @@ function combineBinaryOperator(node, i) {
 
 // Process the highest precedence operators. Note that e^x^2 = (e^x)^2 and e^-x^2 = e^(-x^2).
 function processUnaryAndExponentiation (root) {
-  let operators_remaining = true
+  root.applyAll(node => {
+    let children = node.children
 
-  while (operators_remaining) {
-    operators_remaining = false
+    // We iterate backwards
+    for (let i = children.length - 1; i >= 0; --i) {
+      let child = children[i]
+      if (child instanceof ASTNode || !child.op) continue
 
-    root.applyAll(node => {
-      let children = node.children
+      if (child.op === "-") {
+        // If the preceding token is an unprocessed non-operator token, or node, then it's a binary expression
+        if (i !== 0 && children[i - 1].type !== "operator")
+          continue
 
-      // We iterate backwards
-      for (let i = children.length - 1; i >= 0; --i) {
-        let child = children[i]
-        if (child instanceof ASTNode || !child.op) continue
+        let newNode = new OperatorNode("-")
+        newNode.children = [ children[i + 1] ]
 
-        if (child.op === "-") {
-          // If the preceding token is an unprocessed non-operator token, or node, then it's a binary expression
-          if (i !== 0 && children[i - 1].type !== "operator")
-            continue
+        children.splice(i, 2, newNode)
+      } else if (child.op === "+") {
+        // See above
+        if (i !== 0 && children[i - 1].type !== "operator")
+          continue
 
-          let newNode = new OperatorNode("-")
-          newNode.children = [ children[i + 1] ]
+        // Unary + is a no-op
+        children.splice(i, 1)
+      } else if (child.op === "^") {
+        combineBinaryOperator(node, i)
 
-          children.splice(i, 2, newNode)
-        } else if (child.op === "+") {
-          // See above
-          if (i !== 0 && children[i - 1].type !== "operator")
-            continue
-
-          // Unary + is a no-op
-          children.splice(i, 1)
-        } else if (child.op === "^") {
-          combineBinaryOperator(node, i)
-
-          --i
-        }
+        --i
       }
-    })
-  }
+    }
+  }, true)
 }
 
 // Combine binary operators, going from left to right, with equal precedence for all
@@ -401,7 +401,7 @@ function processOperators (root, operators) {
         --i
       }
     }
-  })
+  }, true)
 }
 
 // The index of each operator is also an enum, which is used in comparison chains to describe which operator is being used
@@ -458,7 +458,7 @@ function processComparisonChains (root) {
         }
       }
     }
-  })
+  }, true)
 }
 
 // Remove residual commas from the node
@@ -470,7 +470,7 @@ function removeCommas (root) {
       if (children[i].type === "comma")
         children.splice(i, 1)
     }
-  })
+  }, true)
 }
 
 /**

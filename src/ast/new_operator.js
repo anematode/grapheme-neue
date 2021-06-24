@@ -3,10 +3,28 @@ import {Complex} from "../math/complex/complex.js"
 import {initTypecasts} from "./typecasts.js"
 
 // List of valid types in Grapheme math language (as distinct from the props and stuff)
-const TYPES = {
-  "bool": true,
-  "int": true,
-  "real": true,
+export const TYPES = {
+  "bool": {
+    typecheck: {
+      generic: {
+        f: x => (typeof x === "boolean")
+      }
+    }
+  },
+  "int": {
+    typecheck: {
+      generic: {
+        f: Number.isInteger
+      }
+    }
+  },
+  "real": {
+    typecheck: {
+      generic: {
+        f: x => (typeof x === "number")
+      }
+    }
+  },
   "complex": true,
   "null": true
 }
@@ -113,6 +131,7 @@ function signatureNormalize (obj) {
 const specialEvaluators = {
   identity: {
     type: "special",
+    name: "identity",
     f: x => x
   },
   addition: {
@@ -124,6 +143,10 @@ const specialEvaluators = {
     type: "special_binary",
     binary: '-',
     f: (a, b) => a - b
+  },
+  unary_subtraction: {
+    type: "special",
+    f: a => -a
   },
   multiplication: {
     type: "special_binary",
@@ -222,3 +245,4 @@ class TypecastDefinition extends FixedOperatorDefinition {
 }
 
 initTypecasts(TypecastDefinition, typecastList, typecastDict)
+
