@@ -55,7 +55,7 @@ function retrieveEvaluationFunction(str) {
     res = RealIntervalFunctions[fName]
   else if (str.includes("ComplexFunctions"))
     res = ComplexFunctions[fName]
-  else if (str.includes("Typecasts"))
+  else if (str.includes("typecastList"))
     res = Typecasts[fName]
   else if (str.includes("BooleanFunctions"))
     res = BooleanFunctions[fName]
@@ -232,17 +232,17 @@ const TypecastDefinitions = {
   'int': [
     new TypecastDefinition({
       returns: 'real',
-      evaluate: "Typecasts.Identity"
+      evaluate: "typecastList.Identity"
     }),
     new TypecastDefinition({
       returns: 'complex',
-      evaluate: "Typecasts.RealToComplex"
+      evaluate: "typecastList.RealToComplex"
     })
   ],
   'real': [
     new TypecastDefinition({
       returns: 'complex',
-      evaluate: "Typecasts.RealToComplex"
+      evaluate: "typecastList.RealToComplex"
     })
   ]
 }

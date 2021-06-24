@@ -1,4 +1,6 @@
 import {castableIntoMultiple, getCastingFunction, Operators, retrieveEvaluationFunction} from "./operators.js"
+import {getCast} from "./new_operator.js"
+import {resolveOperator} from "./new_operators.js"
 
 class EvaluationError extends Error {
   constructor(message) {
@@ -9,18 +11,34 @@ class EvaluationError extends Error {
 }
 
 /**
+ * Abstract base class for AST nodes
+ */
+export class ASTNode {
+  applyAll (func, onlyGroups=true, childrenFirst=false, depth=0) {
+    if (!onlyGroups)
+      func(this, depth)
+  }
+
+  nodeType () {
+    return "node"
+  }
+}
+
+/**
  * Base class for a node in a Grapheme expression. Has children and a string type (returnType).
  *
  * A node can be one of a variety of types. A plain ASTNode signifies grouping, i.e. parentheses. Extended ASTNodes,
  * like constant nodes and operator nodes have more complexity.
  */
-export class ASTNode {
+export class ASTGroup extends ASTNode {
   /**
    * A relatively simple base constructor, taking in only the children and the return type, which is "any" by default.
    * @param children {Array}
    * @param type {string}
    */
   constructor (children=[], type=null) {
+    super()
+
     /**
      * Children of this node, which should also be ASTNodes
      * @type {Array}
@@ -37,19 +55,21 @@ export class ASTNode {
   /**
    * Apply a function to this node and all of its children, recursively.
    * @param func {Function} The callback function. We call it each time with (node, depth) as arguments
+   * @param onlyGroups
    * @param childrenFirst {boolean} Whether to call the callback function for each child first, or for the parent first.
    * @param depth {number}
    * @returns {ASTNode}
    */
-  applyAll (func, childrenFirst=false, depth=0) {
+  applyAll (func, onlyGroups=true, childrenFirst=false, depth=0) {
     if (!childrenFirst)
       func(this, depth)
 
     let children = this.children
     for (let i = 0; i < children.length; ++i) {
       let child = children[i]
-      if (child instanceof ASTNode)
-        child.applyAll(func, childrenFirst, depth+1)
+      if (child instanceof ASTNode) {
+        child.applyAll(func, onlyGroups, childrenFirst, depth + 1)
+      }
     }
 
     if (childrenFirst)
@@ -77,10 +97,16 @@ export class ASTNode {
 
     this.type = this.children[0].type
   }
+
+  nodeType () {
+    return "group"
+  }
 }
 
-export class VariableNode {
+export class VariableNode extends ASTNode {
   constructor (name, type=null) {
+    super()
+
     this.name = name
     this.type = type
   }
@@ -98,9 +124,13 @@ export class VariableNode {
 
     this.type = type ?? "real"
   }
+
+  nodeType () {
+    return "var"
+  }
 }
 
-export class OperatorNode extends ASTNode {
+export class OperatorNode extends ASTGroup {
   constructor (operator) {
     super()
 
@@ -122,39 +152,41 @@ export class OperatorNode extends ASTNode {
 
     // Cast arguments appropriately
     params.forEach((param, i) => {
-      if (sig[i] !== children[i].type)
-        params[i] = (retrieveEvaluationFunction(getCastingFunction(children[i].type, sig[i])))(param)
+      let dstType = sig[i]
+      let srcType = children[i].type
+
+      if (dstType !== srcType)
+        params[i] = getCast(srcType, dstType)(param)
     })
 
-    return this.definition.evaluateFunc.apply(null, params)
+    return definition.evaluators.generic.f.apply(null, params)
   }
 
-  resolveTypes (typeInfo) {
+  resolveTypes (typeInfo={}) {
     // We need to find the function definition that matches
     this.children.forEach(child => child.resolveTypes(typeInfo))
 
     let signature = this.getChildrenSignature()
-    let potentialDefinitions = Operators[this.op]
+    let definition = resolveOperator(this.op, signature)
 
-    if (!potentialDefinitions) {
-      throw new Error("Unknown operation " + this.op + ".")
-    }
+    if (!definition)
+      throw new Error("Could not find a suitable definition for operator " + this.op + "(" + signature.join(', ') + ').')
 
-    for (let definition of potentialDefinitions) {
-      if (definition.signatureWorks(signature)) {
-        this.definition = definition.getDefinition(signature)
-        this.type = definition.returns
+    this.definition = definition
+    this.type = definition.returnType
 
-        return
-      }
-    }
+    return this
+  }
 
-    throw new Error("Could not find a suitable definition for operator " + this.op + "(" + signature.join(', ') + ').')
+  nodeType () {
+    return "op"
   }
 }
 
-export class ConstantNode {
+export class ConstantNode extends ASTNode {
   constructor (value, text, type="real") {
+    super()
+
     this.value = value
     this.text = text
     this.type = type
@@ -166,5 +198,9 @@ export class ConstantNode {
 
   resolveTypes (typeInfo) {
 
+  }
+
+  nodeType () {
+    return "constant"
   }
 }

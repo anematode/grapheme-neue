@@ -11,7 +11,7 @@ export function getVersionID () {
   return ++version
 }
 
-export function benchmark (callback, iterations = 100, output = console.log) {
+export function benchmark (callback, iterations = 100, name) {
   const start = performance.now()
 
   for (let i = 0; i < iterations; ++i) {
@@ -20,7 +20,7 @@ export function benchmark (callback, iterations = 100, output = console.log) {
 
   const duration = performance.now() - start
 
-  output(`Function ${callback.name} took ${duration / iterations} ms` + ((iterations === 1) ? '.' : ' per call.'))
+  console.log(`Function ${name ?? callback.name} took ${duration / iterations} ms` + ((iterations === 1) ? '.' : ' per call.'))
 }
 
 export function time (callback, output = console.log) {
@@ -232,24 +232,6 @@ export function rightZeroPad (str, len, char='0') {
   if (str.length >= len) return str
 
   return str + char.repeat(len - str.length)
-}
-
-/**
- * Simple performance testing function
- * @param callback {Function}
- * @param iterations {number}
- * @param msg {string}
- */
-export function performance (callback, iterations=100000, msg) {
-  let timeStart = Date.now()
-
-  for (let i = 0; i < iterations; ++i) {
-    callback(i)
-  }
-
-  let timeEnd = Date.now()
-
-  console.log(`Process ${msg} took an average of ${(timeEnd - timeStart) / iterations} ms per iteration (${iterations} iterations).`)
 }
 
 /**

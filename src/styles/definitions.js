@@ -799,5 +799,6 @@ export const DefaultStyles = {
   gridlinesMinor: Pen.create({ thickness: 1, color: Color.rgba(0, 0, 0, 80), endcap: "butt" }),
   gridlinesAxis: Pen.create({ thickness: 4, endcap: "butt" }),
   plotLabelPositions: LabelPosition.default,
-  Pen: Pen.default
+  Pen: Pen.default,
+  label: TextStyle.create({ fontSize: 16, shadowRadius: 2 })
 }

@@ -205,13 +205,13 @@ export class FigureBaubles extends Group {
         for (let i = 0; i < x.length; ++i) {
           let pos = plotTransform.graphToPixel(new Vec2(x[i], 0)).add(new Vec2(0, 10))
 
-          instructions.push({ type: "text", text: standardLabelFunction(x[i]), pos, style: TextStyle.default })
+          instructions.push({ type: "text", text: standardLabelFunction(x[i]), pos, style: DefaultStyles.label })
         }
 
         for (let i = 0; i < y.length; ++i) {
           let pos = plotTransform.graphToPixel(new Vec2(0, y[i])).add(new Vec2(-30, 0))
 
-          instructions.push({ type: "text", text: standardLabelFunction(y[i]), pos, style: TextStyle.default })
+          instructions.push({ type: "text", text: standardLabelFunction(y[i]), pos, style: DefaultStyles.label })
         }
       }
 

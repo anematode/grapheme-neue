@@ -3,7 +3,7 @@
  * x^2 is compiled to OperatorNode{operator=^, children=[VariableNode{name="x"}, ConstantNode{value="2"}]}
  */
 import { getAngryAt } from './parser_error.js'
-import { ConstantNode, VariableNode, ASTNode, OperatorNode } from './new_node.js'
+import {ConstantNode, VariableNode, OperatorNode, ASTGroup, ASTNode} from './new_node.js'
 
 const OperatorSynonyms = {
   'arcsinh': 'asinh',
@@ -302,13 +302,13 @@ function processParentheses (rootNode) {
       if (indices) {
         parensRemaining = true
 
-        let newNode = new ASTNode()
+        let newNode = new ASTGroup()
         let expr = node.children.splice(indices[0], indices[1] - indices[0] + 1, newNode)
 
         newNode.children = expr.slice(1, expr.length - 1)
       }
     }
-  })
+  }, true)
 }
 
 // Turn function tokens followed by ASTNodes into OperatorNodes
@@ -343,7 +343,7 @@ function combineBinaryOperator(node, i) {
 
   newNode.children = [children[i - 1], children[i + 1]]
 
-  node.children.splice(i - 1, 3, newNode)
+  children.splice(i - 1, 3, newNode)
 }
 
 // Process the highest precedence operators. Note that e^x^2 = (e^x)^2 and e^-x^2 = e^(-x^2).
@@ -482,7 +482,7 @@ function removeCommas (root) {
  */
 function parseTokens(tokens) {
   processConstantsAndVariables(tokens)
-  let root = new ASTNode(tokens)
+  let root = new ASTGroup(tokens)
 
   processParentheses(root)
   processFunctions(root)

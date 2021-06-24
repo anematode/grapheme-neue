@@ -54,7 +54,7 @@ export function getDemarcations (xStart, xEnd, xLen, desiredMinorSep, desiredMaj
       let tick = begin + diff * j / maj
       if (tick > xEnd) continue
 
-      if (includeAxis || tick !== 0)
+      if ((tick >= xStart) && (includeAxis || tick !== 0))
         majTicks.push(tick)
 
       for (let k = 1; k < min; ++k) {

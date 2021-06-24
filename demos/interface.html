@@ -6,38 +6,30 @@
 </head>
 <body>
 
-<script src="test_setup.js"></script>
+<script src="test_setup.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/9.4.3/math.js" integrity="sha512-sRvCDYrwGsQ4eYKgvBPVGLMX6vUqOpXwfcLzN5CJFTauEvQZsMv+2nrtWzL4UDa38vXuW80lzit9A8t2l950Ow==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 <script id="setup">
-    var scene = new Grapheme.InteractiveScene({ width: 1000, height: 1000 })
-    document.body.appendChild(scene.domElement)
+    var expr = "x^2/50+y^2/50+x^3/y^3"
 
-    var figure = new Grapheme.NewFigure()
-    scene.add(figure)
+    var node = Grapheme.parseString(expr).resolveTypes()
+    var gCompiled = Grapheme.compileNode(node)
 
-    var elem = new Grapheme.FigureBaubles()
-    figure.add(elem)
+    var mCompiled = math.compile(expr) // math.js
 
-    var point = new Grapheme.PointElement({ position: [ 0, 0 ], color: "red" })
-    figure.add(point)
+    var scope = { x: 4, y: 4 }
+    var gRes, mRes
 
-    var point2 = new Grapheme.PointElement({ position: [ 0.5, 0 ], color: "green" })
-    figure.add(point2)
+    Grapheme.utils.benchmark(() => {
+      gRes = gCompiled(scope)
+    }, 1e6, "Grapheme")
 
-    var point3 = new Grapheme.PointElement({ position: [ 0, 0.5 ], color: "blue" })
-    figure.add(point3)
+    Grapheme.utils.benchmark(() => {
+      mRes = mCompiled.evaluate(scope)
+    }, 1e6, "math.js")
 
-    var renderer = new Grapheme.WebGLRenderer()
+    console.log("Grapheme result: ", gRes)
+    console.log("math.js result: ", mRes)
 
-    function render () {
-      renderer.renderDOMScene(scene)
-      requestAnimationFrame(render)
-    }
-
-    var node = Grapheme.parseString("x^2+y")
-    node.resolveTypes({ x: "complex", y: "real" })
-
-    render()
 </script>
 
 
